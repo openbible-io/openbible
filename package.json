@@ -7,10 +7,10 @@
   "scripts": {
     "build": "NODE_ENV=production node scripts/build",
     "build:static": "node scripts/generateStaticAssets.js",
-    "clean": "node scripts/clean",
+    "clean": "node scripts/clean.js",
     "deploy": "./deploy.sh",
-    "serve": "node scripts/serve",
-    "start": "node scripts/start",
+    "serve": "node scripts/serve.js",
+    "start": "node scripts/start.js",
     "typecheck": "tsc -noEmit"
   },
   "repository": {

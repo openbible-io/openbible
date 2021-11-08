@@ -99,7 +99,7 @@ body {
   text-rendering: optimizeLegibility;
   height: 100%;
 }
-:global(#root) {
+#root {
   display: flex;
   flex-direction: column;
   height: 100%;
