@@ -2,7 +2,7 @@ import { h, Fragment } from 'preact'
 import { useEffect, useState } from 'preact/hooks'
 import { Nav, Reader } from '../components'
 import { useLocalStorage, cssVars } from '../utils'
-import cssVariables from '!css-variables-loader!../app.css'
+import cssVariables from '!css-variables!../app.css'
 import styles from './settings.css'
 import readerStyles from '../components/reader/reader.css'
 
