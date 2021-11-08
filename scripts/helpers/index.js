@@ -1,16 +1,18 @@
-const crypto = require('crypto')
-const fs = require('fs')
-const path = require('path')
-import { plugin } from 'esbuild-plugin-svgj'
+import cssVarsPlugin from './cssVariables.js'
+import svgPlugin from './svg.js'
+import cssModulesPlugin from './cssModules.js'
+import crypto from 'crypto'
+import fs from 'fs'
+import path from 'path'
 
-const paths = {
+export const paths = {
   outdir: 'dist',
   staticDir: 'static',
   entryHTML: 'src/index.html',
   entryJS: 'src/app.tsx'
 }
 
-function getHash(string) {
+export function getHash(string) {
 	if (process.env.NODE_ENV === 'production') {
 		const hash = crypto.createHash('md5').update(string).digest('hex')
 		return hash.substr(0, 5)
@@ -36,33 +38,15 @@ function _walk(dir, options, res) {
   })
 }
 
-function walk(dir, options = { ext: /\..*$/ }) {
+export function walk(dir, options = { ext: /\..*$/ }) {
   const res = []
   _walk(dir, options, res)
   return res
 }
 
-const namespace = 'css-variables'
-const cssVarsPlugin = {
-  name: namespace,
-  setup(build) {
-    build.onResolve(
-      { filter: /^\!css-variables\!/ },
-      args => ({
-        path: args.path,
-        namespace
-      }))
-
-    build.onLoad({ filter: /.*/, namespace }, args => ({
-      contents: JSON.stringify(args),
-      loader: 'json'
-    }))
-  }
-}
-
 const isProd = process.env.NODE_ENV === 'production'
 
-const esbuildConfig = {
+export const esbuildConfig = {
   entryNames: `[dir]/[name]${isProd ? '.[hash]' : ''}`,
   metafile: true,
   bundle: true,
@@ -82,13 +66,8 @@ const esbuildConfig = {
   },
   plugins: [
     cssVarsPlugin,
-    svgPlugin
+    svgPlugin,
+    cssModulesPlugin
   ]
 }
 
-module.exports = {
-  paths,
-  getHash,
-  walk,
-  esbuildConfig
-}

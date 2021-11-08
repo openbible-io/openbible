@@ -1,14 +1,16 @@
-const { build } = require('./build')
-const { render, esbuildConfigSSR } = require('./html/render')
-const { serve, clients } = require('./serve')
-const esbuild = require('esbuild')
+import { esbuildConfig } from './helpers/index.js'
+import { build } from './build/index.js'
+import { render } from './html/render.js'
+import { serve, clients } from './serve.js'
+import esbuild from 'esbuild';
 
 const emitted = build()
 console.log('watching for changes')
 esbuild.build({
-  ...esbuildConfigSSR,
+  ...esbuildConfig,
   watch: {
     onRebuild(error) {
+      console.log('hello')
       if (error) {
         console.log(error)
         return

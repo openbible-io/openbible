@@ -1,6 +1,6 @@
-const fs = require('fs')
-const glob = require('glob')
-const { usfm2json } = require('usfm2json')
+import fs from 'fs';
+import glob from 'glob';
+import { usfm2json } from 'usfm2json';
 
 glob.sync('./texts/**/*.usfm').forEach(file => {
 	const toPrefixPath = file

@@ -1,6 +1,6 @@
-const { paths } = require('../helpers')
-const path = require('path')
-const fs = require('fs')
+import { paths } from '../helpers/index.js'
+import path from 'path'
+import fs from 'fs'
 
 // TODO: extract to routes file
 const routes = [
@@ -9,7 +9,7 @@ const routes = [
   'about'
 ];
 
-function render(emitted) {
+export function render(emitted) {
   const start = process.hrtime()
   console.log('[render] start')
   let numRendered = 0
@@ -32,9 +32,5 @@ function render(emitted) {
 
   const elapsed = process.hrtime(start)[1] / 1000000
   console.log('[render] rendered', numRendered, 'files in', elapsed + 'ms')
-}
-
-module.exports = {
-  render
 }
 

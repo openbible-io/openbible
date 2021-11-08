@@ -1,7 +1,8 @@
-const { paths } = require('./helpers')
-const http = require('http')
-const fs = require('fs')
-const path = require('path')
+import { paths } from './helpers/index.js'
+import http from 'http'
+import fs from 'fs'
+import path from 'path'
+import { fileURLToPath } from 'url'
 
 const port = 3000
 const livereloadScript = '(() => new EventSource("/livereload").onmessage = () => location.reload())()'
@@ -19,9 +20,9 @@ const mimes = {
   '.pdf': 'application/pdf',
   '.doc': 'application/msword'
 }
-const clients = []
+export const clients = []
 
-function serve() {
+export function serve() {
   http.createServer((req, res) => {
     // console.log(req.method, req.url)
 
@@ -88,10 +89,5 @@ function serve() {
   console.log(`http://localhost:${port}`)
 }
 
-module.exports = {
-  serve,
-  clients
-}
-
-if (require.main === module) serve()
+if (process.argv[1] === fileURLToPath(import.meta.url)) serve()
 

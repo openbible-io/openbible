@@ -1,7 +1,8 @@
-const { paths } = require('./helpers')
-const fs = require('fs')
+import { paths } from './helpers/index.js'
+import fs from 'fs'
+import { fileURLToPath } from 'url'
 
-function clean() {
+export function clean() {
   console.log('[clean] start')
   const start = process.hrtime()
   fs.rmSync(paths.outdir, { recursive: true, force: true })
@@ -10,8 +11,5 @@ function clean() {
   console.log('[clean]', elapsed + 'ms')
 }
 
-if (require.main === module) clean()
+if (process.argv[1] === fileURLToPath(import.meta.url)) clean()
 
-module.exports = {
-  clean
-}

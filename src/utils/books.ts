@@ -3,7 +3,7 @@ export function getChapterPath(
   book: string,
   chapter: number
 ) {
-	return `./static/${version}/${book}-${(chapter + '').padStart(2, '0')}.json`
+	return `./${version}/${book}-${(chapter + '').padStart(2, '0')}.json`
 }
 
 // TODO: types

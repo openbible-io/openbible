@@ -1,10 +1,11 @@
-const { paths } = require('../helpers')
-const { copy } = require('./copy')
-const { render } = require('../html/render')
-const { clean } = require('../clean')
-const { js } = require('./js')
+import { paths } from '../helpers/index.js'
+import { copy } from './copy.js'
+import { render } from '../html/render.js'
+import { clean } from '../clean.js'
+import { js } from './js.js'
+import { fileURLToPath } from 'url'
 
-async function build() {
+export async function build() {
   clean()
   copy()
   const emitted = await js(paths.entryJS)
@@ -12,9 +13,5 @@ async function build() {
   return emitted
 }
 
-if (require.main === module) build()
-
-module.exports = {
-  build
-}
+if (process.argv[1] === fileURLToPath(import.meta.url)) build()
 

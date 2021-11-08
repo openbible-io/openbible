@@ -1,8 +1,8 @@
-const { esbuildConfig } = require('../helpers')
-const path = require('path')
-const esbuild = require('esbuild')
+import { esbuildConfig } from '../helpers/index.js'
+import path from 'path'
+import esbuild from 'esbuild'
 
-async function js(file) {
+export async function js(file) {
   const start = process.hrtime()
   console.log('[js]', file) 
   const { metafile } = await esbuild.build({
@@ -14,9 +14,5 @@ async function js(file) {
   return Object.keys(metafile.outputs)
     .map(f => f.replace(esbuildConfig.outdir, '').substr(1))
     .filter(outFile => outFile.startsWith(path.parse(file).name))
-}
-
-module.exports = {
-  js
 }
 

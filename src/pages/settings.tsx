@@ -1,5 +1,4 @@
 import { h, Fragment } from 'preact'
-import { useEffect, useState } from 'preact/hooks'
 import { Nav, Reader } from '../components'
 import { useLocalStorage, cssVars } from '../utils'
 import cssVariables from '!css-variables!../app.css'
