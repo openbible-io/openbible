@@ -47,6 +47,7 @@ export function walk(dir, options = { ext: /\..*$/ }) {
 const isProd = process.env.NODE_ENV === 'production'
 
 export const esbuildConfig = {
+  entryPoints: [paths.entryJS],
   entryNames: `[dir]/[name]${isProd ? '.[hash]' : ''}`,
   metafile: true,
   bundle: true,

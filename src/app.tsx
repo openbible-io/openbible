@@ -7,7 +7,6 @@ import './app.css'
 
 function App() {
   const config = useLocalStorage('settings2', { cssVars: {} })[0] as SettingsType
-
 	useEffect(() => {
     // Leave document for default styles, document.body to load styles
 		const rootElement = document.body

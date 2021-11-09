@@ -8,7 +8,7 @@ import { fileURLToPath } from 'url'
 export async function build() {
   clean()
   copy()
-  const emitted = await js(paths.entryJS)
+  const emitted = await js()
   render(emitted)
   return emitted
 }
