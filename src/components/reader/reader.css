@@ -15,7 +15,8 @@
 .reader {
 	overflow-y: auto;
 	min-height: 0;
-	font-family: "Libre Baskerville" "Sentinel A", "Sentinel B", "Gentium Plus", "Ezra", Georgia, Times, serif;
+	font-family: var(--reader-font-family);
+  font-size: var(--reader-font-size);
 	padding: var(--reader-padding);
 }
 .navContainer {

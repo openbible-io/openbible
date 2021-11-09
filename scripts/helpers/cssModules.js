@@ -31,6 +31,7 @@ export default {
       const outFile = path.join(builder.initialOptions.outdir, 'app.css')
       result.metafile.outputs[outFile] = {}
       await fs.promises.writeFile(outFile, cssConcat)
+      cssConcat = ''
     })
   }
 }

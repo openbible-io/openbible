@@ -90,6 +90,8 @@ th:not([align]) {
   --primary-font-family: -apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
   --secondary-font-family: "Sentinel A", "Sentinel B", "Gentium Plus", "Ezra", Georgia, Times, serif;
   --reader-padding: 1rem;
+  --reader-font-family: "Libre Baskerville", "Sentinel A", "Sentinel B", "Gentium Plus", "Ezra", Georgia, Times, serif;
+  --reader-font-size: 1rem;
 }
 html,
 body {
