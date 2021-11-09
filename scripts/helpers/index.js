@@ -11,11 +11,12 @@ export const paths = {
   entryHTML: 'src/index.html',
   entryJS: 'src/app.tsx'
 }
+const isProd = process.env.NODE_ENV === 'production'
 
 export function getHash(string) {
-	if (process.env.NODE_ENV === 'production') {
+	if (isProd) {
 		const hash = crypto.createHash('md5').update(string).digest('hex')
-		return hash.substr(0, 5)
+		return '.' + hash.substr(0, 8).toUpperCase()
 	}
 
 	return 'dev'
@@ -43,8 +44,6 @@ export function walk(dir, options = { ext: /\..*$/ }) {
   _walk(dir, options, res)
   return res
 }
-
-const isProd = process.env.NODE_ENV === 'production'
 
 export const esbuildConfig = {
   entryPoints: [paths.entryJS],

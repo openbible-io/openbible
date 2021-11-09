@@ -1,4 +1,3 @@
-import { paths } from '../helpers/index.js'
 import { copy } from './copy.js'
 import { render } from '../html/render.js'
 import { clean } from '../clean.js'

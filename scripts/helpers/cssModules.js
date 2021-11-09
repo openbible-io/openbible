@@ -1,6 +1,7 @@
 import path from 'path'
 import csstree from 'css-tree'
 import fs from 'fs'
+import { getHash } from './index.js'
 
 const namespace = 'css-modules'
 let cssConcat = ''
@@ -28,7 +29,7 @@ export default {
   setup: builder => {
     builder.onLoad({ filter, namespace: 'file' }, generateJSON);
     builder.onEnd(async result => {
-      const outFile = path.join(builder.initialOptions.outdir, 'app.css')
+      const outFile = path.join(builder.initialOptions.outdir, `app${getHash(cssConcat)}.css`)
       result.metafile.outputs[outFile] = {}
       await fs.promises.writeFile(outFile, cssConcat)
       cssConcat = ''
