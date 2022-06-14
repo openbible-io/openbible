@@ -1,39 +1,46 @@
 import path from 'path'
 import csstree from 'css-tree'
 import fs from 'fs'
-import { getHash } from './index.js'
 
-const namespace = 'css-modules'
-let cssConcat = ''
+const namespace = 'css-module'
 
 async function generateJSON(args) {
   const css = await fs.promises.readFile(args.path, 'utf8')
-  cssConcat += css
-  cssConcat += '\n'
   const ast = csstree.parse(css)
   const classNames = {}
-  csstree.walk(ast, (node) => {
+  csstree.walk(ast, node => {
     if (node.type === 'ClassSelector') {
       classNames[node.name] = node.name
     }
   })
-  return {
-    contents: JSON.stringify(classNames),
-    loader: 'json'
-  }
+	return {css, json: JSON.stringify(classNames)}
 }
 
 const filter = /\.css$/
 export default {
-  name: namespace,
+  name: 'css-modules',
   setup: builder => {
-    builder.onLoad({ filter, namespace: 'file' }, generateJSON);
-    builder.onEnd(async result => {
-      const outFile = path.join(builder.initialOptions.outdir, `app${getHash(cssConcat)}.css`)
-      result.metafile.outputs[outFile] = {}
-      await fs.promises.writeFile(outFile, cssConcat)
-      cssConcat = ''
-    })
+		const cssFiles = {}
+		async function onLoad(args) {
+      const importPath = `${namespace}://${path.relative(process.cwd(), args.path)}`
+			const { css, json } = await generateJSON(args)
+      cssFiles[importPath] = css
+			return {
+				contents: `import "${importPath}"; export default ${json};`
+			}
+		}
+    builder.onLoad({ filter, namespace: 'file' }, onLoad);
+    builder.onResolve({ filter: /^css-module:\/\// }, (args) => {
+			return {
+				path: args.path,
+				namespace: namespace
+			}
+		});
+    builder.onLoad({ filter: /.*/, namespace: namespace}, (args) => {
+      const css = cssFiles[args.path];
+			const resolveDir = path.dirname(args.path.replace(`${namespace}://`, ''))
+			return { contents: css, loader: "css", resolveDir }
+    });
   }
 }
 
