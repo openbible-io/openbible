@@ -94,7 +94,7 @@ export function onSelectChange() {
 // TODO
 export function onDoubleClickVerseNumber(ev: any) {
 	console.log('TODO: select verse', ev)
-  ev.preventDefault()
+	ev.preventDefault()
 }
 
 export function onCopy(ev: any, config: SettingsType) {

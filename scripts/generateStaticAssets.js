@@ -1,8 +1,11 @@
+import path from 'path';
 import fs from 'fs';
-import glob from 'glob';
 import { usfm2json } from 'usfm2json';
 
-glob.sync('./texts/**/*.usfm').forEach(file => {
+const textDir = 'texts'
+const translations = ['en_ult', 'en_ust']
+
+function toJSON(file) {
 	const toPrefixPath = file
 		.replace(/\.[^\/.]+$/, '')
 		.replace(/\d+-/, '')
@@ -19,4 +22,14 @@ glob.sync('./texts/**/*.usfm').forEach(file => {
 		const chapterFile	= `${toPrefixPath}-${(index + 1 + '').padStart(2, '0')}.json`
 		fs.writeFileSync(chapterFile, JSON.stringify(chapter, null, 2))
 	})
-})
+}
+
+translations.forEach(t => {
+	fs.readdirSync(path.join(textDir, t), { withFileTypes: true }).forEach(dirent => {
+		if (dirent.isFile() && dirent.name.endsWith('.usfm')) {
+			const file = path.join(textDir, t, dirent.name)
+			toJSON(file)
+		}
+	});
+});
+

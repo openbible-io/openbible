@@ -37,8 +37,8 @@ export function Reader(props = {
 	const [paragraphs, setParagraphs] = useState([] as ParagraphType[])
 	const [highlights, setHighlights] = useLocalStorage(`highlight1-${props.book}-${props.chapter}`, {} as Highlights);
 	const [notes, setNotes] = useLocalStorage(`note1-${props.book}-${props.chapter}`, {} as Notes);
-  const [config,] = useLocalStorage('settings', defaultSettings);
-	const divRef = useRef<HTMLDivElement>()
+	const [config,] = useLocalStorage('settings', defaultSettings);
+	const divRef = useRef<HTMLDivElement>(null)
 
 	useEffect(() => {
 		getChapter(props.text, props.book, props.chapter)

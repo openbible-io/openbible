@@ -1,9 +1,9 @@
 export interface Highlight {
-  toId: number;
-  color: string;
+	toId: number;
+	color: string;
 }
 
 export interface Highlights {
-  [fromId: number]: Highlight
+	[fromId: number]: Highlight
 }
 

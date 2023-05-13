@@ -4,19 +4,19 @@
 }
 /* libre-baskerville-regular - latin */
 @font-face {
-  font-family: 'Libre Baskerville';
-  font-style: normal;
-  font-weight: 400;
-  src: url('./fonts/libre-baskerville-v7-latin-regular.woff2') format('woff2'), /* Super Modern Browsers */
-       url('./fonts/libre-baskerville-v7-latin-regular.woff') format('woff'), /* Modern Browsers */
-       url('./fonts/libre-baskerville-v7-latin-regular.ttf') format('truetype'); /* Safari, Android, iOS */
+	font-family: 'Libre Baskerville';
+	font-style: normal;
+	font-weight: 400;
+	src: url('./fonts/libre-baskerville-v7-latin-regular.woff2') format('woff2'), /* Super Modern Browsers */
+			 url('./fonts/libre-baskerville-v7-latin-regular.woff') format('woff'), /* Modern Browsers */
+			 url('./fonts/libre-baskerville-v7-latin-regular.ttf') format('truetype'); /* Safari, Android, iOS */
 }
 
 .reader {
 	overflow-y: auto;
 	min-height: 0;
 	font-family: var(--reader-font-family);
-  font-size: var(--reader-font-size);
+	font-size: var(--reader-font-size);
 	padding: var(--reader-padding);
 }
 .navContainer {

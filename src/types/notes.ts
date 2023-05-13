@@ -1,8 +1,8 @@
 export interface Note {
-  toId: number;
-  note: string;
+	toId: number;
+	note: string;
 }
 
 export interface Notes {
-  [fromId: number]: Note
+	[fromId: number]: Note
 }

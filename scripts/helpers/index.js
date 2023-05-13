@@ -6,10 +6,10 @@ import fs from 'fs'
 import path from 'path'
 
 export const paths = {
-  outdir: 'dist',
-  staticDir: 'static',
-  entryHTML: 'src/index.html',
-  entryJS: 'src/app.tsx'
+	outdir: 'dist',
+	staticDir: 'static',
+	entryHTML: 'src/index.html',
+	entryJS: 'src/app.tsx'
 }
 const isProd = process.env.NODE_ENV === 'production'
 
@@ -23,51 +23,51 @@ export function getHash(string) {
 }
 
 function _walk(dir, options, res) {
-  if (typeof options.ext === 'string') {
-    options.ext = new RegExp(options.ext)
-  }
+	if (typeof options.ext === 'string') {
+		options.ext = new RegExp(options.ext)
+	}
 	fs.readdirSync(dir).forEach(file => {
-    const filepath = path.join(dir, file);
-    try {
-      const stats = fs.statSync(filepath)
-      if (stats.isDirectory()) {
-        _walk(filepath, options, res)
-      } else if (stats.isFile() && options.ext.test(filepath)) {
-        res.push(filepath)
-      }
-    } catch { /* can't stat file */ }
-  })
+		const filepath = path.join(dir, file);
+		try {
+			const stats = fs.statSync(filepath)
+			if (stats.isDirectory()) {
+				_walk(filepath, options, res)
+			} else if (stats.isFile() && options.ext.test(filepath)) {
+				res.push(filepath)
+			}
+		} catch { /* can't stat file */ }
+	})
 }
 
 export function walk(dir, options = { ext: /\..*$/ }) {
-  const res = []
-  _walk(dir, options, res)
-  return res
+	const res = []
+	_walk(dir, options, res)
+	return res
 }
 
 export const esbuildConfig = {
-  entryPoints: [paths.entryJS],
-  entryNames: `[dir]/[name]${isProd ? '.[hash]' : ''}`,
-  metafile: true,
-  bundle: true,
-  sourcemap: isProd ? false : 'inline',
-  minify: isProd,
-  outdir: paths.outdir,
-  jsxFactory: 'h',
-  jsxFragment: 'Fragment',
-  loader: {
-    '.svg': 'dataurl',
-    '.png': 'file',
-    '.jpg': 'file',
-    '.gif': 'file',
-    '.ttf': 'file',
-    '.woff': 'file',
-    '.woff2': 'file',
-  },
-  plugins: [
-    cssVarsPlugin,
-    svgPlugin,
-    cssModulesPlugin
-  ]
+	entryPoints: [paths.entryJS],
+	entryNames: `[dir]/[name]${isProd ? '.[hash]' : ''}`,
+	metafile: true,
+	bundle: true,
+	sourcemap: isProd ? false : 'inline',
+	minify: isProd,
+	outdir: paths.outdir,
+	jsxFactory: 'h',
+	jsxFragment: 'Fragment',
+	loader: {
+		'.svg': 'dataurl',
+		'.png': 'file',
+		'.jpg': 'file',
+		'.gif': 'file',
+		'.ttf': 'file',
+		'.woff': 'file',
+		'.woff2': 'file',
+	},
+	plugins: [
+		cssVarsPlugin,
+		svgPlugin,
+		cssModulesPlugin
+	]
 }
 

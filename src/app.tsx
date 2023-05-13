@@ -6,12 +6,12 @@ import { useLocalStorage } from './utils'
 import './app.css'
 
 function App() {
-  const config = useLocalStorage('settings2', { cssVars: {} })[0] as SettingsType
+	const config = useLocalStorage('settings2', { cssVars: {} })[0] as SettingsType
 	useEffect(() => {
-    // Leave document for default styles, document.body to load styles
+		// Leave document for default styles, document.body to load styles
 		const rootElement = document.body
-    Object.keys(config.cssVars)
-      .forEach(cssVar => rootElement.style.setProperty(cssVar, config.cssVars[cssVar]))
+		Object.keys(config.cssVars)
+			.forEach(cssVar => rootElement.style.setProperty(cssVar, config.cssVars[cssVar]))
 	}, []);
 	
 	return (

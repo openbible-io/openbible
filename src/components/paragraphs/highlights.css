@@ -1,13 +1,13 @@
 /* ::selection, */
 .red {
-  background: #eedbda;
+	background: #eedbda;
 }
 .blue {
-  background: #e1edf1;
+	background: #e1edf1;
 }
 .gray {
-  background: #f2efe8;
+	background: #f2efe8;
 }
 .yellow {
-  background: rgba(255, 255, 0, 0.66);
+	background: rgba(255, 255, 0, 0.66);
 }

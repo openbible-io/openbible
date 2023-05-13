@@ -22,8 +22,8 @@ h3,
 h4,
 h5,
 h6 {
-  margin: 0;
-  padding: 0;
+	margin: 0;
+	padding: 0;
 }
 
 h1,
@@ -32,81 +32,81 @@ h3,
 h4,
 h5,
 h6 {
-  font-size: 100%;
-  font-weight: normal;
+	font-size: 100%;
+	font-weight: normal;
 }
 
 ul {
-  list-style: none;
+	list-style: none;
 }
 
 button,
 input,
 select,
 textarea {
-  margin: 0;
+	margin: 0;
 }
 
 html,
 textarea {
-  box-sizing: border-box;
+	box-sizing: border-box;
 }
 
 *, *::before, *::after {
-  box-sizing: inherit;
+	box-sizing: inherit;
 }
 
 img,
 video {
-  height: auto;
-  max-width: 100%;
+	height: auto;
+	max-width: 100%;
 }
 
 iframe {
-  border: 0;
+	border: 0;
 }
 
 table {
-  border-collapse: collapse;
-  border-spacing: 0;
+	border-collapse: collapse;
+	border-spacing: 0;
 }
 
 td,
 th {
-  padding: 0;
+	padding: 0;
 }
 
 td:not([align]),
 th:not([align]) {
-  text-align: left;
+	text-align: left;
 }
 
 /* Site styles */
 :root {
-  --primary-text-color: #3b4351;
-  /* Subtracted from 6rem */
-  --primary-text-indent: 1rem;
-  --primary-theme-color: #0b8dc4;
-  --primary-font-family: -apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
-  --secondary-font-family: "Sentinel A", "Sentinel B", "Gentium Plus", "Ezra", Georgia, Times, serif;
-  --reader-padding: 1rem;
-  --reader-font-family: "Libre Baskerville", "Sentinel A", "Sentinel B", "Gentium Plus", "Ezra", Georgia, Times, serif;
-  --reader-font-size: 1rem;
+	--primary-text-color: #3b4351;
+	/* Subtracted from 6rem */
+	--primary-text-indent: 1rem;
+	--primary-theme-color: #0b8dc4;
+	--primary-font-family: -apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+	--secondary-font-family: "Sentinel A", "Sentinel B", "Gentium Plus", "Ezra", Georgia, Times, serif;
+	--reader-padding: 1rem;
+	--reader-font-family: "Libre Baskerville", "Sentinel A", "Sentinel B", "Gentium Plus", "Ezra", Georgia, Times, serif;
+	--reader-font-size: 1rem;
 }
 html,
 body {
-  font-family: var(--primary-font-stack);
-  color: var(--primary-text-color);
-  line-height: 1.5;
-  text-rendering: optimizeLegibility;
-  height: 100%;
+	font-family: var(--primary-font-stack);
+	color: var(--primary-text-color);
+	line-height: 1.5;
+	text-rendering: optimizeLegibility;
+	height: 100%;
 }
 #root {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
+	display: flex;
+	flex-direction: column;
+	height: 100%;
 }
 main {
-  display: flex;
-  min-height: 0;
+	display: flex;
+	min-height: 0;
 }

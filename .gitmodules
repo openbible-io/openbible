@@ -1,6 +1,8 @@
 [submodule "texts/en_ust"]
 	path = texts/en_ust
 	url = https://git.door43.org/unfoldingWord/en_ust.git
+	branch = master
 [submodule "texts/en_ult"]
 	path = texts/en_ult
 	url = https://git.door43.org/unfoldingWord/en_ult.git
+	branch = master
