@@ -3,10 +3,10 @@ import { render } from '../html/render.js'
 import { js } from './js.js'
 import { fileURLToPath } from 'url'
 
-export async function build() {
+export async function build(injectScript) {
 	copy()
 	const emitted = await js()
-	render(emitted)
+	render(emitted, injectScript)
 	return emitted
 }
 

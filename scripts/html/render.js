@@ -9,12 +9,12 @@ const routes = [
 	'about'
 ];
 
-export function render(emitted) {
+export function render(emitted, injectScript) {
 	const start = process.hrtime()
 	console.log('[render] start')
 	let numRendered = 0
 	// TODO: prerender non-reader panes
-	const html = fs.readFileSync(paths.entryHTML, 'utf8')
+	let html = fs.readFileSync(paths.entryHTML, 'utf8')
 		.replace('{css}', emitted
 			.filter(f => f.endsWith('.css'))
 			.map(f => `<link rel="stylesheet" href="${f}">`)
@@ -25,6 +25,9 @@ export function render(emitted) {
 			.map(f => `<script src="${f}"></script>`)
 			.join('\n')
 		)
+	if (injectScript) {
+		html = html.replace('</body>', `<script>${injectScript}</script></body>`)
+	}
 	routes.forEach(route => {
 		fs.writeFileSync(path.join(paths.outdir, route + '.html'), html)
 		numRendered++

@@ -1,42 +1,45 @@
 {
-  "name": "openbible",
-  "version": "0.0.1",
-  "description": "A study Bible frontend.",
-  "private": true,
-  "type": "module",
-  "scripts": {
-    "build": "NODE_ENV=production node scripts/build/index.js",
-    "build:static": "node scripts/generateStaticAssets.js",
-    "clean": "node scripts/clean.js",
-    "serve": "node scripts/serve.js",
-    "start": "node scripts/start.js",
-    "typecheck": "tsc -noEmit"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/thesmartwon/openbible.git"
-  },
-  "keywords": [
-    "study",
-    "open",
-    "bible"
-  ],
-  "author": "thesmartwon",
-  "license": "MIT",
-  "bugs": {
-    "url": "https://github.com/thesmartwon/openbible/issues"
-  },
-  "homepage": "https://github.com/thesmartwon/openbible#readme",
-  "dependencies": {
-    "preact": "^10.13.0",
-    "preact-router": "^4.1.0"
-  },
-  "devDependencies": {
-    "css-tree": "^2.3.1",
-    "esbuild": "~0.17.0",
+	"name": "openbible",
+	"version": "0.0.1",
+	"description": "A study Bible frontend.",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"build": "NODE_ENV=production node scripts/build/index.js",
+		"build:static": "node scripts/generateStaticAssets.js",
+		"clean": "node scripts/clean.js",
+		"serve": "node scripts/serve.js",
+		"start": "node scripts/start.js",
+		"typecheck": "tsc -noEmit"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/thesmartwon/openbible.git"
+	},
+	"keywords": [
+		"study",
+		"open",
+		"bible"
+	],
+	"author": "thesmartwon",
+	"license": "MIT",
+	"bugs": {
+		"url": "https://github.com/thesmartwon/openbible/issues"
+	},
+	"homepage": "https://github.com/thesmartwon/openbible#readme",
+	"engines": {
+		"node" : ">=14.8.0"
+	},
+	"dependencies": {
+		"preact": "^10.13.0",
+		"preact-router": "^4.1.0"
+	},
+	"devDependencies": {
+		"css-tree": "^2.3.1",
+		"esbuild": "~0.17.0",
 		"domelementtype": "2.2.0",
-    "svgj": "^1.0.5",
-    "typescript": "^5.0.0",
-    "usfm2json": "^0.0.23"
-  }
+		"svgj": "^1.0.5",
+		"typescript": "^5.0.0",
+		"usfm2json": "^0.0.23"
+	}
 }
