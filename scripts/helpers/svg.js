@@ -16,7 +16,7 @@ async function generateJSX(opts) {
 	return {
 		contents: render(await readFile(opts.path, 'utf8'), args.displayName, args.jsxImports, args.jsxFrom, args.exportName, args.props, args.opts, args.useMemo),
 		loader: 'jsx',
-		resolveDir: opts.path
+		resolveDir: path.dirname(opts.path)
 	};
 }
 async function onResolve(opts) {
