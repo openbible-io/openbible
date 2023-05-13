@@ -1,5 +1,5 @@
 import path from 'path'
-import csstree from 'css-tree'
+import * as csstree from 'css-tree'
 import fs from 'fs'
 
 const namespace = 'css-module'

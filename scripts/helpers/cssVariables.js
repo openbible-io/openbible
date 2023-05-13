@@ -1,6 +1,6 @@
 import path from 'path'
 import fs from 'fs'
-import csstree from 'css-tree'
+import * as csstree from 'css-tree'
 
 const namespace = 'css-variables'
 const filter = /^\!css-variables\!/
