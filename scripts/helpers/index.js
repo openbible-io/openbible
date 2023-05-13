@@ -8,6 +8,7 @@ import path from 'path'
 export const paths = {
 	outdir: 'dist',
 	staticDir: 'static',
+	textDir: 'texts',
 	entryHTML: 'src/index.html',
 	entryJS: 'src/app.tsx'
 }

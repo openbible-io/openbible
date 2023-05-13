@@ -1,15 +1,16 @@
+import { paths } from './helpers/index.js'
 import path from 'path';
 import fs from 'fs';
 import { usfm2json } from 'usfm2json';
 
-const textDir = 'texts'
+const textDir = paths.textDir
 const translations = ['en_ult', 'en_ust']
 
 function toJSON(file) {
 	const toPrefixPath = file
 		.replace(/\.[^\/.]+$/, '')
 		.replace(/\d+-/, '')
-		.replace('./texts', './static')
+		.replace(textDir, paths.staticDir)
 
 	console.log(`Rendering ${file} -> ${toPrefixPath}*`)
 	const chapters = usfm2json(fs.readFileSync(file, 'utf8'))
