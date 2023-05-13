@@ -1,7 +1,7 @@
 import { h, render } from 'preact'
 import { useEffect } from 'preact/hooks'
 import Router from 'preact-router'
-import { Home, About, Settings, SettingsType } from './pages'
+import { Home, About, Settings, SettingsType, NotFound } from './pages'
 import { useLocalStorage } from './utils'
 import './app.css'
 
@@ -19,6 +19,7 @@ function App() {
 			<Home path="/" />
 			<About path="/about" />
 			<Settings path="/settings" />
+			<NotFound default />
 		</Router>
 	)
 }
