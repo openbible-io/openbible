@@ -1,89 +1,40 @@
 import { h } from 'preact'
 import { useState, useRef, useEffect } from 'preact/hooks'
-import { getChapter, books, texts, BookNames, useLocalStorage, subscribe, visitParagraphs } from '../../utils'
-import { ParagraphType, NoteType } from '../../utils/books'
-import { Highlight, Highlights } from '../../types/highlights'
-import { onSelectChange, onCopy, selectedNodes, getRange } from '../paragraphs/select'
-import { NoteContext } from '../paragraphs/versenotecontext'
-import { Paragraphs } from '../paragraphs/paragraphs'
-import { Notes } from '../../types/notes'
+import { getChapter, books, texts, BookName, useLocalStorage } from '../../utils'
+import { ElementType } from '../../utils/books'
 import styles from './reader.css'
 import { defaultSettings } from '../../pages'
-// import { onAddNote } from '../../actions/onAddNote'
-
-const clearSelection = () => {
-	const selection = document.getSelection()
-	if (selection) {
-		selection.removeAllRanges()
-	}
-}
+import { Element } from '../element'
 
 export interface ReaderProps {
 	text: string;
-	book: BookNames;
+	book: BookName;
 	chapter: number;
 	// TODO: how to copy JSXInternal.HTMLAttributes<HTMLElement>.style?: string | {
 	style?: { [key: string]: string | number } | string;
 	onAddReader?: () => void;
 	onCloseReader?: () => void;
-	onNavChange?: (text: string, book: BookNames, chapter: number) => void
+	onNavChange?: (text: string, book: BookName, chapter: number) => void
 }
 
 export function Reader(props = {
 	book: books.GEN.name,
 	chapter: 1,
-	text: Object.keys(texts)[0]
+	text: 'en_ust',
 } as ReaderProps) {
-	const [paragraphs, setParagraphs] = useState([] as ParagraphType[])
-	const [highlights, setHighlights] = useLocalStorage(`highlight1-${props.book}-${props.chapter}`, {} as Highlights);
-	const [notes, setNotes] = useLocalStorage(`note1-${props.book}-${props.chapter}`, {} as Notes);
+	const [elements, setElements] = useState([] as ElementType[])
 	const [config,] = useLocalStorage('settings', defaultSettings);
 	const divRef = useRef<HTMLDivElement>(null)
 
 	useEffect(() => {
 		getChapter(props.text, props.book, props.chapter)
-			.then(paragraphs => {
-				let highlight: Highlight | undefined
-				let note: NoteType | undefined
-				visitParagraphs(paragraphs, (verse, parent) => {
-					verse.parent = parent
-					if (!highlight) {
-						highlight = highlights[verse.id]
-					}
-					if (highlight) {
-						verse.highlight = highlight.color
-						if (verse.id >= highlight.toId) {
-							highlight = undefined
-						}
-					}
-
-					const savedNote = notes[verse.id]
-					if (!note && savedNote) {
-						note = {
-							fromId: verse.id,
-							toId: savedNote.toId,
-							note: savedNote.note,
-							isFormOpen: false,
-						}
-					}
-					if (note) {
-						verse.noted = verse.id
-						if (verse.id >= note.toId) {
-							verse.note = note
-							note = undefined
-						}
-					}
-				})
-				setParagraphs(paragraphs)
-				subscribe('ADD_NOTE', () => onAddNote(paragraphs))
-				subscribe('ADD_HIGHLIGHT', (color: string) => onAddHighlight(paragraphs, color))
-			})
+			.then(elements => setElements(elements))
 	}, [])
 
-	const onNavChange = (text: string, book: BookNames, chapter: number) => {
+	const onNavChange = (text: string, book: BookName, chapter: number) => {
 		getChapter(text, book, chapter)
 			.then(paragraphs => {
-				setParagraphs(paragraphs)
+				setElements(paragraphs)
 				if (divRef.current) {
 					divRef.current.scrollTop = 0
 				}
@@ -94,7 +45,7 @@ export function Reader(props = {
 	}
 
 	const onBookChange = (ev: any) => {
-		const book = ev.target.value as BookNames
+		const book = ev.target.value as BookName
 		let chapter = props.chapter
 		if (chapter > books[book].chapters)
 			chapter = books[book].chapters
@@ -107,83 +58,6 @@ export function Reader(props = {
 
 	const onTextChange = (ev: any) => {
 		onNavChange(ev.target.value, props.book, props.chapter)
-	}
-
-	const getSelectedNodes = () => {
-		if (!getRange()) {
-			return
-		}
-		const ids = selectedNodes
-			.filter(node => divRef.current && divRef.current.contains(node))
-			.map(node => (node as Element).getAttribute('data-id'))
-			.filter(Boolean)
-		if (ids.length > 0) {
-			return {
-				fromId: +(ids as string[])[0],
-				toId: +(ids as string[])[ids.length - 1]
-			}
-		}
-	}
-
-	const onAddNote = (paragraphs: ParagraphType[]) => {
-		const selected = getSelectedNodes()
-		if (selected && selected.fromId && selected.toId) {
-			const fromId = selected.fromId
-			const toId = selected.toId
-			visitParagraphs(paragraphs, v => {
-				if (v.id >= fromId && v.id <= toId) {
-					v.noted = selected.fromId
-				}
-				if (v.id === toId) {
-					v.note = { fromId, toId, note: '', isFormOpen: true }
-				}
-			})
-
-			clearSelection()
-			setParagraphs(Object.assign([], paragraphs))
-		}
-	}
-
-	const onAddHighlight = (paragraphs: ParagraphType[], color: string) => {
-		const selected = getSelectedNodes()
-		if (!selected) {
-			return
-		}
-
-		if (selected.fromId && selected.toId) {
-			const fromId = selected.fromId
-			const toId = selected.toId
-			visitParagraphs(paragraphs, verse => {
-				if (verse.id >= fromId && verse.id <= toId) {
-					verse.highlight = color
-				}
-			})
-
-			clearSelection()
-			highlights[fromId] = { toId: toId, color }
-			setHighlights(Object.assign({}, highlights))
-			setParagraphs(Object.assign([], paragraphs))
-		}
-	}
-
-	const onNoteSubmit = (note: NoteType) => {
-		notes[note.fromId] = { toId: note.toId, note: note.note }
-		setNotes(Object.assign({}, notes))
-		setParagraphs(Object.assign([], paragraphs))
-	}
-
-	const onNoteRemove = (note: NoteType) => {
-		const fromId = note.fromId
-		const toId = note.toId
-		visitParagraphs(paragraphs, v => {
-			if (v.id >= fromId && v.id <= toId) {
-				delete v.noted
-			}
-			if (v.id === toId) {
-				delete v.note
-			}
-		})
-		setParagraphs(Object.assign([], paragraphs))
 	}
 
 	const style = props.style || {}
@@ -203,7 +77,7 @@ export function Reader(props = {
 						)}
 					</select>
 					<select name="text" value={props.text} onChange={onTextChange}>
-						{Object.entries(texts).map(([key, val]) => 
+						{Object.entries(texts).map(([key, val]) =>
 							<option value={key} key={key}>{key}</option>
 						)}
 					</select>
@@ -225,15 +99,10 @@ export function Reader(props = {
 			</div>
 			<div
 				ref={divRef}
-				onMouseUp={onSelectChange}
-				onKeyUp={onSelectChange}
 				class={styles.reader}
-				onCopy={(ev: any) => onCopy(ev, config)}
 				tabIndex={0}
 			>
-				<NoteContext.Provider value={{ onNoteSubmit, onNoteRemove }}>
-					<Paragraphs	paragraphs={paragraphs} />
-				</NoteContext.Provider>
+				{elements.map(e => <Element {...e} />)}
 			</div>
 		</article>
 	)

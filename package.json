@@ -6,11 +6,13 @@
 	"type": "module",
 	"scripts": {
 		"build": "NODE_ENV=production node scripts/build/index.js",
-		"build:static": "node scripts/generateStaticAssets.js",
+		"build:static": "npm run build:en_ust && npm run build:en_ult",
 		"clean": "node scripts/clean.js",
 		"serve": "node scripts/serve.js",
 		"start": "node scripts/start.js",
-		"typecheck": "tsc -noEmit"
+		"typecheck": "tsc -noEmit",
+		"build:en_ust": "usfm texts/en_ust/*.usfm -o static/en_ust",
+		"build:en_ult": "usfm texts/en_ult/*.usfm -o static/en_ult"
 	},
 	"repository": {
 		"type": "git",
@@ -28,18 +30,19 @@
 	},
 	"homepage": "https://github.com/thesmartwon/openbible#readme",
 	"engines": {
-		"node" : ">=14.8.0"
+		"node": ">=14.8.0"
 	},
 	"dependencies": {
+		"@openbible/usfm": "^0.0.4",
 		"preact": "^10.13.0",
 		"preact-router": "^4.1.0"
 	},
 	"devDependencies": {
 		"css-tree": "^2.3.1",
-		"esbuild": "~0.17.0",
 		"domelementtype": "2.2.0",
+		"esbuild": "~0.17.0",
 		"svgj": "^1.0.5",
 		"typescript": "^5.0.0",
-		"usfm2json": "^0.0.23"
+		"usfm": "^0.0.3"
 	}
 }

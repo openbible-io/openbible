@@ -15,7 +15,7 @@ const isProd = process.env.NODE_ENV === 'production'
 export function getHash(string) {
 	if (isProd) {
 		const hash = crypto.createHash('md5').update(string).digest('hex')
-		return '.' + hash.substring(0, 10).toUpperCase()
+		return '.' + hash.toUpperCase()
 	}
 
 	return 'dev'

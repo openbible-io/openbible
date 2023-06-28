@@ -2,12 +2,6 @@ type Listener = (...args: any) => void
 
 const events = { } as { [key: string]: Listener[] }
 
-export function subscribe(event: string, listener: Listener) {
-	events[event] = events[event] || []
-
-	events[event].push(listener)
-}
-
 export function unsubscribe(event: string, listener: Listener) {
 	for (let i = 0; i < events[event].length; i++) {
 		if (events[event][i] === listener) {

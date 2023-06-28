@@ -4,3 +4,4 @@ dist
 static/*_*
 size-plugin.json
 .cache
+.DS_Store
