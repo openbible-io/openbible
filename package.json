@@ -14,10 +14,7 @@
 		"build:en_ust": "usfm texts/en_ust/*.usfm -o static/en_ust",
 		"build:en_ult": "usfm texts/en_ult/*.usfm -o static/en_ult"
 	},
-	"repository": {
-		"type": "git",
-		"url": "git+https://github.com/thesmartwon/openbible.git"
-	},
+	"repository":"https://github.com/openbible-io/openbible",
 	"keywords": [
 		"study",
 		"open",
@@ -25,9 +22,6 @@
 	],
 	"author": "thesmartwon",
 	"license": "MIT",
-	"bugs": {
-		"url": "https://github.com/thesmartwon/openbible/issues"
-	},
 	"homepage": "https://github.com/thesmartwon/openbible#readme",
 	"engines": {
 		"node": ">=14.8.0"

@@ -5,7 +5,7 @@ export const Home = (_props: { path: String }) => {
 	return (
 		<Fragment>
 			<Nav />
-			<Toolbar />
+			{/*<Toolbar />*/}
 			<main>
 				<ReaderGroup />
 			</main>

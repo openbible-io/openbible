@@ -3,3 +3,6 @@
 	padding-right: 0.0625rem;
 	font-size: 0.75rem;
 }
+.unselectable {
+	user-select: none;
+}

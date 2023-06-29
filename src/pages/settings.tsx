@@ -6,14 +6,18 @@ import styles from './settings.css'
 import readerStyles from '../components/reader/reader.css'
 
 export interface SettingsType {
-	selectVerseNums: string;
+	selectVerseNums: boolean;
+	nextChapter: string[];
+	prevChapter: string[];
 	cssVars: {
 		[cssVar: string]: string;
 	}
 }
 
 export const defaultSettings = {
-	selectVerseNums: 'noSelect',
+	selectVerseNums: false,
+	nextChapter: ['ArrowRight', 'l'],
+	prevChapter: ['ArrowLeft', 'h'],
 	cssVars: cssVariables
 } as SettingsType
 
@@ -23,11 +27,6 @@ export function Settings(_props: { path: String }) {
 	const setCSSVar = (cssVar: string, cssValue: string) => {
 		document.body.style.setProperty(cssVar, cssValue)
 		config.cssVars[cssVar] = cssValue
-		setConfig(Object.assign({}, config))
-	}
-
-	const onSettingInput = (key: string, val: string) => {
-		config[key as 'selectVerseNums'] = val
 		setConfig(Object.assign({}, config))
 	}
 
@@ -69,17 +68,6 @@ export function Settings(_props: { path: String }) {
 					<p>
 						<label>Snap selection to words</label>
 						TODO: code no snapping but still snapping for highlighting
-					</p>
-					<p>
-						<label>Verse number selection</label>
-						<select
-							value={config.selectVerseNums}
-							onChange={(ev: any) => onSettingInput('selectVerseNums', ev.target.value)}
-						>
-							<option value="noSelect">Don't select</option>
-							<option value="addSpace">Add space</option>
-							<option value="default">Browser default</option>
-						</select>
 					</p>
 					<input type="reset" value="Reset settings" />
 					<input type="submit" value="Save settings" />

@@ -1,13 +1,7 @@
 import { paths } from '../helpers/index.js'
 import path from 'path'
 import fs from 'fs'
-
-// TODO: extract to routes file
-const routes = [
-	'index',
-	'settings',
-	'about'
-];
+import { routes } from '../../routes.js'
 
 export function render(emitted, injectScript) {
 	const start = process.hrtime()

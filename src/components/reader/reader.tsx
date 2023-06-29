@@ -6,6 +6,8 @@ import { defaultSettings } from '../../pages'
 import { ParagraphType } from '../../utils/books'
 import { Paragraph } from '../paragraph/paragraph'
 
+const clamp = (num, min, max) => Math.min(Math.max(num, min), max);
+
 export interface ReaderProps {
 	text: string;
 	book: BookName;
@@ -23,7 +25,7 @@ export function Reader(props = {
 	text: 'en_ust',
 } as ReaderProps) {
 	const [paragraphs, setParagraphs] = useState([] as ParagraphType[])
-	const [config,] = useLocalStorage('settings', defaultSettings);
+	const [settings,] = useLocalStorage('settings', defaultSettings);
 	const divRef = useRef<HTMLDivElement>(null)
 
 	useEffect(() => {
@@ -31,6 +33,7 @@ export function Reader(props = {
 	}, [])
 
 	const onNavChange = (text: string, book: BookName, chapter: number) => {
+		chapter = clamp(chapter, 1, books[props.book].chapters);
 		getChapter(text, book, chapter)
 			.then(paragraphs => {
 				setParagraphs(paragraphs)
@@ -59,9 +62,17 @@ export function Reader(props = {
 		onNavChange(ev.target.value, props.book, props.chapter)
 	}
 
+	const onKeyDown = (ev: any) => {
+		if (settings.nextChapter.includes(ev.key)) {
+			onNavChange(props.text, props.book, props.chapter + 1);
+		} else if (settings.prevChapter.includes(ev.key)) {
+			onNavChange(props.text, props.book, props.chapter - 1);
+		}
+	}
+
 	const style = props.style || {}
 	return (
-		<article class={styles.article} style={style}>
+		<article class={styles.article} style={style} onKeyDown={onKeyDown}>
 			<div class={styles.navContainer}>
 				<nav>
 					<select name="book" value={props.book} onChange={onBookChange}>

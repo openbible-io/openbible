@@ -6,16 +6,15 @@ import styles from './paragraph.css'
 function getClass(tag: string) {
 	if (tag == "qa") return styles.qa;
 	if (tag.startsWith("q")) return styles.q;
-	if (tag.startsWith("br")) return styles.p;
 
-	return undefined;
+	return styles.p;
 }
 
 export function Paragraph(props: ParagraphType) {
 	if (!Array.isArray(props.verses)) return <div>Expected verses array</div>;
 
 	return (
-		<p class={getClass(props.tag)} data-kind={props.tag}>
+		<p class={getClass(props.tag)}>
 			{props.verses.map(Verse)}
 		</p>
 	);
