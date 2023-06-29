@@ -1,10 +1,10 @@
 import { h } from 'preact'
 import { useState, useRef, useEffect } from 'preact/hooks'
 import { getChapter, books, texts, BookName, useLocalStorage } from '../../utils'
-import { ElementType } from '../../utils/books'
 import styles from './reader.css'
 import { defaultSettings } from '../../pages'
-import { Element } from '../element'
+import { ParagraphType } from '../../utils/books'
+import { Paragraph } from '../paragraph/paragraph'
 
 export interface ReaderProps {
 	text: string;
@@ -22,19 +22,18 @@ export function Reader(props = {
 	chapter: 1,
 	text: 'en_ust',
 } as ReaderProps) {
-	const [elements, setElements] = useState([] as ElementType[])
+	const [paragraphs, setParagraphs] = useState([] as ParagraphType[])
 	const [config,] = useLocalStorage('settings', defaultSettings);
 	const divRef = useRef<HTMLDivElement>(null)
 
 	useEffect(() => {
-		getChapter(props.text, props.book, props.chapter)
-			.then(elements => setElements(elements))
+		getChapter(props.text, props.book, props.chapter).then(setParagraphs)
 	}, [])
 
 	const onNavChange = (text: string, book: BookName, chapter: number) => {
 		getChapter(text, book, chapter)
 			.then(paragraphs => {
-				setElements(paragraphs)
+				setParagraphs(paragraphs)
 				if (divRef.current) {
 					divRef.current.scrollTop = 0
 				}
@@ -102,7 +101,7 @@ export function Reader(props = {
 				class={styles.reader}
 				tabIndex={0}
 			>
-				{elements.map(e => <Element {...e} />)}
+				{paragraphs.map(Paragraph)}
 			</div>
 		</article>
 	)

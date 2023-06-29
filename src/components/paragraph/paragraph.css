@@ -1,0 +1,25 @@
+.p {
+	text-indent: var(--primary-text-indent);
+	margin-bottom: 1rem;
+}
+/* Q for poetry */
+.q {
+	/* How far word-wrapped lines are indented */
+	padding-left: 6rem;
+	text-indent: -4rem;
+}
+.qcol {
+	/* How far word-wrapped lines are indented */
+	padding-left: 6rem;
+	text-indent: -6rem;
+}
+.qa {
+	margin-top: .8rem;
+	margin-bottom: 1rem;
+}
+/* Long enough for 3-digit verse number (PSA 117) */
+/* .qcol > sup {
+	width: 1.75rem;
+	display: inline-block;
+	margin-left: 1.75rem;
+} */

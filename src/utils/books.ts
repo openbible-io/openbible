@@ -341,18 +341,21 @@ export interface NoteType {
 	isFormOpen: boolean;
 }
 
-export interface ElementType {
-	type: string,
+export interface VerseType {
 	text?: string,
 	number?: string,
 	footnote?: string,
+};
+export interface ParagraphType {
+	tag: string,
+	verses: VerseType[],
 };
 
 export async function getChapter(
 	version: string,
 	book: BookName,
 	chapter: number,
-): Promise<Element[]> {
+): Promise<ParagraphType[]> {
 	const path = getChapterPath(version, book, chapter)
 	return fetch(path).then(res => res.json())
 }

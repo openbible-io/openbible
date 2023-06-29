@@ -33,7 +33,7 @@
 		"node": ">=14.8.0"
 	},
 	"dependencies": {
-		"@openbible/usfm": "^0.0.4",
+		"@openbible/usfm": "^0.1.4",
 		"preact": "^10.13.0",
 		"preact-router": "^4.1.0"
 	},
