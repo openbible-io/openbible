@@ -29,3 +29,8 @@
 .windowButton {
 	padding: 0 .3rem;
 }
+
+.endNav {
+	display: flex;
+	justify-content: space-between;
+}

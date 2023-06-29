@@ -5,8 +5,9 @@ import styles from './reader.css'
 import { defaultSettings } from '../../pages'
 import { ParagraphType } from '../../utils/books'
 import { Paragraph } from '../paragraph/paragraph'
+import { ForwardIcon, BackwardIcon } from '../../icons'
 
-const clamp = (num, min, max) => Math.min(Math.max(num, min), max);
+const clamp = (num: number, min: number, max: number) => Math.min(Math.max(num, min), max);
 
 export interface ReaderProps {
 	text: string;
@@ -27,13 +28,14 @@ export function Reader(props = {
 	const [paragraphs, setParagraphs] = useState([] as ParagraphType[])
 	const [settings,] = useLocalStorage('settings', defaultSettings);
 	const divRef = useRef<HTMLDivElement>(null)
+	const maxChapter = books[props.book].chapters;
 
 	useEffect(() => {
 		getChapter(props.text, props.book, props.chapter).then(setParagraphs)
 	}, [])
 
 	const onNavChange = (text: string, book: BookName, chapter: number) => {
-		chapter = clamp(chapter, 1, books[props.book].chapters);
+		chapter = clamp(chapter, 1, maxChapter);
 		getChapter(text, book, chapter)
 			.then(paragraphs => {
 				setParagraphs(paragraphs)
@@ -62,12 +64,12 @@ export function Reader(props = {
 		onNavChange(ev.target.value, props.book, props.chapter)
 	}
 
+	const nextChapter = () => onNavChange(props.text, props.book, props.chapter + 1);
+	const prevChapter = () => onNavChange(props.text, props.book, props.chapter - 1);
+
 	const onKeyDown = (ev: any) => {
-		if (settings.nextChapter.includes(ev.key)) {
-			onNavChange(props.text, props.book, props.chapter + 1);
-		} else if (settings.prevChapter.includes(ev.key)) {
-			onNavChange(props.text, props.book, props.chapter - 1);
-		}
+		if (settings.nextChapter.includes(ev.key)) nextChapter();
+		if (settings.prevChapter.includes(ev.key)) prevChapter();
 	}
 
 	const style = props.style || {}
@@ -113,6 +115,15 @@ export function Reader(props = {
 				tabIndex={0}
 			>
 				{paragraphs.map(Paragraph)}
+
+				<div class={styles.endNav}>
+					<button disabled={props.chapter == 1} onClick={prevChapter}>
+						<BackwardIcon style={{ fill: '#5f6368' }} />
+					</button>
+					<button disabled={props.chapter == maxChapter} onClick={nextChapter}>
+						<ForwardIcon style={{ fill: '#5f6368' }} />
+					</button>
+				</div>
 			</div>
 		</article>
 	)

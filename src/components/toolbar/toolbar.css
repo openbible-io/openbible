@@ -20,6 +20,7 @@
 .button:hover > .tooltip {
 	top: 1.5rem;
 }
+
 /* https://www.w3.org/TR/wai-aria-practices/examples/toolbar/toolbar.html */
 .tooltip {
 	background: #6d6d6d;
