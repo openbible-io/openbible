@@ -116,14 +116,16 @@ export function Reader(props = {
 			>
 				{paragraphs.map(Paragraph)}
 
-				<div class={styles.endNav}>
-					<button disabled={props.chapter == 1} onClick={prevChapter}>
-						<BackwardIcon style={{ fill: '#5f6368' }} />
-					</button>
-					<button disabled={props.chapter == maxChapter} onClick={nextChapter}>
-						<ForwardIcon style={{ fill: '#5f6368' }} />
-					</button>
-				</div>
+				{paragraphs.length > 0 &&
+					<div class={styles.endNav}>
+						<button disabled={props.chapter == 1} onClick={prevChapter}>
+							<BackwardIcon style={{ fill: '#5f6368' }} />
+						</button>
+						<button disabled={props.chapter == maxChapter} onClick={nextChapter}>
+							<ForwardIcon style={{ fill: '#5f6368' }} />
+						</button>
+					</div>
+				}
 			</div>
 		</article>
 	)
