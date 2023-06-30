@@ -18,12 +18,14 @@ export interface ReaderProps {
 	onAddReader?: () => void;
 	onCloseReader?: () => void;
 	onNavChange?: (text: string, book: BookName, chapter: number) => void
+	canClose: boolean;
 }
 
 export function Reader(props = {
 	book: books.GEN.name,
 	chapter: 1,
 	text: 'en_ust',
+	canClose: true,
 } as ReaderProps) {
 	const [paragraphs, setParagraphs] = useState([] as ParagraphType[])
 	const [settings,] = useLocalStorage('settings', defaultSettings);
@@ -104,6 +106,7 @@ export function Reader(props = {
 					<button
 						onClick={props.onCloseReader}
 						class={styles.windowButton}
+						disabled={!props.canClose}
 					>
 						x
 					</button>

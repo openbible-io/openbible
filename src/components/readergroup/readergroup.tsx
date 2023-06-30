@@ -81,6 +81,7 @@ export function ReaderGroup() {
 						onAddReader={() => onAddReader(index)}
 						onCloseReader={() => onCloseReader(index)}
 						onNavChange={(text, book, chapter) => onReaderChange(reader, text, book, chapter)}
+						canClose={readers.length > 1}
 					/>
 					{index !== readers.length - 1 &&
 						<div
