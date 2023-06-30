@@ -21,10 +21,10 @@ export default {
 			const cssVars = {}
 			csstree.walk(ast, node => {
 				if (
-					node.type === 'Declaration' && 
+					node.type === 'Declaration' &&
 					node.property.startsWith('--')
 				) {
-					cssVars[node.property] = node.value.value
+					cssVars[node.property] = node.value.value.trim()
 				}
 			})
 

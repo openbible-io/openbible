@@ -64,16 +64,17 @@ export function Settings(_props: { path: String }) {
 									/>
 							</p>
 					))}
-					<h2>Copy behavior</h2>
 					<p>
-						<label>Snap selection to words</label>
-						TODO: code no snapping but still snapping for highlighting
+						Select verse numbers (requires refresh)
+						<input type="checkbox" checked={config.selectVerseNums} onInput={() =>
+							setConfig({ ...config, selectVerseNums: !config.selectVerseNums })
+						}/>
 					</p>
 					<input type="reset" value="Reset settings" />
 					<input type="submit" value="Save settings" />
 				</form>
 				<div class={`${readerStyles.reader} ${styles.testDiv}`}>
-					<Reader text="en_ult" book="PSA" chapter={119} />
+					<Reader text="en_ult" book="PSA" chapter={119} canClose={false} />
 				</div>
 			</main>
 		</Fragment>

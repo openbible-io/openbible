@@ -40,7 +40,7 @@ http.createServer((req, res) => {
 	const options = {
 		hostname: host,
 		port: port + 1,
-		path: routes.includes(req.url.substring(1)) ? `${req.url}/.html` : req.url,
+		path: routes.includes(req.url.substring(1)) ? `${req.url}.html` : req.url,
 		method: req.method,
 		headers: req.headers,
 	}
