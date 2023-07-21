@@ -88,9 +88,9 @@ th:not([align]) {
 	--primary-text-indent: 1rem;
 	--primary-theme-color: #0b8dc4;
 	--primary-font-family: -apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
-	--secondary-font-family: "Sentinel A", "Sentinel B", "Gentium Plus", "Ezra", Georgia, Times, serif;
+	--secondary-font-family: "Sentinel A", "Sentinel B", "Gentium Plus", Ezra, Georgia, Times, serif;
 	--reader-padding: 1rem;
-	--reader-font-family: "Libre Baskerville", "Sentinel A", "Sentinel B", "Gentium Plus", "Ezra", Georgia, Times, serif;
+	--reader-font-family: "Libre Baskerville", "Sentinel A", "Sentinel B", "Gentium Plus", Ezra, Georgia, Times, serif;
 	--reader-font-size: 1rem;
 }
 html,
@@ -101,7 +101,8 @@ body {
 	text-rendering: optimizeLegibility;
 	height: 100%;
 }
-#root {
+/* Cannot be #root because css module plugin will transform it to not match HTML template. */
+div[id='root'] {
 	display: flex;
 	flex-direction: column;
 	height: 100%;

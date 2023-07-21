@@ -3,18 +3,15 @@
 	"version": "0.0.1",
 	"description": "A study Bible frontend.",
 	"private": true,
-	"type": "module",
 	"scripts": {
-		"build": "NODE_ENV=production node scripts/build/index.js",
+		"build": "esbuild-scripts build",
 		"build:static": "npm run build:en_ust && npm run build:en_ult",
-		"clean": "node scripts/clean.js",
-		"serve": "node scripts/serve.js",
-		"start": "node scripts/start.js",
+		"start": "esbuild-scripts start",
 		"typecheck": "tsc -noEmit",
 		"build:en_ust": "usfm texts/en_ust/*.usfm -o static/en_ust",
 		"build:en_ult": "usfm texts/en_ult/*.usfm -o static/en_ult"
 	},
-	"repository":"https://github.com/openbible-io/openbible",
+	"repository": "https://github.com/openbible-io/openbible",
 	"keywords": [
 		"study",
 		"open",
@@ -27,16 +24,19 @@
 		"node": ">=14.8.0"
 	},
 	"dependencies": {
-		"@openbible/usfm": "^0.1.5",
 		"preact": "^10.13.0",
 		"preact-router": "^4.1.0"
 	},
 	"devDependencies": {
-		"css-tree": "^2.3.1",
+		"@openbible/usfm": "^0.1.5",
 		"domelementtype": "2.2.0",
-		"esbuild": "~0.17.0",
+		"esbuild": "^0.18.15",
+		"esbuild-copy-static-files": "0.1.0",
+		"esbuild-css-modules-plugin": "3.0.0-dev.16",
+		"esbuild-plugin-template": "0.0.3",
+		"esbuild-scripts": "^0.0.1",
+		"lightningcss": "^1.21.5",
 		"svgj": "^1.0.5",
-		"typescript": "^5.0.0",
-		"usfm": "^0.0.3"
+		"typescript": "^5.0.0"
 	}
 }

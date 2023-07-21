@@ -13,7 +13,7 @@ function App() {
 		Object.keys(config.cssVars)
 			.forEach(cssVar => rootElement.style.setProperty(cssVar, config.cssVars[cssVar]))
 	}, []);
-	
+
 	return (
 		<Router>
 			<Home path="/" />
