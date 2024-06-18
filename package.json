@@ -10,8 +10,8 @@
 		"serve": "vite preview",
 		"build:static": "npm run build:en_ust && npm run build:en_ult",
 		"typecheck": "tsc -noEmit",
-		"build:en_ust": "usfm texts/en_ust/*.usfm -o static/en_ust",
-		"build:en_ult": "usfm texts/en_ult/*.usfm -o static/en_ult"
+		"build:en_ust": "usfm texts/en_ust/*.usfm -o public/en_ust",
+		"build:en_ult": "usfm texts/en_ult/*.usfm -o public/en_ult"
 	},
 	"repository": "https://github.com/openbible-io/openbible",
 	"keywords": [
