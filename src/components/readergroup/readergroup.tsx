@@ -1,96 +1,60 @@
-import { h, Fragment } from 'preact'
+import { For } from 'solid-js';
 import { Reader, ReaderProps } from '../reader/reader'
 import { BookName, useLocalStorage } from '../../utils'
-import styles from './readergroup.css'
+import styles from './readergroup.module.css'
 
-interface ReaderState extends ReaderProps {
-	width: number;
-}
-
-/*
- * Contains many <Reader>s and handles resizing them
- */
 export function ReaderGroup() {
-	const [readers, setReaders] = useLocalStorage('readers', [
-		{ text: 'en_ult', book: 'LUK' as BookName, chapter: 4, width: 50 },
-		{ text: 'en_ult', book: 'PSA' as BookName, chapter: 119, width: 50 },
-	] as ReaderState[])
-	let preMoveMouseWidths: number[] = []
-	let initialPageX = 0
+	const [readers, setReaders] = useLocalStorage<ReaderProps[]>(
+		'readers',
+		[
+			{ text: 'en_ult', book: 'LUK' as BookName, chapter: 4 },
+			{ text: 'en_ult', book: 'PSA' as BookName, chapter: 119 },
+		]
+	);
 
-
-	const updateReaders = () => {
-		setReaders(Object.assign([], readers))
+	function onAddReader(index: number) {
+		const newReader: ReaderProps  = {
+			text: 'en_ult',
+			book: 'MAT' as BookName,
+			chapter: 1,
+		};
+		const newReaders = [...readers()];
+		newReaders.splice(index + 1, 0, newReader)
+		setReaders(newReaders);
 	}
 
-	const onMouseMove = (ev: any, index: number) => {
-		ev.preventDefault()
-		const offsetXPercent = (ev.pageX - initialPageX) / window.innerWidth
-		readers.forEach((reader, i) => {
-			if (i === index)
-				reader.width = preMoveMouseWidths[i] + offsetXPercent
-			else if (i === index + 1)
-				reader.width = preMoveMouseWidths[i] - offsetXPercent
-		})
-		updateReaders()
+	function onCloseReader(index: number) {
+		const newReaders = [...readers()];
+		newReaders.splice(index, 1);
+		setReaders(newReaders);
 	}
 
-	const mouseMoveHandler = (ev: any, index: any) => {
-		ev.preventDefault()
-		initialPageX = ev.pageX
-		preMoveMouseWidths = readers.map(r => r.width)
-
-		const handler = (ev: any) => onMouseMove(ev, index)
-		document.addEventListener('mousemove', handler)
-		document.addEventListener('mouseup', _ev =>
-			document.removeEventListener('mousemove', handler))
-	}
-
-	const onAddReader = (index: number) => {
-		index++
-		const nextReader = readers[Math.min(index, readers.length - 1)]
-		const newReader = { text: 'en_ult', book: 'MAT' as BookName, chapter: 1, width: nextReader.width / 2 }
-		nextReader.width /= 2
-		readers.splice(index, 0, newReader)
-		updateReaders()
-	}
-
-	const onCloseReader = (index: number) => {
-		const lastWidth = readers[index].width
-		readers.splice(index, 1)
-		readers.forEach(reader => reader.width += lastWidth / readers.length)
-		updateReaders()
-	}
-
-	const onReaderChange = (reader: ReaderState, text: string, book: BookName, chapter: number) => {
-		reader.text = text
-		reader.book = book
-		reader.chapter = chapter
-		updateReaders()
+	function onReaderChange(index: number, text: string, book: BookName, chapter: number) {
+		const newReaders = readers().map((r, i) => {
+			if (i == index) return { text, book, chapter };
+			return r;
+		});
+		setReaders(newReaders);
 	}
 
 	return (
-		<Fragment>
-			{readers.map((reader, index) => (
-				<Fragment key={index}>
+		<For each={readers()}>
+			{(reader, index) =>
+				<>
 					<Reader
 						text={reader.text}
 						book={reader.book}
 						chapter={reader.chapter}
-						style={{ width: `${reader.width * 100}%` }}
-						onAddReader={() => onAddReader(index)}
-						onCloseReader={() => onCloseReader(index)}
-						onNavChange={(text, book, chapter) => onReaderChange(reader, text, book, chapter)}
-						canClose={readers.length > 1}
+						onAddReader={() => onAddReader(index())}
+						onCloseReader={() => onCloseReader(index())}
+						onNavChange={(text, book, chapter) => onReaderChange(index(), text, book, chapter)}
+						canClose={readers().length > 1}
 					/>
-					{index !== readers.length - 1 &&
-						<div
-							class={styles.dragbar}
-							onMouseDown={e => mouseMoveHandler(e, index)}
-						/>
+					{index() !== readers().length - 1 &&
+						<div class={styles.dragbar} />
 					}
-				</Fragment>
-			))}
-		</Fragment>
+				</>
+			}
+		</For>
 	)
 }

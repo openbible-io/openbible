@@ -1,30 +1,22 @@
-import { h, render } from 'preact'
-import { useEffect } from 'preact/hooks'
-import Router from 'preact-router'
-import { Home, About, Settings, SettingsType, NotFound } from './pages'
-import { useLocalStorage } from './utils'
+import { render } from 'solid-js/web';
+import { Router, Route } from '@solidjs/router';
+import { Home, About, Settings, NotFound } from './pages'
+import { createInteraction, Interaction, createCssVars, CssVars } from './settings';
 import './app.css'
 
 function App() {
-	const config = useLocalStorage('settings2', { cssVars: {} })[0] as SettingsType
-	useEffect(() => {
-		// Leave document for default styles, document.body to load styles
-		const rootElement = document.body
-		Object.keys(config.cssVars)
-			.forEach(cssVar => rootElement.style.setProperty(cssVar, config.cssVars[cssVar]))
-	}, []);
-
 	return (
-		<Router>
-			<Home path="/" />
-			<About path="/about" />
-			<Settings path="/settings" />
-			<NotFound default />
-		</Router>
+		<Interaction.Provider value={createInteraction()}>
+			<CssVars.Provider value={createCssVars()}>
+				<Router>
+					<Route component={About} path="/about" />
+					<Route component={Home} path="/" />
+					<Route component={Settings} path="/settings" />
+					<Route component={NotFound} path="*" />
+				</Router>
+			</CssVars.Provider>
+		</Interaction.Provider>
 	)
 }
 
-render(
-	<App />,
-	document.getElementById('root') as HTMLElement
-)
+render(App, document.getElementById('root') as HTMLElement)

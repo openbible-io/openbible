@@ -3,10 +3,12 @@
 	"version": "0.0.1",
 	"description": "A study Bible frontend.",
 	"private": true,
+	"type": "module",
 	"scripts": {
-		"build": "esbuild-scripts build",
+		"start": "vite",
+		"build": "vite build",
+		"serve": "vite preview",
 		"build:static": "npm run build:en_ust && npm run build:en_ult",
-		"start": "esbuild-scripts start",
 		"typecheck": "tsc -noEmit",
 		"build:en_ust": "usfm texts/en_ust/*.usfm -o static/en_ust",
 		"build:en_ult": "usfm texts/en_ult/*.usfm -o static/en_ult"
@@ -19,24 +21,15 @@
 	],
 	"author": "thesmartwon",
 	"license": "MIT",
-	"homepage": "https://github.com/thesmartwon/openbible#readme",
-	"engines": {
-		"node": ">=14.8.0"
-	},
+	"homepage": "https://github.com/openbible-io/openbible#readme",
 	"dependencies": {
-		"preact": "^10.13.0",
-		"preact-router": "^4.1.0"
+		"@solidjs/router": "^0.13.5",
+		"solid-js": "^1.8.17",
+		"vite-plugin-solid-svg": "^0.8.1"
 	},
 	"devDependencies": {
 		"@openbible/usfm": "^0.1.5",
-		"domelementtype": "2.2.0",
-		"esbuild": "^0.18.15",
-		"esbuild-copy-static-files": "0.1.0",
-		"esbuild-css-modules-plugin": "3.0.0-dev.16",
-		"esbuild-plugin-template": "^0.0.3",
-		"esbuild-scripts": "^0.0.3",
-		"lightningcss": "^1.21.5",
-		"svgj": "^1.0.5",
-		"typescript": "^5.0.0"
+		"vite": "^5.3.1",
+		"vite-plugin-solid": "^2.10.2"
 	}
 }

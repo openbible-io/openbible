@@ -1,88 +1,4 @@
-/*! minireset.css v0.0.6 | MIT License | github.com/jgthms/minireset.css */
-html,
-body,
-p,
-ol,
-ul,
-li,
-dl,
-dt,
-dd,
-blockquote,
-figure,
-fieldset,
-legend,
-textarea,
-pre,
-iframe,
-hr,
-h1,
-h2,
-h3,
-h4,
-h5,
-h6 {
-	margin: 0;
-	padding: 0;
-}
-
-h1,
-h2,
-h3,
-h4,
-h5,
-h6 {
-	font-size: 100%;
-	font-weight: normal;
-}
-
-ul {
-	list-style: none;
-}
-
-button,
-input,
-select,
-textarea {
-	margin: 0;
-}
-
-html,
-textarea {
-	box-sizing: border-box;
-}
-
-*, *::before, *::after {
-	box-sizing: inherit;
-}
-
-img,
-video {
-	height: auto;
-	max-width: 100%;
-}
-
-iframe {
-	border: 0;
-}
-
-table {
-	border-collapse: collapse;
-	border-spacing: 0;
-}
-
-td,
-th {
-	padding: 0;
-}
-
-td:not([align]),
-th:not([align]) {
-	text-align: left;
-}
-
-/* Site styles */
-:root {
+html {
 	--primary-text-color: #3b4351;
 	/* Subtracted from 6rem */
 	--primary-text-indent: 1rem;
@@ -101,8 +17,7 @@ body {
 	text-rendering: optimizeLegibility;
 	height: 100%;
 }
-/* Cannot be #root because css module plugin will transform it to not match HTML template. */
-div[id='root'] {
+#root {
 	display: flex;
 	flex-direction: column;
 	height: 100%;

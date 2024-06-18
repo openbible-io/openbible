@@ -1,9 +1,8 @@
-import { h, Fragment } from 'preact'
 import { Nav } from '../components'
 
-export function About(_props: { path: String }) {
+export function About() {
 	return (
-		<Fragment>
+		<>
 			<Nav />
 			<main>
 				<div>
@@ -13,6 +12,6 @@ export function About(_props: { path: String }) {
 					</p>
 				</div>
 			</main>
-		</Fragment>
+		</>
 	)
 }

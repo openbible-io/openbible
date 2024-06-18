@@ -1,82 +1,112 @@
-import { h, Fragment } from 'preact'
-import { Nav, Reader } from '../components'
-import { useLocalStorage, cssVars } from '../utils'
-import cssVariables from '!css-variables!../app.css'
-import styles from './settings.css'
-import readerStyles from '../components/reader/reader.css'
+import { For, useContext } from 'solid-js';
+import { Nav, Reader } from '../components';
+import { Interaction, CssVars } from '../settings';
+import styles from './settings.module.css';
+import readerStyles from '../components/reader/reader.module.css';
 
-export interface SettingsType {
-	selectVerseNums: boolean;
-	nextChapter: string[];
-	prevChapter: string[];
-	cssVars: {
-		[cssVar: string]: string;
-	}
+function capitalize(s: string) {
+	return s.substring(0, 1).toUpperCase() + s.substring(1);
 }
 
-export const defaultSettings = {
-	selectVerseNums: false,
-	nextChapter: ['ArrowRight', 'l'],
-	prevChapter: ['ArrowLeft', 'h'],
-	cssVars: cssVariables
-} as SettingsType
-
-export function Settings(_props: { path: String }) {
-	const [config, setConfig] = useLocalStorage('settings2', defaultSettings)
-
-	const setCSSVar = (cssVar: string, cssValue: string) => {
-		document.body.style.setProperty(cssVar, cssValue)
-		config.cssVars[cssVar] = cssValue
-		setConfig(Object.assign({}, config))
-	}
-
-	const onReset = (ev: h.JSX.TargetedEvent<HTMLFormElement, Event>) => {
-		ev.preventDefault()
-		cssVars.forEach(cssVar => {
-			const cssVal = getComputedStyle(document.documentElement)
-				.getPropertyValue(cssVar)
-				.trim()
-			setCSSVar(cssVar, cssVal)
-		})
-		setConfig({ ...config, ...defaultSettings })
-	}
-
-	const onSubmit = (ev: h.JSX.TargetedEvent<HTMLFormElement, Event>) => {
-		ev.preventDefault()
-		// TODO: web service
-		console.log('save settings')
+export function Settings() {
+	const cssVars = useContext(CssVars);
+	const interaction = useContext(Interaction);
+	const onReset = (ev: any) => {
+		ev.preventDefault();
+		type UseType = [() => any, (val: any) => void, () => void];
+		Object.values(cssVars as unknown as UseType[]).forEach(i => i[2]());
+		Object.values(interaction as unknown as UseType[]).forEach(i => i[2]());
 	}
 
 	return (
-		<Fragment>
+		<>
 			<Nav />
 			<main>
-				<form class={styles.form} onSubmit={onSubmit} onReset={onReset}>
+				<form class={styles.form} onReset={onReset}>
+					<h2>Interaction</h2>
+					<For each={Object.entries(interaction ?? {})}>
+						{([key, [getter, setter]]) =>
+							<Setting key={key} getter={getter as any} setter={setter as any} />
+						}
+					</For>
+
 					<h2>CSS Variables</h2>
-					{Object.entries(config.cssVars)
-						.map(entry => (
-							<p key={entry[0]}>
-								<label>{entry[0]}</label>
-								<input
-									type={entry[0].includes('color') ? 'color' : ''}
-									value={entry[1]}
-									onInput={(ev: any) => setCSSVar(entry[0], ev.target.value)}
-									/>
-							</p>
-					))}
-					<p>
-						Select verse numbers (requires refresh)
-						<input type="checkbox" checked={config.selectVerseNums} onInput={() =>
-							setConfig({ ...config, selectVerseNums: !config.selectVerseNums })
-						}/>
-					</p>
-					<input type="reset" value="Reset settings" />
-					<input type="submit" value="Save settings" />
+					<For each={Object.entries(cssVars ?? {})}>
+						{([key, [getter, setter]]) =>
+							<Setting key={key} getter={getter} setter={setter} />
+						}
+					</For>
+					<input type="reset" value="Reset all" />
 				</form>
 				<div class={`${readerStyles.reader} ${styles.testDiv}`}>
 					<Reader text="en_ult" book="PSA" chapter={119} canClose={false} />
 				</div>
 			</main>
-		</Fragment>
+		</>
 	)
+}
+
+interface SettingProps<T> {
+	key: string;
+	getter: () => T;
+	setter: (v: T) => void
+}
+function Setting<T>(props: SettingProps<T>) {
+	return (
+		<p>
+			<label>{capitalize(props.key.replaceAll('-', ' ').trim())}</label>
+			<SettingInput {...props} />
+		</p>
+	);
+}
+
+interface SettingInputProps<T> {
+	key: string;
+	getter: () => T;
+	setter: (v: T) => void
+}
+function SettingInput<T>(props: SettingInputProps<T>) {
+	const val = props.getter();
+	switch (typeof val) {
+	case 'boolean':
+		return (
+			<input
+				type="checkbox"
+				checked={props.getter() as boolean}
+				onInput={ev => props.setter(ev.target.checked as T)}
+			/>
+		);
+	case 'string':
+		const type = props.key.includes('color') ? 'color' : 'text';
+		return (
+			<input
+				type={type}
+				value={'' + props.getter()}
+				onInput={(ev: any) => props.setter(ev.target.value)}
+			/>
+		);
+	}
+	if (Array.isArray(val)) {
+		return (
+			<ol>
+				<For each={val}>
+					{(_, index) =>
+						<li>
+							<SettingInput
+								key={props.key}
+								getter={() => (props.getter() as unknown[])[index()]}
+								setter={v => {
+									const old = (props.getter() as unknown[])[index()] as unknown[];
+									old[index()] = v;
+									props.setter(old as T);
+								}}
+							/>
+						</li>
+					}
+				</For>
+			</ol>
+		);
+	} else {
+		console.warn('unknown setting type', typeof val);
+	}
 }

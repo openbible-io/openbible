@@ -1,0 +1,32 @@
+business
+- inc
+- state fundraising?
+- 501c3 app
+	- board
+- setup donos
+
+backend
+- strongs
+	- USFM official support?
+		- if not, consider other standard format
+- greek/hebrew
+- other langs
+- deployment? lang?
+- search
+- user accounts
+	- federated?
+
+frontend
+	- [x] solidjs
+	- linter
+	- sticky footer buttons
+	- rich text edit
+		- highlighting
+		- notes
+			- overlapping
+		- undo/redo
+	- i18n
+	- footnotes
+	- inline strongs
+	- PWA
+		- mobile selection

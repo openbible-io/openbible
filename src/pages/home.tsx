@@ -1,14 +1,13 @@
-import { h, Fragment } from 'preact'
-import { Nav, ReaderGroup, Toolbar } from '../components'
+import { Nav, ReaderGroup } from '../components';
 
-export const Home = (_props: { path: String }) => {
+export function Home() {
 	return (
-		<Fragment>
+		<>
 			<Nav />
 			{/*<Toolbar />*/}
 			<main>
 				<ReaderGroup />
 			</main>
-		</Fragment>
+		</>
 	)
 }

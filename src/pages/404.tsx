@@ -1,13 +1,13 @@
-import { h, Fragment } from 'preact'
 import { Nav } from '../components'
+import { Location } from '@solidjs/router';
 
-export function NotFound(props: { path: String }) {
+export function NotFound(props: { location: Location }) {
 	return (
-		<Fragment>
+		<>
 			<Nav />
 			<div>
-				{props.path} not found
+				{props.location.pathname} not found
 			</div>
-		</Fragment>
+		</>
 	)
 }

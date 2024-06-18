@@ -1,5 +1,5 @@
 import { h } from 'preact'
-import styles from './button.css'
+import styles from './button.module.css'
 
 interface ButtonProps {
 	children: h.JSX.Element | h.JSX.Element[];

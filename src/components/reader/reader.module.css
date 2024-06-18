@@ -1,6 +1,7 @@
 .article {
 	display: flex;
 	flex-direction: column;
+	flex: 1;
 }
 /* libre-baskerville-regular - latin */
 @font-face {
@@ -25,6 +26,9 @@
 	/* Safari */
 	flex-shrink: 0;
 	padding-left: var(--reader-padding);
+}
+.navContainer > nav  {
+	flex-grow: 1;
 }
 .windowButton {
 	padding: 0 .3rem;

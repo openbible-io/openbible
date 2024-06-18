@@ -1,10 +1,9 @@
-import { h } from 'preact'
-import { Link, LinkProps } from 'preact-router/match';
-import styles from './nav.css'
+import { A as Link, AnchorProps as LinkProps } from '@solidjs/router';
+import styles from './nav.module.css'
 import { repository } from '../../../package.json';
 
-const NavLink = (props: Omit<LinkProps, 'activeClassName'>) => (
-	<Link activeClassName="" {...props} />
+const NavLink = (props: Omit<LinkProps, 'activeClass'>) => (
+	<Link activeClass="" {...props} />
 )
 
 export function Nav() {

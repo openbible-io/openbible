@@ -1,5 +1,5 @@
 import { h } from 'preact'
-import styles from './colorpalette.css'
+import styles from './colorpalette.module.css'
 
 interface ColorPaletteProps {
 	onSelect: (color: string) => void;

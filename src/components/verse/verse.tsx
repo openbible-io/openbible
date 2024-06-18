@@ -1,15 +1,21 @@
-import { h, Fragment } from 'preact'
-import { VerseType } from '../../utils/books'
-import styles from './verse.css'
-import { useLocalStorage, classnames } from '../../utils';
-import { defaultSettings } from '../../pages'
+import { useContext } from 'solid-js';
+import { VerseType } from '../../utils';
+import { Interaction } from '../../settings'
+import styles from './verse.module.css'
 
 export function Verse(props: VerseType) {
-	const [config,] = useLocalStorage('settings2', defaultSettings)
+	const interaction = useContext(Interaction);
 	return (
-		<Fragment>
-			{props.number && <sup class={classnames(styles.sup, !config.selectVerseNums && styles.unselectable)}>{props.number}</sup>}
+		<>
+			{props.number &&
+				<sup classList={{
+					[styles.sup]: true,
+					[styles.unselectable]: interaction && !interaction['select-verse-nums'][0](),
+				}}>
+					{props.number}
+				</sup>
+			}
 			{props.text && <span>{props.text} </span>}
-		</Fragment>
+		</>
 	);
 }

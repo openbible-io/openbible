@@ -1,15 +1,14 @@
-import { h } from 'preact'
-import { useState } from 'preact/hooks'
-import styles from './toolbar.css'
-import { AddCommentIcon, UndoIcon, RedoIcon, FormatBoldIcon, FormatItalicIcon, FormatUnderlinedIcon, TextColorIcon, HighlightColorIcon } from '../../icons'
+import { createSignal } from 'solid-js'
+import styles from './toolbar.module.css'
+import { AddCommentIcon, UndoIcon, RedoIcon, FormatBoldIcon, FormatItalicIcon, FormatUnderlinedIcon, TextColorIcon, HighlightColorIcon } from '../../icons/index'
 import { emit } from '../../utils/eventEmitter'
 import { ColorPalette } from './colorpalette'
 
 export function Toolbar() {
-	const [textColor, setTextColor] = useState('rgb(255,0,0)')
-	const [highlightColor, setHighlightColor] = useState('rgb(255,0,0)')
-	const [isTextColorPaletteOpen, setTextColorPaletteOpen] = useState(false)
-	const [isHighlightPaletteOpen, setHighlightPaletteOpen] = useState(false)
+	const [textColor, setTextColor] = createSignal('rgb(255,0,0)')
+	const [highlightColor, setHighlightColor] = createSignal('rgb(255,0,0)')
+	const [isTextColorPaletteOpen, setTextColorPaletteOpen] = createSignal(false)
+	const [isHighlightPaletteOpen, setHighlightPaletteOpen] = createSignal(false)
 
 	const onToggleTextPaletteOpen = () => {
 		setTextColorPaletteOpen(open => !open)
@@ -46,7 +45,7 @@ export function Toolbar() {
 			<button class={styles.button} onClick={onToggleTextPaletteOpen}>
 				<TextColorIcon style={{ fill: '#5f6368', borderBottom: `4px solid ${textColor}` }} />
 				<span class={styles.tooltip}>Text color</span>
-				{isTextColorPaletteOpen && 
+				{isTextColorPaletteOpen &&
 					<ColorPalette onSelect={(color: string) => {
 						console.log('color', color)
 						setTextColor(color)
@@ -56,7 +55,7 @@ export function Toolbar() {
 			<button class={styles.button} onClick={onToggleHighlightPaletteOpen}>
 				<HighlightColorIcon style={{ fill: '#5f6368', borderBottom: `4px solid ${highlightColor}` }} />
 				<span class={styles.tooltip}>Highlight color</span>
-				{isHighlightPaletteOpen && 
+				{isHighlightPaletteOpen &&
 					<ColorPalette onSelect={(color: string) => {
 						setHighlightColor(color)
 						emit('ADD_HIGHLIGHT', color)
