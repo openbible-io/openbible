@@ -1,10 +1,10 @@
 import { A as Link, AnchorProps as LinkProps } from '@solidjs/router';
-import styles from './nav.module.css'
+import styles from './nav.module.css';
 import { repository } from '../../../package.json';
 
 const NavLink = (props: Omit<LinkProps, 'activeClass'>) => (
 	<Link activeClass="" {...props} />
-)
+);
 
 export function Nav() {
 	return (
@@ -31,5 +31,5 @@ export function Nav() {
 				</form>
 			</div>
 		</header>
-	)
+	);
 }

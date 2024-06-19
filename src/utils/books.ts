@@ -329,7 +329,7 @@ export const books = {
 		name: 'Revelation',
 		chapters: 22
 	},
-}
+};
 
 export type BookName = keyof typeof books
 
@@ -356,8 +356,8 @@ export async function getChapter(
 	book: BookName,
 	chapter: number,
 ): Promise<ParagraphType[]> {
-	const path = getChapterPath(version, book, chapter)
-	return fetch(path).then(res => res.json())
+	const path = getChapterPath(version, book, chapter);
+	return fetch(path).then(res => res.json());
 }
 
 export function getChapterPath(
@@ -368,11 +368,11 @@ export function getChapterPath(
 	const info = books[book];
 	const num = (info.number + '').padStart(2, '0');
 	const chap = (chapter + '').padStart(3, '0');
-	return `./${version}/${num}-${book}/${chap}.json`
+	return `./${version}/${num}-${book}/${chap}.json`;
 }
 
 export const texts = {
 	'en_ust': 'unfoldingWord® Simplified Text',
 	'en_ult': 'unfoldingWord® Literal Text',
-}
+};
 

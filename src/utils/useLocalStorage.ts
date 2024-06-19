@@ -29,7 +29,7 @@ export function useLocalStorage<T>(
 	function set(value: T) {
 		try {
 			localStorage.setItem(key, serializer(value));
-			setState(value as any);
+			setState(value as Exclude<T, Function>);
 		} catch (error) {
 			console.error(error);
 		}

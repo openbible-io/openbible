@@ -1,6 +1,6 @@
-import { ParagraphType } from '../../utils/books'
+import { ParagraphType } from '../../utils/books';
 import { Verse } from '../verse/verse';
-import styles from './paragraph.module.css'
+import styles from './paragraph.module.css';
 
 function getClass(tag: string) {
 	if (tag == "qa") return styles.qa;

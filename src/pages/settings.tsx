@@ -10,12 +10,12 @@ function capitalize(s: string) {
 export function Settings() {
 	const cssVars = useContext(CssVars);
 	const interaction = useContext(Interaction);
-	const onReset = (ev: any) => {
+	const onReset = (ev: Event) => {
 		ev.preventDefault();
 		type UseType = [() => any, (val: any) => void, () => void];
 		Object.values(cssVars as unknown as UseType[]).forEach(i => i[2]());
 		Object.values(interaction as unknown as UseType[]).forEach(i => i[2]());
-	}
+	};
 
 	return (
 		<>
@@ -40,7 +40,7 @@ export function Settings() {
 				<Reader text="en_ust" book="PSA" chapter={119} canClose={false} />
 			</main>
 		</>
-	)
+	);
 }
 
 interface SettingProps<T> {

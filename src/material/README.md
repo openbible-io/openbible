@@ -1,1 +1,0 @@
-These are Material design components with greatly reduced size

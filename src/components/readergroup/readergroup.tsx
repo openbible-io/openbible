@@ -1,7 +1,7 @@
 import { For } from 'solid-js';
-import { Reader, ReaderProps } from '../reader/reader'
-import { BookName, useLocalStorage } from '../../utils'
-import styles from './readergroup.module.css'
+import { Reader, ReaderProps } from '../reader/reader';
+import { BookName, useLocalStorage } from '../../utils';
+import styles from './readergroup.module.css';
 
 export function ReaderGroup() {
 	// Used only for initial reader loading and saving layout to local storage.
@@ -20,7 +20,7 @@ export function ReaderGroup() {
 			text: 'en_ust',
 			book: 'MAT' as BookName,
 			chapter: 1,
-		})
+		});
 		setReaders(newReaders);
 	}
 
@@ -55,5 +55,5 @@ export function ReaderGroup() {
 				</>
 			}
 		</For>
-	)
+	);
 }

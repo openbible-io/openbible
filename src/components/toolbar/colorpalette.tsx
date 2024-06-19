@@ -1,5 +1,4 @@
-import { h } from 'preact'
-import styles from './colorpalette.module.css'
+import styles from './colorpalette.module.css';
 
 interface ColorPaletteProps {
 	onSelect: (color: string) => void;
@@ -31,7 +30,7 @@ export function ColorPalette(props: ColorPaletteProps) {
 			'rgb(153,0,255)',
 			'rgb(255,0,255)',
 		],
-	]
+	];
 
 	return (
 		<table class={styles.table}>
@@ -50,5 +49,5 @@ export function ColorPalette(props: ColorPaletteProps) {
 				)}
 			</tbody>
 		</table>
-	)
+	);
 }

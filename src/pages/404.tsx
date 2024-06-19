@@ -1,4 +1,4 @@
-import { Nav } from '../components'
+import { Nav } from '../components';
 import { Location } from '@solidjs/router';
 
 export function NotFound(props: { location: Location }) {
@@ -9,5 +9,5 @@ export function NotFound(props: { location: Location }) {
 				{props.location.pathname} not found
 			</div>
 		</>
-	)
+	);
 }

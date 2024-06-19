@@ -1,8 +1,8 @@
 import { render } from 'solid-js/web';
 import { Router, Route } from '@solidjs/router';
-import { Home, About, Settings, NotFound } from './pages'
+import { Home, About, Settings, NotFound } from './pages';
 import { createInteraction, Interaction, createCssVars, CssVars } from './settings';
-import './app.css'
+import './app.css';
 
 function App() {
 	return (
@@ -16,7 +16,7 @@ function App() {
 				</Router>
 			</CssVars.Provider>
 		</Interaction.Provider>
-	)
+	);
 }
 
-render(App, document.getElementById('root') as HTMLElement)
+render(App, document.getElementById('root') as HTMLElement);

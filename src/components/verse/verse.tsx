@@ -1,7 +1,7 @@
 import { useContext } from 'solid-js';
 import { VerseType } from '../../utils';
-import { Interaction } from '../../settings'
-import styles from './verse.module.css'
+import { Interaction } from '../../settings';
+import styles from './verse.module.css';
 
 export function Verse(props: VerseType) {
 	const interaction = useContext(Interaction);

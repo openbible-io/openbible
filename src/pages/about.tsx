@@ -1,4 +1,4 @@
-import { Nav } from '../components'
+import { Nav } from '../components';
 
 export function About() {
 	return (
@@ -13,5 +13,5 @@ export function About() {
 				</div>
 			</main>
 		</>
-	)
+	);
 }

@@ -4,7 +4,7 @@ import { ParagraphType } from '../../utils/books';
 import { Paragraph } from '../paragraph/paragraph';
 import { ForwardIcon, BackwardIcon } from '../../icons';
 import styles from './reader.module.css';
-import paraStyles from '../paragraph/paragraph.module.css'
+import paraStyles from '../paragraph/paragraph.module.css';
 
 const clamp = (num: number, min: number, max: number) => Math.min(Math.max(num, min), max);
 
@@ -23,28 +23,18 @@ export function Reader(props: ReaderProps) {
 	const [book, setBook] = createSignal(props.book);
 	const [chapter, setChapter] = createSignal(props.chapter);
 
-	const [paragraphs, setParagraphs] = createSignal<ParagraphType[]>([])
-	const [divRef, setDivRef] = createSignal<HTMLDivElement>()
+	const [paragraphs, setParagraphs] = createSignal<ParagraphType[]>([]);
+	const [divRef, setDivRef] = createSignal<HTMLDivElement>();
 
 	createEffect(() => {
 		getChapter(text(), book(), chapter()).then(p => {
 			setParagraphs(p);
 			const ref = divRef();
-			if (ref) ref.scrollTop = 0
+			if (ref) ref.scrollTop = 0;
 		});
 		if (props.onNavChange) props.onNavChange(text(), book(), chapter());
 	});
 
-	function onBookChange(ev: any) {
-		const newBook = ev.target.value as BookName;
-		batch(() => {
-			setBook(newBook);
-			setChapter(clamp(props.chapter, 1, books[newBook].chapters));
-		});
-	}
-
-	const onChapterChange = (ev: any) => setChapter(ev.target.value);
-	const onTextChange = (ev: any) => setText(ev.target.value);
 	const nextChapter = () => setChapter(c => clamp(c + 1, 1, books[book()].chapters));
 	const prevChapter = () => setChapter(c => clamp(c - 1, 1, books[book()].chapters));
 	const prevDisabled = createMemo(() => chapter() == 1);
@@ -58,18 +48,24 @@ export function Reader(props: ReaderProps) {
 		<article class={styles.article}>
 			<div class={styles.navContainer}>
 				<nav>
-					<select name="book" value={book()} onChange={onBookChange}>
+					<select name="book" value={book()} onChange={ev => {
+						const newBook = ev.target.value as BookName;
+						batch(() => {
+							setBook(newBook);
+							setChapter(clamp(props.chapter, 1, books[newBook].chapters));
+						});
+					}}>
 						{Object.entries(books).map(([key, val]) =>
 							<option value={key}>{val.name}</option>
 						)}
 					</select>
-					<select name="chapter" value={chapter()} onChange={onChapterChange}>
-						{Array.apply(null, Array(books[props.book].chapters))
+					<select name="chapter" value={chapter()} onChange={ev => setChapter(+ev.target.value)}>
+						{[...Array(books[props.book].chapters).keys()]
 							.map((_el: unknown, i: number) =>
 								<option value={i + 1}>{i + 1}</option>
 						)}
 					</select>
-					<select name="text" value={props.text} onChange={onTextChange}>
+					<select name="text" value={props.text} onChange={ev => setText(ev.target.value)}>
 						{Object.entries(texts).map(([key]) =>
 							<option value={key}>{key}</option>
 						)}
@@ -110,7 +106,7 @@ export function Reader(props: ReaderProps) {
 				</button>
 			</div>
 		</article>
-	)
+	);
 }
 
 function Loading() {
