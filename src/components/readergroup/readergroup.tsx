@@ -15,7 +15,7 @@ export function ReaderGroup() {
 	);
 
 	function onAddReader(index: number) {
-		const newReaders = readers();
+		const newReaders = [...readers()];
 		newReaders.splice(index + 1, 0, {
 			text: 'en_ust',
 			book: 'MAT' as BookName,
@@ -25,7 +25,7 @@ export function ReaderGroup() {
 	}
 
 	function onCloseReader(index: number) {
-		const newReaders = readers();
+		const newReaders = [...readers()];
 		newReaders.splice(index, 1);
 		setReaders(newReaders);
 	}

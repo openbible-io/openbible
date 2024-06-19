@@ -1,7 +1,5 @@
 html {
 	--primary-text-color: #3b4351;
-	/* Subtracted from 6rem */
-	--primary-text-indent: 1rem;
 	--primary-theme-color: #0b8dc4;
 	--primary-font-family: -apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
 	--secondary-font-family: "Sentinel A", "Sentinel B", "Gentium Plus", Ezra, Georgia, Times, serif;
@@ -30,6 +28,7 @@ input, select, button {
 main {
 	display: flex;
 	min-height: 0;
+	flex-grow: 1;
 	padding: .2rem .4rem;
 }
 h2 {

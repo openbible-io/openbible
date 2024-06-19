@@ -25,7 +25,7 @@ frontend
 	- [x] global font size
 	- [x] sticky footer buttons
 	- [x] json prefetch
-	- linter
+	- [x] linter
 	- nicer layout
 		- stacking
 		- breakpoints

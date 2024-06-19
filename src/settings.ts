@@ -6,7 +6,6 @@ export const createInteraction = () => ({
 });
 export const createCssVars = () => ({
 	'--primary-text-color': useUserStyle('--primary-text-color'),
-	'--primary-text-indent': useUserStyle('--primary-text-indent'),
 	'--primary-theme-color': useUserStyle('--primary-theme-color'),
 	'--primary-font-family': useUserStyle('--primary-font-family'),
 	'--secondary-font-family': useUserStyle('--secondary-font-family'),
