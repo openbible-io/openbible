@@ -3,24 +3,20 @@ import { Reader, ReaderProps } from '../reader/reader';
 import { BookName, useLocalStorage } from '../../utils';
 import styles from './readergroup.module.css';
 
+const defaultReaders = [
+	{ text: 'en_ust', book: 'GEN' as BookName, chapter: 1 },
+	{ text: 'en_ust', book: 'MAT' as BookName, chapter: 1 },
+];
+
 export function ReaderGroup() {
 	// Used only for initial reader loading and saving layout to local storage.
 	// Each reader controls its own state.
-	const [readers, setReaders] = useLocalStorage<ReaderProps[]>(
-		'readers',
-		[
-			{ text: 'en_ust', book: 'LUK' as BookName, chapter: 4 },
-			{ text: 'en_ust', book: 'PSA' as BookName, chapter: 119 },
-		]
-	);
+	const [readers, setReaders] = useLocalStorage<ReaderProps[]>('readers', defaultReaders);
+	if (readers().length == 0) setReaders(defaultReaders);
 
 	function onAddReader(index: number) {
 		const newReaders = [...readers()];
-		newReaders.splice(index + 1, 0, {
-			text: 'en_ust',
-			book: 'MAT' as BookName,
-			chapter: 1,
-		});
+		newReaders.splice(index + 1, 0, defaultReaders[0]);
 		setReaders(newReaders);
 	}
 
