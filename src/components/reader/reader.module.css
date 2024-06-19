@@ -15,7 +15,7 @@
 
 .reader {
 	overflow-y: auto;
-	min-height: 0;
+	height: 100%;
 	font-family: var(--reader-font-family);
 	font-size: var(--reader-font-size);
 	padding: var(--reader-padding);

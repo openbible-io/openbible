@@ -1,18 +1,18 @@
 import { useLocalStorage } from './useLocalStorage';
 
 export function useUserStyle(key: string): [() => string, (value: string) => void, () => void] {
-	const userRoot = document.body;
-	const defaultValue = getComputedStyle(userRoot.parentElement as HTMLElement).getPropertyValue(key);
+	const root = document.documentElement;
+	const defaultValue = getComputedStyle(root).getPropertyValue(key);
 	const [state, setState, removeState] = useLocalStorage(key, defaultValue);
-	const initialValue = state() || getComputedStyle(userRoot).getPropertyValue(key);
+	const initialValue = state();
 
 	function set(value: string) {
 		if (value == defaultValue) {
 			removeState();
-			userRoot.style.removeProperty(key);
+			root.style.removeProperty(key);
 		} else {
 			setState(value);
-			userRoot.style.setProperty(key, value);
+			root.style.setProperty(key, value);
 		}
 	}
 	const remove = () => set(defaultValue);

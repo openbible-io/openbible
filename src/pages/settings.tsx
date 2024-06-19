@@ -2,7 +2,6 @@ import { For, useContext } from 'solid-js';
 import { Nav, Reader } from '../components';
 import { Interaction, CssVars } from '../settings';
 import styles from './settings.module.css';
-import readerStyles from '../components/reader/reader.module.css';
 
 function capitalize(s: string) {
 	return s.substring(0, 1).toUpperCase() + s.substring(1);
@@ -38,9 +37,7 @@ export function Settings() {
 					</For>
 					<input type="reset" value="Reset all" />
 				</form>
-				<div class={`${readerStyles.reader} ${styles.testDiv}`}>
-					<Reader text="en_ult" book="PSA" chapter={119} canClose={false} />
-				</div>
+				<Reader text="en_ust" book="PSA" chapter={119} canClose={false} />
 			</main>
 		</>
 	)
@@ -77,10 +74,34 @@ function SettingInput<T>(props: SettingInputProps<T>) {
 			/>
 		);
 	case 'string':
-		const type = props.key.includes('color') ? 'color' : 'text';
+		if (props.key.includes('color')) {
+			return (
+				<input
+					type="color"
+					value={'' + props.getter()}
+					onInput={(ev: any) => props.setter(ev.target.value)}
+				/>
+			);
+		}
+		for (const u of ['rem', 'em', 'px']) {
+			if (val.endsWith(u)) {
+				return (
+					<span>
+						<input
+							type="number"
+							min={0.5}
+							max={2}
+							step={0.01}
+							value={'' + Number.parseFloat(props.getter())}
+							onInput={(ev: any) => props.setter(ev.target.value + u)}
+						/>
+						{u}
+					</span>
+				);
+			}
+		}
 		return (
 			<input
-				type={type}
 				value={'' + props.getter()}
 				onInput={(ev: any) => props.setter(ev.target.value)}
 			/>

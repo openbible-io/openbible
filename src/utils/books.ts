@@ -372,7 +372,7 @@ export function getChapterPath(
 }
 
 export const texts = {
-	'en_ult': 'unfoldingWord® Literal Text',
 	'en_ust': 'unfoldingWord® Simplified Text',
+	'en_ult': 'unfoldingWord® Literal Text',
 }
 

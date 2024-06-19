@@ -12,6 +12,7 @@ export const createCssVars = () => ({
 	'--secondary-font-family': useUserStyle('--secondary-font-family'),
 	'--reader-font-family': useUserStyle('--reader-font-family'),
 	'--reader-font-size': useUserStyle('--reader-font-size'),
+	'--global-font-size': useUserStyle('--global-font-size'),
 });
 
 export const Interaction = createContext<ReturnType<typeof createInteraction>>();

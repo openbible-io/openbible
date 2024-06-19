@@ -1,4 +1,3 @@
-import { h } from 'preact'
 import { ParagraphType } from '../../utils/books'
 import { Verse } from '../verse/verse';
 import styles from './paragraph.module.css'

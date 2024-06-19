@@ -24,7 +24,7 @@
 	flex-grow: 1;
 }
 .navbarBrand {
-	font-size: 2rem;
+	font-size: 2em;
 	color: var(--primary-theme-color);
 	font-weight: 700;
 	margin-right: .5rem;

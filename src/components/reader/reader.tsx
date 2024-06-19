@@ -1,9 +1,10 @@
-import { createSignal, createEffect, For, useContext } from 'solid-js';
-import { getChapter, books, texts, BookName } from '../../utils';
+import { createSignal, createEffect, For, createMemo, batch } from 'solid-js';
+import { getChapter, books, texts, BookName, getChapterPath } from '../../utils';
 import { ParagraphType } from '../../utils/books';
 import { Paragraph } from '../paragraph/paragraph';
 import { ForwardIcon, BackwardIcon } from '../../icons';
 import styles from './reader.module.css';
+import paraStyles from '../paragraph/paragraph.module.css'
 
 const clamp = (num: number, min: number, max: number) => Math.min(Math.max(num, min), max);
 
@@ -18,44 +19,51 @@ export interface ReaderProps {
 }
 
 export function Reader(props: ReaderProps) {
+	const [text, setText] = createSignal(props.text);
+	const [book, setBook] = createSignal(props.book);
+	const [chapter, setChapter] = createSignal(props.chapter);
+
 	const [paragraphs, setParagraphs] = createSignal<ParagraphType[]>([])
 	const [divRef, setDivRef] = createSignal<HTMLDivElement>()
-	const maxChapter = books[props.book].chapters;
 
 	createEffect(() => {
-		getChapter(props.text, props.book, props.chapter).then(p => {
+		getChapter(text(), book(), chapter()).then(p => {
 			setParagraphs(p);
 			const ref = divRef();
 			if (ref) ref.scrollTop = 0
 		});
+		if (props.onNavChange) props.onNavChange(text(), book(), chapter());
 	});
 
-	function onNavChange(text: string, book: BookName, chapter: number) {
-		chapter = clamp(chapter, 1, maxChapter);
-		if (props.onNavChange) props.onNavChange(text, book, chapter)
-	};
-
 	function onBookChange(ev: any) {
-		const book = ev.target.value as BookName
-		const chapter = clamp(props.chapter, 1, books[book].chapters);
-		onNavChange(props.text, book, chapter)
+		const newBook = ev.target.value as BookName;
+		batch(() => {
+			setBook(newBook);
+			setChapter(clamp(props.chapter, 1, books[newBook].chapters));
+		});
 	}
 
-	const onChapterChange = (ev: any) => onNavChange(props.text, props.book, ev.target.value);
-	const onTextChange = (ev: any) => onNavChange(ev.target.value, props.book, props.chapter);
-	const nextChapter = () => onNavChange(props.text, props.book, props.chapter + 1);
-	const prevChapter = () => onNavChange(props.text, props.book, props.chapter - 1);
+	const onChapterChange = (ev: any) => setChapter(ev.target.value);
+	const onTextChange = (ev: any) => setText(ev.target.value);
+	const nextChapter = () => setChapter(c => clamp(c + 1, 1, books[book()].chapters));
+	const prevChapter = () => setChapter(c => clamp(c - 1, 1, books[book()].chapters));
+	const prevDisabled = createMemo(() => chapter() == 1);
+	const nextDisabled = createMemo(() => chapter() == books[book()].chapters);
+	const nextPreload = createMemo(() => nextDisabled()
+		? null
+		: <link rel="prefetch" href={getChapterPath(text(), book(), chapter() + 1)} />
+	);
 
 	return (
 		<article class={styles.article}>
 			<div class={styles.navContainer}>
 				<nav>
-					<select name="book" value={props.book} onChange={onBookChange}>
+					<select name="book" value={book()} onChange={onBookChange}>
 						{Object.entries(books).map(([key, val]) =>
 							<option value={key}>{val.name}</option>
 						)}
 					</select>
-					<select name="chapter" value={props.chapter} onChange={onChapterChange}>
+					<select name="chapter" value={chapter()} onChange={onChapterChange}>
 						{Array.apply(null, Array(books[props.book].chapters))
 							.map((_el: unknown, i: number) =>
 								<option value={i + 1}>{i + 1}</option>
@@ -88,21 +96,26 @@ export function Reader(props: ReaderProps) {
 				class={styles.reader}
 				tabIndex={0}
 			>
-				<For each={paragraphs()}>
+				<For each={paragraphs()} fallback={<Loading />}>
 					{p => <Paragraph {...p} />}
 				</For>
-
-				{paragraphs().length > 0 &&
-					<div class={styles.endNav}>
-						<button disabled={props.chapter == 1} onClick={prevChapter}>
-							<BackwardIcon style={{ fill: '#5f6368' }} />
-						</button>
-						<button disabled={props.chapter == maxChapter} onClick={nextChapter}>
-							<ForwardIcon style={{ fill: '#5f6368' }} />
-						</button>
-					</div>
-				}
+			</div>
+			<div class={styles.endNav}>
+				<button disabled={prevDisabled()} onClick={prevChapter}>
+					<BackwardIcon style={{ fill: '#5f6368' }} />
+				</button>
+				<button disabled={nextDisabled()} onClick={nextChapter}>
+					<ForwardIcon style={{ fill: '#5f6368' }} />
+					{nextPreload()}
+				</button>
 			</div>
 		</article>
 	)
+}
+
+function Loading() {
+	// TODO: skeleton with correct number of verses
+	return (
+		<p class={paraStyles.p} style={{ height: '100vh' }}>Loading</p>
+	);
 }

@@ -6,6 +6,9 @@ business
 - setup donos
 
 backend
+- text index
+	- next button goes next book
+	- number of verses for loading skeleton
 - strongs
 	- USFM official support?
 		- if not, consider other standard format
@@ -18,8 +21,14 @@ backend
 
 frontend
 	- [x] solidjs
+	- [x] nicer setting input for font size
+	- [x] global font size
+	- [x] sticky footer buttons
+	- [x] json prefetch
 	- linter
-	- sticky footer buttons
+	- nicer layout
+		- stacking
+		- breakpoints
 	- rich text edit
 		- highlighting
 		- notes
