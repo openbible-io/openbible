@@ -11,8 +11,7 @@
 		"build:static": "npm run build:en_ust && npm run build:en_ult",
 		"typecheck": "tsc -noEmit",
 		"build:en_ust": "usfm texts/en_ust/*.usfm -o public/en_ust",
-		"build:en_ult": "usfm texts/en_ult/*.usfm -o public/en_ult",
-		"lint": "eslint src"
+		"build:en_ult": "usfm texts/en_ult/*.usfm -o public/en_ult"
 	},
 	"repository": "https://github.com/openbible-io/openbible",
 	"keywords": [
@@ -30,9 +29,6 @@
 	},
 	"devDependencies": {
 		"@openbible/usfm": "^0.1.5",
-		"eslint": "^9.5.0",
-		"globals": "^15.6.0",
-		"typescript-eslint": "^7.13.1",
 		"vite": "^5.3.1",
 		"vite-plugin-solid": "^2.10.2"
 	}
