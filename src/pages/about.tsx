@@ -1,17 +1,12 @@
-import { Nav } from '../components';
+import { repository } from '../../package.json';
 
 export function About() {
 	return (
 		<>
-			<Nav />
-			<main>
-				<div>
-					<h2>About</h2>
-					<p>
-						Open source interactive Bible study tool.
-					</p>
-				</div>
-			</main>
+			<h2>About</h2>
+			<ul>
+				<li><a target="_blank" href={repository as unknown as string}>GitHub</a></li>
+			</ul>
 		</>
 	);
 }

@@ -1,13 +1,5 @@
-import { Nav, ReaderGroup } from '../components';
+import { ReaderGroup } from '../components';
 
 export function Home() {
-	return (
-		<>
-			<Nav />
-			{/*<Toolbar />*/}
-			<main>
-				<ReaderGroup />
-			</main>
-		</>
-	);
+	return <ReaderGroup />;
 }

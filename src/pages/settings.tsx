@@ -1,5 +1,5 @@
 import { For, useContext } from 'solid-js';
-import { Nav, Reader } from '../components';
+import { Reader } from '../components';
 import { Interaction, CssVars } from '../settings';
 import styles from './settings.module.css';
 
@@ -19,26 +19,23 @@ export function Settings() {
 
 	return (
 		<>
-			<Nav />
-			<main>
-				<form class={styles.form} onReset={onReset}>
-					<h2>Interaction</h2>
-					<For each={Object.entries(interaction ?? {})}>
-						{([key, [getter, setter]]) =>
-							<Setting key={key} getter={getter as any} setter={setter as any} />
-						}
-					</For>
+			<form class={styles.form} onReset={onReset}>
+				<h2>Interaction</h2>
+				<For each={Object.entries(interaction ?? {})}>
+					{([key, [getter, setter]]) =>
+						<Setting key={key} getter={getter as any} setter={setter as any} />
+					}
+				</For>
 
-					<h2>CSS Variables</h2>
-					<For each={Object.entries(cssVars ?? {})}>
-						{([key, [getter, setter]]) =>
-							<Setting key={key} getter={getter} setter={setter} />
-						}
-					</For>
-					<input type="reset" value="Reset all" />
-				</form>
-				<Reader text="en_ust" book="PSA" chapter={119} canClose={false} />
-			</main>
+				<h2>CSS Variables</h2>
+				<For each={Object.entries(cssVars ?? {})}>
+					{([key, [getter, setter]]) =>
+						<Setting key={key} getter={getter} setter={setter} />
+					}
+				</For>
+				<input type="reset" value="Reset all" />
+			</form>
+			<Reader text="en_ust" book="PSA" chapter={119} canClose={false} />
 		</>
 	);
 }

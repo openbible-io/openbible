@@ -12,6 +12,7 @@ backend
 - strongs
 	- USFM official support?
 		- if not, consider other standard format
+- move to static.openbible.io
 - greek/hebrew
 - other langs
 - deployment? lang?
