@@ -25,6 +25,10 @@ body {
 input, select, button {
 	font-size: calc(var(--global-font-size) * 0.83333);
 }
+input[type="checkbox"] {
+	width: calc(var(--global-font-size) * 0.83333);
+	height: calc(var(--global-font-size) * 0.83333);
+}
 main {
 	display: flex;
 	min-height: 0;
