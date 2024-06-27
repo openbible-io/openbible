@@ -75,6 +75,13 @@ export function Reader(props: ReaderProps) {
 						}
 						</For>
 					</select>
+					<button disabled={prevDisabled()} onClick={prevChapter}>
+						<BackwardIcon style={{ fill: '#5f6368' }} />
+					</button>
+					<button disabled={nextDisabled()} onClick={nextChapter}>
+						<ForwardIcon style={{ fill: '#5f6368' }} />
+						{nextPreload()}
+					</button>
 				</nav>
 				<div>
 					<button
@@ -100,15 +107,6 @@ export function Reader(props: ReaderProps) {
 				<For each={paragraphs()} fallback={<Loading />}>
 					{p => <Paragraph {...p} />}
 				</For>
-			</div>
-			<div class={styles.endNav}>
-				<button disabled={prevDisabled()} onClick={prevChapter}>
-					<BackwardIcon style={{ fill: '#5f6368' }} />
-				</button>
-				<button disabled={nextDisabled()} onClick={nextChapter}>
-					<ForwardIcon style={{ fill: '#5f6368' }} />
-					{nextPreload()}
-				</button>
 			</div>
 		</article>
 	);
