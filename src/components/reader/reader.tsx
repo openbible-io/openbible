@@ -55,20 +55,25 @@ export function Reader(props: ReaderProps) {
 							setChapter(clamp(props.chapter, 1, books[newBook].chapters));
 						});
 					}}>
-						{Object.entries(books).map(([key, val]) =>
+						<For each={Object.entries(books)}>
+						{([key, val]) =>
 							<option value={key}>{val.name}</option>
-						)}
+						}
+						</For>
 					</select>
 					<select name="chapter" value={chapter()} onChange={ev => setChapter(+ev.target.value)}>
-						{[...Array(books[props.book].chapters).keys()]
-							.map((_el: unknown, i: number) =>
-								<option value={i + 1}>{i + 1}</option>
-						)}
+						<For each={Array(books[book()].chapters)}>
+						{(_, i) =>
+							<option value={i() + 1}>{i() + 1}</option>
+						}
+						</For>
 					</select>
 					<select name="text" value={props.text} onChange={ev => setText(ev.target.value)}>
-						{Object.entries(texts).map(([key]) =>
+						<For each={Object.keys(texts)}>
+						{key =>
 							<option value={key}>{key}</option>
-						)}
+						}
+						</For>
 					</select>
 				</nav>
 				<div>
