@@ -11,11 +11,9 @@ export function Nav() {
 			<nav class={styles.navbarGrow}>
 				<ul class={styles.navbar}>
 					<li>
-						<h1>
-							<NavLink class={styles.navbarBrand} href="/">
-								Open Bible
-							</NavLink>
-						</h1>
+						<NavLink class={styles.navbarBrand} href="/">
+							Open Bible
+						</NavLink>
 					</li>
 				</ul>
 			</nav>

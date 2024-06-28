@@ -7,7 +7,12 @@ html {
 	--reader-font-family: "Libre Baskerville", "Sentinel A", "Sentinel B", "Gentium Plus", Ezra, Georgia, Times, serif;
 	--reader-font-size: 1.1em;
 	--global-font-size: 1.2em;
-	--select-verse-nums: none;
+	--verse-num-user-select: none;
+	--verse-num-display: none; /* inline */
+	--sr-display: none; /* block */
+	--h-display: none; /* block */
+	--first-chapter-letter-weight: bold;
+	--first-chapter-letter-size: 2em;
 }
 html,
 body {
@@ -35,6 +40,9 @@ main {
 	min-height: 0;
 	flex-grow: 1;
 	padding: .2rem .4rem;
+}
+h1 {
+	font-size: 1.6em;
 }
 h2 {
 	font-size: 1.5em;

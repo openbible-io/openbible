@@ -1,6 +1,6 @@
-import { For, useContext } from 'solid-js';
+import { For, useContext, JSX, Switch, Match } from 'solid-js';
 import { Reader } from '../components';
-import { CssVars } from '../settings';
+import { cssVars, CssVars, CssVar, CssVarControl } from '../settings';
 import styles from './settings.module.css';
 
 function capitalize(s: string) {
@@ -21,7 +21,7 @@ export function Settings() {
 				<h2>CSS Variables</h2>
 				<For each={Object.entries(cssVars ?? {})}>
 					{([key, [getter, setter]]) =>
-						<Setting key={key} getter={getter} setter={setter} />
+						<Setting key={key as CssVar} getter={getter} setter={setter} />
 					}
 				</For>
 				<input type="reset" value="Reset all" />
@@ -31,100 +31,82 @@ export function Settings() {
 	);
 }
 
-interface SettingProps<T> {
-	key: string;
-	getter: () => T;
-	setter: (v: T) => void
+interface SettingProps {
+	key: CssVar;
+	getter: () => string;
+	setter: (v: string) => void
 }
-function Setting<T>(props: SettingProps<T>) {
+function Setting(props: SettingProps) {
+	const control = cssVars[props.key] as Partial<CssVarControl>;
+	const label = control.label ?? capitalize(props.key.replaceAll('-', ' ').trim());
 	return (
 		<p>
-			<label>{capitalize(props.key.replaceAll('-', ' ').trim())}</label>
+			<label>{label}</label>
 			<SettingInput {...props} />
 		</p>
 	);
 }
 
-interface SettingInputProps<T> {
-	key: string;
-	getter: () => T;
-	setter: (v: T) => void
+interface SettingInputProps {
+	key: CssVar;
+	getter: () => string;
+	setter: (v: string) => void
 }
-function SettingInput<T>(props: SettingInputProps<T>) {
-	if (props.key == '--select-verse-nums') {
-		return (
-			<input
-				type="checkbox"
-				checked={props.getter() != 'none'}
-				onInput={ev => props.setter(ev.target.checked ? 'inherit' : 'none')}
-			/>
-		);
+function SettingInput(props: SettingInputProps) {
+	const control = cssVars[props.key] as Partial<CssVarControl>;
+	let type = control.type;
+	let suffix = '';
+	let inputProps: Partial<JSX.InputHTMLAttributes<HTMLInputElement>> = {};
+	let toString = cssVars[props.key].toString ?? (a => a.toString());
+
+	if (!type) {
+		if (props.key.endsWith('color')) {
+			type = 'color';
+		} else if (props.key.endsWith('size')) {
+			type = 'number';
+			suffix = props.getter().replace(/\d+(\.\d+)?/, '');
+			inputProps = {
+				min: control.min ?? 0.5,
+				max: control.max ?? 2,
+				step: control.step ?? 0.01,
+			};
+		} else {
+			type = 'text';
+		}
 	}
-	const val = props.getter();
-	switch (typeof val) {
-	case 'boolean':
-		return (
-			<input
-				type="checkbox"
-				checked={props.getter() as boolean}
-				onInput={ev => props.setter(ev.target.checked as T)}
-			/>
-		);
-	case 'string':
-		if (props.key.includes('color')) {
-			return (
+
+	return (
+		<Switch>
+			<Match when={type == 'number'}>
+				<span>
+					<input
+						type={type}
+						value={parseFloat(props.getter())}
+						onInput={(ev: any) => props.setter(ev.target.value + suffix)}
+						{...inputProps}
+					/>
+					{suffix}
+				</span>
+			</Match>
+			<Match when={type == 'checkbox'}>
 				<input
-					type="color"
-					value={'' + props.getter()}
-					onInput={(ev: any) => props.setter(ev.target.value)}
+					type={type}
+					checked={props.getter() == toString(true)}
+					onInput={(ev: any) => props.setter(toString(ev.target.checked))}
+					{...inputProps}
 				/>
-			);
-		}
-		for (const u of ['rem', 'em', 'px']) {
-			if (val.endsWith(u)) {
-				return (
-					<span>
-						<input
-							type="number"
-							min={0.5}
-							max={2}
-							step={0.01}
-							value={'' + Number.parseFloat(props.getter())}
-							onInput={(ev: any) => props.setter(ev.target.value + u)}
-						/>
-						{u}
-					</span>
-				);
-			}
-		}
-		return (
-			<input
-				value={'' + props.getter()}
-				onInput={(ev: any) => props.setter(ev.target.value)}
-			/>
-		);
-	}
-	if (Array.isArray(val)) {
-		return (
-			<ol>
-				<For each={val}>
-					{(_, index) =>
-						<li>
-							<SettingInput
-								key={props.key}
-								getter={() => (props.getter() as unknown[])[index()]}
-								setter={v => {
-									const old = (props.getter() as unknown[])[index()] as unknown[];
-									old[index()] = v;
-									props.setter(old as T);
-								}}
-							/>
-						</li>
-					}
-				</For>
-			</ol>
-		);
-	} else {
-		console.warn('unknown setting type', typeof val);
-	}
+			</Match>
+			<Match when={['color', 'text'].includes(type)}>
+				<input
+					type={type}
+					value={props.getter()}
+					onInput={(ev: any) => props.setter(ev.target.value)}
+					{...inputProps}
+				/>
+			</Match>
+			<Match when={true}>
+				Need control for {type}
+			</Match>
+		</Switch>
+	);
 }

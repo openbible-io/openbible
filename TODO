@@ -1,22 +1,3 @@
-backend
-- [x] HTML vs JSON
-	- move to static.openbible.io
-	- mergeable format
-- [x] manifest
-	- [x] next button goes next book
-		- [x] next button in top <nav>
-	- [ ] infiniscroll
-	- [x] number of verses for loading skeleton
-- strongs
-	- USFM official support?
-		- if not, consider other standard format
-- greek/hebrew
-- other langs
-- search
-	- deployment? lang?
-- user accounts
-	- federated?
-
 frontend
 	- [x] solidjs
 	- [x] nicer setting input for font size
@@ -24,19 +5,21 @@ frontend
 	- [x] sticky footer buttons
 	- [x] json prefetch
 	- [x] linter
-	- [ ] translation metadata page
+	- [ ] translation metadata popup
 	- [ ] nicer layout
 		- [ ] media query for horizontal vs vertical split
 		- [ ] resizing
 	- [ ] styles
 		- [x] paragraph indents
 		- [x] list styles (good enough for now)
-		- [ ] verse numbers
-	- [ ] settings
-		- [ ] show/hide verse numbers
-		- [ ] show/hide chapter markers
-			- [ ] title
-			-  [ ] first letter
+		- [x] verse numbers
+		- [ ] forward/backward buttons
+	- [ ] infiniscroll
+	- [x] settings
+		- [x] show/hide verse numbers
+		- [x] show/hide chapter markers
+			- [x] title
+			-  [x] first letter
 	- rich text edit
 		- highlighting
 		- notes

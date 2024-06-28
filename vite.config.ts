@@ -31,7 +31,7 @@ export default defineConfig(async ({ mode }) => {
 	if (mode == 'development' || mode == 'master') {
 		await setStatic(['http://localhost:3003', staticProd]);
 	} else if (mode == 'staging') {
-		setEnv('STATIC_URL', staticStaging);
+		await setStatic(['http://localhost:3003', staticStaging]);
 	} else {
 		setEnv('STATIC_URL', staticProd);
 	}
