@@ -28,12 +28,10 @@ async function setStatic(options: string[]) {
 
 export default defineConfig(async ({ mode }) => {
 	console.log('mode', mode);
-	if (mode == 'development' || mode == 'master') {
-		await setStatic(['http://localhost:3003', staticProd]);
-	} else if (mode == 'staging') {
-		await setStatic(['http://localhost:3003', staticStaging]);
-	} else {
+	if (mode == 'master') {
 		setEnv('STATIC_URL', staticProd);
+	} else {
+		await setStatic(['http://localhost:3003', staticStaging]);
 	}
 
 	return {
