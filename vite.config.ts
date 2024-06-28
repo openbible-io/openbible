@@ -27,13 +27,15 @@ async function setStatic(options: string[]) {
 }
 
 export default defineConfig(async ({ mode }) => {
-	if (mode == 'development') {
-		await setStatic(['http://localhost:3334', staticProd]);
+	console.log('mode', mode);
+	if (mode == 'development' || mode == 'master') {
+		await setStatic(['http://localhost:3003', staticProd]);
 	} else if (mode == 'staging') {
 		setEnv('STATIC_URL', staticStaging);
 	} else {
 		setEnv('STATIC_URL', staticProd);
 	}
+
 	return {
 		plugins: [
 			solidPlugin(),
