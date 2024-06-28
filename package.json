@@ -6,7 +6,7 @@
 	"type": "module",
 	"scripts": {
 		"start": "vite --mode=$(git rev-parse --abbrev-ref HEAD)",
-		"build": "vite build",
+		"build": "vite build --mode=$(git rev-parse --abbrev-ref HEAD)",
 		"serve": "vite preview"
 	},
 	"repository": "https://github.com/openbible-io/openbible",
