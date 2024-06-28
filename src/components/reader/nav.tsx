@@ -1,7 +1,7 @@
-import { createSignal, createEffect, For, batch } from 'solid-js';
+import { createSignal, createEffect, For, batch, Switch, Match, Suspense, createResource } from 'solid-js';
 import { getChapterPath, BookId, bookNames } from '../../utils';
-import { ForwardIcon, BackwardIcon } from '../../icons';
-import { bibleIndices } from '../../settings';
+import { CaretForwardIcon, CaretBackIcon, InfoIcon } from '../../icons/index';
+import { bibleIndices, BibleIndices, BibleIndex } from '../../settings';
 import styles from './nav.module.css';
 
 export interface ReaderNavProps {
@@ -18,16 +18,24 @@ export function ReaderNav(props: ReaderNavProps) {
 	const [chapter, setChapter] = createSignal(props.chapter);
 	createEffect(() => props.onNavChange(version(), book(), chapter()));
 
+
 	const [indices] = bibleIndices();
 	const getIndices = () => indices() ?? {
 		// Assume requested nav exists on static url.
 		[version()]: {
+			publisher: 'Unknown',
+			title: 'Unknown',
+			date: 'Unknown',
+			modified: 'Unknown',
+			license: 'Unknown',
+			authors: ['Unknown'],
 			books: {
 				[book()]: [chapter()],
 			}
 		}
-	};
-	const books = () => Object.keys(getIndices()[version()].books) as BookId[];
+	} as BibleIndices;
+	const versionInfo = () => getIndices()[version()];
+	const books = () => Object.keys(versionInfo().books) as BookId[];
 	function chapters(): number[] {
 		const nChaptersOrChapters = getIndices()[version()].books[book()];
 		if (Array.isArray(nChaptersOrChapters)) return nChaptersOrChapters;
@@ -90,6 +98,10 @@ export function ReaderNav(props: ReaderNavProps) {
 					{v => <option value={v}>{v.substring(3)}</option>}
 				</For>
 			</select>
+			<button popoverTarget="version-info">
+				<InfoIcon style={{ fill: '#5f6368' }} width="1rem" height="1rem" />
+			</button>
+			<VersionInfo version={version()} {...versionInfo()} />
 			<select name="book" value={book()} onChange={ev => onBookChange(ev.target.value as BookId)}>
 				<For each={books()}>
 					{b => <option value={b}>{bookNames[b]}</option>}
@@ -101,12 +113,73 @@ export function ReaderNav(props: ReaderNavProps) {
 				</For>
 			</select>
 			<button disabled={!hasNextChapter(-1)} onClick={() => nextChapter(-1)}>
-				<BackwardIcon style={{ fill: '#5f6368' }} />
+				<CaretBackIcon style={{ fill: '#5f6368' }} width="1rem" height="1rem" />
 			</button>
 			<button disabled={!hasNextChapter(1)} onClick={() => nextChapter(1)}>
-				<ForwardIcon style={{ fill: '#5f6368' }} />
+				<CaretForwardIcon style={{ fill: '#5f6368' }} width="1rem" height="1rem" />
 				{nextPreload()}
 			</button>
 		</nav>
+	);
+}
+
+interface VersionInfoProps extends BibleIndex {
+	version: string;
+}
+
+function VersionInfo(props: VersionInfoProps) {
+	type View = 'info' | 'foreword';
+	const [view, setView] = createSignal<View>('info');
+	const [about] = createResource(async () => {
+		if (!props.about) return null;
+		const url = `${import.meta.env['OPENBIBLE_STATIC_URL']}/bibles/${props.version}/${props.about}.html`;
+		console.log(url);
+		return await fetch(url).then(res => res.text()).catch(e => console.error('caught', e));
+	});
+
+	return (
+		<div popover id="version-info" class={styles.versionInfo}>
+			<nav>
+				<ul>
+					{(['info', 'foreword'] as View[]).map(v =>
+						<li>
+							<button onClick={() => setView(v)}>
+								{v}
+							</button>
+						</li>
+					)}
+				</ul>
+			</nav>
+			<Switch>
+				<Match when={view() == 'info'}>
+					<h1>{props.title}</h1>
+					<div>Publisher: {props.publisher}</div>
+					<div>Date: {props.date}</div>
+					<div>Modified: {props.modified}</div>
+					<div>License: {props.license}</div>
+					<div>Authors:
+						<ul class={styles.authors}>
+							<For each={props.authors}>
+								{name => <li>{name}</li>}
+							</For>
+						</ul>
+					</div>
+					<div>Books:
+						<ol>
+							<For each={Object.entries(props.books)}>
+								{([name, n_chapters]) =>
+									<li>{name}, {n_chapters} chapters</li>
+								}
+							</For>
+						</ol>
+					</div>
+				</Match>
+				<Match when={view() == 'foreword'}>
+					<Suspense fallback="Loading...">
+						<div innerHTML={about() ?? ''} />
+					</Suspense>
+				</Match>
+			</Switch>
+		</div>
 	);
 }

@@ -30,6 +30,9 @@
 .navContainer > nav  {
 	flex-grow: 1;
 }
+.navContainer > nav > :is(button, select, input)  {
+	height: 100%;
+}
 .windowButton {
 	padding: 0 .3rem;
 }

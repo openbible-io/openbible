@@ -76,7 +76,7 @@ function SettingInput(props: SettingInputProps) {
 	}
 
 	return (
-		<Switch>
+		<Switch fallback={`Need control for ${type}`}>
 			<Match when={type == 'number'}>
 				<span>
 					<input
@@ -103,9 +103,6 @@ function SettingInput(props: SettingInputProps) {
 					onInput={(ev: any) => props.setter(ev.target.value)}
 					{...inputProps}
 				/>
-			</Match>
-			<Match when={true}>
-				Need control for {type}
 			</Match>
 		</Switch>
 	);

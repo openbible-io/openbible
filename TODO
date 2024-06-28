@@ -9,11 +9,11 @@ frontend
 	- [ ] nicer layout
 		- [ ] media query for horizontal vs vertical split
 		- [ ] resizing
-	- [ ] styles
+	- [x] styles
 		- [x] paragraph indents
 		- [x] list styles (good enough for now)
 		- [x] verse numbers
-		- [ ] forward/backward buttons
+		- [x] forward/backward buttons
 	- [ ] infiniscroll
 	- [x] settings
 		- [x] show/hide verse numbers
@@ -33,3 +33,4 @@ frontend
 	- PWA
 	- print
 	- dark mode
+	- favicon

@@ -11,3 +11,16 @@
 .nav > [name="chapter"] > option {
 	direction: rtl;
 }
+.versionInfo {
+	width: 80%;
+	max-height: 80%;
+}
+.versionInfo > h1 {
+	text-align: center;
+}
+.authors {
+	text-align: center;
+}
+.versionInfo > nav > ul {
+	display: flex;
+}
