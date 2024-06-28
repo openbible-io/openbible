@@ -1,6 +1,6 @@
 import { For, useContext } from 'solid-js';
 import { Reader } from '../components';
-import { Interaction, CssVars } from '../settings';
+import { CssVars } from '../settings';
 import styles from './settings.module.css';
 
 function capitalize(s: string) {
@@ -9,24 +9,15 @@ function capitalize(s: string) {
 
 export function Settings() {
 	const cssVars = useContext(CssVars);
-	const interaction = useContext(Interaction);
 	const onReset = (ev: Event) => {
 		ev.preventDefault();
 		type UseType = [() => any, (val: any) => void, () => void];
 		Object.values(cssVars as unknown as UseType[]).forEach(i => i[2]());
-		Object.values(interaction as unknown as UseType[]).forEach(i => i[2]());
 	};
 
 	return (
 		<>
 			<form class={styles.form} onReset={onReset}>
-				<h2>Interaction</h2>
-				<For each={Object.entries(interaction ?? {})}>
-					{([key, [getter, setter]]) =>
-						<Setting key={key} getter={getter as any} setter={setter as any} />
-					}
-				</For>
-
 				<h2>CSS Variables</h2>
 				<For each={Object.entries(cssVars ?? {})}>
 					{([key, [getter, setter]]) =>
@@ -35,7 +26,7 @@ export function Settings() {
 				</For>
 				<input type="reset" value="Reset all" />
 			</form>
-			<Reader text="en_ust" book="PSA" chapter={119} canClose={false} />
+			<Reader version="en_ust" book="psa" chapter={119} canClose={false} />
 		</>
 	);
 }
@@ -60,6 +51,15 @@ interface SettingInputProps<T> {
 	setter: (v: T) => void
 }
 function SettingInput<T>(props: SettingInputProps<T>) {
+	if (props.key == '--select-verse-nums') {
+		return (
+			<input
+				type="checkbox"
+				checked={props.getter() != 'none'}
+				onInput={ev => props.setter(ev.target.checked ? 'inherit' : 'none')}
+			/>
+		);
+	}
 	const val = props.getter();
 	switch (typeof val) {
 	case 'boolean':

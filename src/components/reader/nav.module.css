@@ -1,0 +1,13 @@
+.nav > [name="version"] {
+	width: 6ch;
+}
+.nav > [name="book"] {
+	width: 16ch;
+}
+.nav > [name="chapter"] {
+	width: 5ch;
+	text-align-last: right;
+}
+.nav > [name="chapter"] > option {
+	direction: rtl;
+}

@@ -7,6 +7,7 @@ html {
 	--reader-font-family: "Libre Baskerville", "Sentinel A", "Sentinel B", "Gentium Plus", Ezra, Georgia, Times, serif;
 	--reader-font-size: 1.1em;
 	--global-font-size: 1.2em;
+	--select-verse-nums: none;
 }
 html,
 body {

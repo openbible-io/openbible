@@ -1,22 +1,19 @@
-business
-- inc
-- state fundraising?
-- 501c3 app
-	- board
-- setup donos
-
 backend
-- text index
-	- next button goes next book
-	- number of verses for loading skeleton
+- [x] HTML vs JSON
+	- move to static.openbible.io
+	- mergeable format
+- [x] manifest
+	- [x] next button goes next book
+		- [x] next button in top <nav>
+	- [ ] infiniscroll
+	- [x] number of verses for loading skeleton
 - strongs
 	- USFM official support?
 		- if not, consider other standard format
-- move to static.openbible.io
 - greek/hebrew
 - other langs
-- deployment? lang?
 - search
+	- deployment? lang?
 - user accounts
 	- federated?
 
@@ -27,16 +24,29 @@ frontend
 	- [x] sticky footer buttons
 	- [x] json prefetch
 	- [x] linter
-	- nicer layout
-		- stacking
-		- breakpoints
+	- [ ] translation metadata page
+	- [ ] nicer layout
+		- [ ] media query for horizontal vs vertical split
+		- [ ] resizing
+	- [ ] styles
+		- [x] paragraph indents
+		- [x] list styles (good enough for now)
+		- [ ] verse numbers
+	- [ ] settings
+		- [ ] show/hide verse numbers
+		- [ ] show/hide chapter markers
+			- [ ] title
+			-  [ ] first letter
 	- rich text edit
 		- highlighting
 		- notes
 			- overlapping
 		- undo/redo
-	- i18n
+		- limit selection to one document
 	- footnotes
 	- inline strongs
+	- a11y
+	- i18n
 	- PWA
-		- mobile selection
+	- print
+	- dark mode

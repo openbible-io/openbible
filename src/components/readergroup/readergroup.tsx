@@ -1,11 +1,11 @@
 import { For } from 'solid-js';
 import { Reader, ReaderProps } from '../reader/reader';
-import { BookName, useLocalStorage } from '../../utils';
+import { useLocalStorage, BookId } from '../../utils';
 import styles from './readergroup.module.css';
 
-const defaultReaders = [
-	{ text: 'en_ust', book: 'GEN' as BookName, chapter: 1 },
-	{ text: 'en_ust', book: 'MAT' as BookName, chapter: 1 },
+export const defaultReaders = [
+	{ version: 'en_ust', book: 'gen' as BookId, chapter: 1 },
+	{ version: 'en_ult', book: 'psa' as BookId, chapter: 1 },
 ];
 
 export function ReaderGroup() {
@@ -26,9 +26,9 @@ export function ReaderGroup() {
 		setReaders(newReaders);
 	}
 
-	function onReaderChange(index: number, text: string, book: BookName, chapter: number) {
+	function onReaderChange(index: number, version: string, book: BookId, chapter: number) {
 		const newReaders = readers();
-		Object.assign(newReaders[index], { text, book, chapter });
+		Object.assign(newReaders[index], { version, book, chapter });
 		setReaders(newReaders);
 	}
 
@@ -37,7 +37,7 @@ export function ReaderGroup() {
 			{(reader, index) =>
 				<>
 					<Reader
-						text={reader.text}
+						version={reader.version}
 						book={reader.book}
 						chapter={reader.chapter}
 						onAddReader={() => onAddReader(index())}

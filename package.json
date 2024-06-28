@@ -7,11 +7,7 @@
 	"scripts": {
 		"start": "vite",
 		"build": "vite build",
-		"serve": "vite preview",
-		"build:static": "npm run build:en_ust && npm run build:en_ult",
-		"typecheck": "tsc -noEmit",
-		"build:en_ust": "usfm texts/en_ust/*.usfm -o public/en_ust",
-		"build:en_ult": "usfm texts/en_ult/*.usfm -o public/en_ult"
+		"serve": "vite preview"
 	},
 	"repository": "https://github.com/openbible-io/openbible",
 	"keywords": [
@@ -21,14 +17,13 @@
 	],
 	"author": "thesmartwon",
 	"license": "MIT",
-	"homepage": "https://github.com/openbible-io/openbible#readme",
+	"homepage": "https://openbible.io",
 	"dependencies": {
 		"@solidjs/router": "^0.13.5",
 		"solid-js": "^1.8.17",
 		"vite-plugin-solid-svg": "^0.8.1"
 	},
 	"devDependencies": {
-		"@openbible/usfm": "0.1.5",
 		"vite": "^5.3.1",
 		"vite-plugin-solid": "^2.10.2"
 	}

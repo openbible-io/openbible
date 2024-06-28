@@ -1,88 +1,42 @@
-import { createSignal, createEffect, For, createMemo, batch } from 'solid-js';
-import { getChapter, books, texts, BookName, getChapterPath } from '../../utils';
-import { ParagraphType } from '../../utils/books';
-import { Paragraph } from '../paragraph/paragraph';
-import { ForwardIcon, BackwardIcon } from '../../icons';
+import { createSignal } from 'solid-js';
+import { ReaderNav } from './nav';
+import { getChapter, BookId } from '../../utils';
 import styles from './reader.module.css';
-import paraStyles from '../paragraph/paragraph.module.css';
-
-const clamp = (num: number, min: number, max: number) => Math.min(Math.max(num, min), max);
 
 export interface ReaderProps {
-	text: string;
-	book: BookName;
+	version: string;
+	book: BookId;
 	chapter: number;
 	onAddReader?: () => void;
 	onCloseReader?: () => void;
-	onNavChange?: (text: string, book: BookName, chapter: number) => void
+	onNavChange?: (version: string, book: string, chapter: number) => void
 	canClose?: boolean;
-}
+};
 
 export function Reader(props: ReaderProps) {
-	const [text, setText] = createSignal(props.text);
-	const [book, setBook] = createSignal(props.book);
-	const [chapter, setChapter] = createSignal(props.chapter);
-
-	const [paragraphs, setParagraphs] = createSignal<ParagraphType[]>([]);
 	const [divRef, setDivRef] = createSignal<HTMLDivElement>();
 
-	createEffect(() => {
-		getChapter(text(), book(), chapter()).then(p => {
-			setParagraphs(p);
+	function onNavChange(version: string, book: BookId, chapter: number) {
+		getChapter(version, book, chapter).then(html => {
 			const ref = divRef();
-			if (ref) ref.scrollTop = 0;
+			if (ref) {
+				ref.scrollTop = 0;
+				ref.innerHTML = html;
+			}
 		});
-		if (props.onNavChange) props.onNavChange(text(), book(), chapter());
-	});
-
-	const nextChapter = () => setChapter(c => clamp(c + 1, 1, books[book()].chapters));
-	const prevChapter = () => setChapter(c => clamp(c - 1, 1, books[book()].chapters));
-	const prevDisabled = createMemo(() => chapter() == 1);
-	const nextDisabled = createMemo(() => chapter() == books[book()].chapters);
-	const nextPreload = createMemo(() => nextDisabled()
-		? null
-		: <link rel="prefetch" href={getChapterPath(text(), book(), chapter() + 1)} />
-	);
+		if (props.onNavChange) props.onNavChange(version, book, chapter);
+	}
 
 	return (
 		<article class={styles.article}>
 			<div class={styles.navContainer}>
-				<nav>
-					<select name="book" value={book()} onChange={ev => {
-						const newBook = ev.target.value as BookName;
-						batch(() => {
-							setBook(newBook);
-							setChapter(clamp(props.chapter, 1, books[newBook].chapters));
-						});
-					}}>
-						<For each={Object.entries(books)}>
-						{([key, val]) =>
-							<option value={key}>{val.name}</option>
-						}
-						</For>
-					</select>
-					<select name="chapter" value={chapter()} onChange={ev => setChapter(+ev.target.value)}>
-						<For each={Array(books[book()].chapters)}>
-						{(_, i) =>
-							<option value={i() + 1}>{i() + 1}</option>
-						}
-						</For>
-					</select>
-					<select name="text" value={props.text} onChange={ev => setText(ev.target.value)}>
-						<For each={Object.keys(texts)}>
-						{key =>
-							<option value={key}>{key}</option>
-						}
-						</For>
-					</select>
-					<button disabled={prevDisabled()} onClick={prevChapter}>
-						<BackwardIcon style={{ fill: '#5f6368' }} />
-					</button>
-					<button disabled={nextDisabled()} onClick={nextChapter}>
-						<ForwardIcon style={{ fill: '#5f6368' }} />
-						{nextPreload()}
-					</button>
-				</nav>
+				<ReaderNav
+					version={props.version}
+					book={props.book}
+					chapter={props.chapter}
+					onNavChange={onNavChange}
+					preload={true}
+				/>
 				<div>
 					<button
 						onClick={props.onAddReader}
@@ -99,22 +53,9 @@ export function Reader(props: ReaderProps) {
 					</button>
 				</div>
 			</div>
-			<div
-				ref={setDivRef}
-				class={styles.reader}
-				tabIndex={0}
-			>
-				<For each={paragraphs()} fallback={<Loading />}>
-					{p => <Paragraph {...p} />}
-				</For>
+			<div ref={setDivRef} class={styles.reader} tabIndex={0}>
+				Loading...
 			</div>
 		</article>
-	);
-}
-
-function Loading() {
-	// TODO: skeleton with correct number of verses
-	return (
-		<p class={paraStyles.p} style={{ height: '100vh' }}>Loading</p>
 	);
 }

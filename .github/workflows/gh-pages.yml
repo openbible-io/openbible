@@ -1,5 +1,5 @@
 name: Build and upload
-on: 
+on:
   push:
     branches: [master]
 permissions:
@@ -8,7 +8,7 @@ permissions:
   id-token: write
 concurrency:
   group: 'pages'
-  cancel-in-progress: false
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -16,12 +16,9 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - uses: actions/checkout@v3
-        with:
-          submodules: true
+      - uses: actions/checkout@v4
       - uses: actions/setup-node@v3
       - run: npm install
-      - run: npm run build:static
       - run: npm run build
       - uses: actions/configure-pages@v3
       - uses: actions/upload-pages-artifact@v1

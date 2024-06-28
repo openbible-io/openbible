@@ -25,7 +25,7 @@ export function Nav() {
 					<li><NavLink href="/settings">Settings</NavLink></li>
 				</ul>
 				<form class={styles.form}>
-					<input placeholder="Search"></input>
+					{/*<input placeholder="Search"></input>*/}
 				</form>
 			</div>
 		</header>
