@@ -33,23 +33,25 @@ export function ReaderGroup() {
 	}
 
 	return (
-		<For each={readers()}>
-			{(reader, index) =>
-				<>
-					<Reader
-						version={reader.version}
-						book={reader.book}
-						chapter={reader.chapter}
-						onAddReader={() => onAddReader(index())}
-						onCloseReader={() => onCloseReader(index())}
-						onNavChange={(text, book, chapter) => onReaderChange(index(), text, book, chapter)}
-						canClose={readers().length > 1}
-					/>
-					{index() !== readers().length - 1 &&
-						<div class={styles.dragbar} />
-					}
-				</>
-			}
-		</For>
+		<div class={styles.readerGroup}>
+			<For each={readers()}>
+				{(reader, index) =>
+					<>
+						<Reader
+							version={reader.version}
+							book={reader.book}
+							chapter={reader.chapter}
+							onAddReader={() => onAddReader(index())}
+							onCloseReader={() => onCloseReader(index())}
+							onNavChange={(text, book, chapter) => onReaderChange(index(), text, book, chapter)}
+							canClose={readers().length > 1}
+						/>
+						{index() !== readers().length - 1 &&
+							<div class={styles.dragbar} />
+						}
+					</>
+				}
+			</For>
+		</div>
 	);
 }

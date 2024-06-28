@@ -4,3 +4,14 @@
 	margin-right: 2px;
 	margin-left: 2px;
 }
+.readerGroup {
+	display: flex;
+}
+@media (max-width: 1200px) {
+	.readerGroup {
+		flex-direction: column;
+	}
+	.readerGroup > article {
+		overflow: auto;
+	}
+}

@@ -9,7 +9,7 @@ export interface ReaderProps {
 	chapter: number;
 	onAddReader?: () => void;
 	onCloseReader?: () => void;
-	onNavChange?: (version: string, book: string, chapter: number) => void
+	onNavChange?: (version: string, book: BookId, chapter: number) => void
 	canClose?: boolean;
 };
 
@@ -37,7 +37,7 @@ export function Reader(props: ReaderProps) {
 					onNavChange={onNavChange}
 					preload={true}
 				/>
-				<div>
+				<div class={styles.windowButtons}>
 					<button
 						onClick={props.onAddReader}
 						class={styles.windowButton}

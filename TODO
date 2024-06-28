@@ -5,9 +5,9 @@ frontend
 	- [x] sticky footer buttons
 	- [x] json prefetch
 	- [x] linter
-	- [ ] translation metadata popup
+	- [x] translation metadata popup
 	- [ ] nicer layout
-		- [ ] media query for horizontal vs vertical split
+		- [x] media query for horizontal vs vertical split
 		- [ ] resizing
 	- [x] styles
 		- [x] paragraph indents
