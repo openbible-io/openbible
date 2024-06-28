@@ -71,10 +71,14 @@ export type BookId = keyof typeof bookNames;
 
 export async function getChapter(version: string, book: BookId, chapter: number): Promise<string> {
 	const path = getChapterPath(version, book, chapter);
-	return fetch(path).then(res => {
-		if (res.ok) return res.text();
-		return 'Error: ' + res.status + '\n' + path;
-	});
+	return fetch(path)
+		.then(res => {
+			if (res.ok) return res.text();
+			return 'Error: ' + res.status + '\n' + path;
+		})
+		.catch(e => {
+			return `<pre>${e.stack}</pre>`;
+		});
 }
 
 export function getChapterPath(version: string, book: BookId, chapter: number) {
