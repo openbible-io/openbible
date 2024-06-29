@@ -69,16 +69,18 @@ export const bookNames = {
 
 export type BookId = keyof typeof bookNames;
 
-export async function getChapter(version: string, book: BookId, chapter: number): Promise<string> {
-	const path = getChapterPath(version, book, chapter);
-	return fetch(path)
+export async function fetchHtml(url: string): Promise<string> {
+	return fetch(url)
 		.then(res => {
 			if (res.ok) return res.text();
-			return 'Error: ' + res.status + '\n' + path;
+			return 'Error: ' + res.status + '\n' + url;
 		})
-		.catch(e => {
-			return `<pre>${e.stack}</pre>`;
-		});
+		.catch(e => `<pre>${e.stack}</pre>`);
+}
+
+export async function getChapter(version: string, book: BookId, chapter: number): Promise<string> {
+	const url = getChapterPath(version, book, chapter);
+	return fetchHtml(url)
 }
 
 export function getChapterPath(version: string, book: BookId, chapter: number) {

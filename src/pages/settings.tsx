@@ -19,14 +19,18 @@ export function Settings() {
 		<>
 			<form class={styles.form} onReset={onReset}>
 				<h2>CSS Variables</h2>
-				<For each={Object.entries(cssVars ?? {})}>
-					{([key, [getter, setter]]) =>
-						<Setting key={key as CssVar} getter={getter} setter={setter} />
-					}
-				</For>
+				<table>
+					<tbody>
+					<For each={Object.entries(cssVars ?? {})}>
+						{([key, [getter, setter]]) =>
+							<Setting key={key as CssVar} getter={getter} setter={setter} />
+						}
+					</For>
+					</tbody>
+				</table>
 				<input type="reset" value="Reset all" />
 			</form>
-			<Reader version="en_ust" book="psa" chapter={119} canClose={false} />
+			<Reader class={styles.settingsReader} version="en_ust" book="psa" chapter={119} canClose={false} />
 		</>
 	);
 }
@@ -40,10 +44,16 @@ function Setting(props: SettingProps) {
 	const control = cssVars[props.key] as Partial<CssVarControl>;
 	const label = control.label ?? capitalize(props.key.replaceAll('-', ' ').trim());
 	return (
-		<p>
-			<label>{label}</label>
-			<SettingInput {...props} />
-		</p>
+		<tr>
+			<td>
+				<label for={props.key}>
+					{label}
+				</label>
+			</td>
+			<td>
+				<SettingInput {...props} />
+			</td>
+		</tr>
 	);
 }
 
@@ -56,7 +66,9 @@ function SettingInput(props: SettingInputProps) {
 	const control = cssVars[props.key] as Partial<CssVarControl>;
 	let type = control.type;
 	let suffix = '';
-	let inputProps: Partial<JSX.InputHTMLAttributes<HTMLInputElement>> = {};
+	let inputProps: Partial<JSX.InputHTMLAttributes<HTMLInputElement>> = {
+		id: props.key,
+	};
 	let toString = cssVars[props.key].toString ?? (a => a.toString());
 
 	if (!type) {
@@ -66,9 +78,10 @@ function SettingInput(props: SettingInputProps) {
 			type = 'number';
 			suffix = props.getter().replace(/\d+(\.\d+)?/, '');
 			inputProps = {
-				min: control.min ?? 0.5,
-				max: control.max ?? 2,
-				step: control.step ?? 0.01,
+				...inputProps,
+				min: control.min ?? 1,
+				max: control.max ?? 100,
+				step: control.step ?? 1,
 			};
 		} else {
 			type = 'text';

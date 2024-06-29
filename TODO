@@ -1,36 +1,54 @@
-frontend
-	- [x] solidjs
-	- [x] nicer setting input for font size
-	- [x] global font size
-	- [x] sticky footer buttons
-	- [x] json prefetch
-	- [x] linter
-	- [x] translation metadata popup
-	- [ ] nicer layout
-		- [x] media query for horizontal vs vertical split
-		- [ ] resizing
-	- [x] styles
-		- [x] paragraph indents
-		- [x] list styles (good enough for now)
-		- [x] verse numbers
-		- [x] forward/backward buttons
-	- [ ] infiniscroll
-	- [x] settings
-		- [x] show/hide verse numbers
-		- [x] show/hide chapter markers
-			- [x] title
-			-  [x] first letter
-	- rich text edit
-		- highlighting
-		- notes
-			- overlapping
-		- undo/redo
-		- limit selection to one document
-	- footnotes
-	- inline strongs
-	- a11y
-	- i18n
-	- PWA
-	- print
-	- dark mode
-	- favicon
+layout
+- [x] media query for horizontal vs vertical split
+- [ ] tiling
+	- [ ] reader nav
+- [ ] infiniscroll
+	- [ ] book titles
+
+settings
+- [x] fix foreword
+	- [x] books table
+- [ ] font select
+- [x] media query hide preview
+
+styles
+- [x] paragraph indents
+- [x] list styles (good enough for now)
+- [x] verse numbers
+- [x] forward/backward buttons
+- [x] font size in px
+- [x] settings in table
+- [x] toolbar overflow
+- [x] header overflow
+- [x] remove first letter bottom margin
+- [ ] pretty buttons
+- [ ] popover padding + borders
+
+footnotes
+- [ ] inline strongs
+
+rich text edit
+- [ ] highlighting
+- [ ] notes
+	- [ ] overlapping
+- [ ] undo/redo
+- [ ] limit selection to one document
+
+a11y
+- [ ] safari + firefox
+- [ ] version number
+- [x] form fields
+
+PWA
+- [ ] meta tags
+- [ ] offline download
+
+i18n
+- [ ] lang setting in header
+	- [ ] autodetect
+
+print
+- [ ] where to even start?
+- dark mode
+	- SVG fill
+- favicon

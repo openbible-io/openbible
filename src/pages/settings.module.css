@@ -1,3 +1,9 @@
 .form {
 	flex: 1;
 }
+
+@media (max-width: 1200px) {
+	.settingsReader {
+		display: none;
+	}
+}

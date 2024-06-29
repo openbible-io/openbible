@@ -3,7 +3,6 @@
 	border-bottom: 1px solid #dadce0;
 	padding-left: 24px;
 	display: flex;
-	flex-wrap: wrap;
 	line-height: 1;
 }
 .button {

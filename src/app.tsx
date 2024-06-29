@@ -1,9 +1,10 @@
 import { render } from 'solid-js/web';
 import { Router, Route, RouteSectionProps } from '@solidjs/router';
-import { Nav } from './components';
+import { Nav } from './components/index';
 import { Home, About, Settings, NotFound } from './pages';
 import { createCssVars, CssVars } from './settings';
 import './app.css';
+import './minireset.css';
 
 function App() {
 	return (

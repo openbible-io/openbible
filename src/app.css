@@ -2,11 +2,10 @@ html {
 	--primary-text-color: #3b4351;
 	--primary-theme-color: #0b8dc4;
 	--primary-font-family: -apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
-	--secondary-font-family: "Sentinel A", "Sentinel B", "Gentium Plus", Ezra, Georgia, Times, serif;
-	--reader-padding: 1rem;
 	--reader-font-family: "Libre Baskerville", "Sentinel A", "Sentinel B", "Gentium Plus", Ezra, Georgia, Times, serif;
-	--reader-font-size: 1.1em;
-	--global-font-size: 1.2em;
+	--reader-font-size: 24px;
+	--global-font-size: 20px;
+	--reader-padding: 0.8rem;
 	--verse-num-user-select: none;
 	--verse-num-display: none; /* inline */
 	--sr-display: none; /* block */
@@ -14,6 +13,70 @@ html {
 	--first-chapter-letter-weight: bold;
 	--first-chapter-letter-size: 2em;
 }
+/*! minireset.css v0.0.6 | MIT License | github.com/jgthms/minireset.css */
+html,
+body,
+p,
+ol,
+ul,
+li,
+dl,
+dt,
+dd,
+blockquote,
+figure,
+fieldset,
+legend,
+textarea,
+pre,
+hr,
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  margin: 0;
+  padding: 0;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-weight: normal;
+}
+
+ul {
+  list-style: none;
+}
+
+html {
+  box-sizing: border-box;
+}
+
+*, *::before, *::after {
+  box-sizing: inherit;
+}
+
+img,
+video {
+  height: auto;
+  max-width: 100%;
+}
+
+table {
+  border-collapse: collapse;
+  border-spacing: 0;
+}
+
+td,
+th {
+  padding: 0;
+}
+/* end minireset */
 html,
 body {
 	font-size: var(--global-font-size);
@@ -30,6 +93,7 @@ body {
 }
 input, select, button {
 	font-size: calc(var(--global-font-size) * 0.83333);
+	margin: 0;
 }
 input[type="checkbox"] {
 	width: calc(var(--global-font-size) * 0.83333);
@@ -39,6 +103,7 @@ main {
 	display: flex;
 	min-height: 0;
 	flex-grow: 1;
+	margin-left: var(--reader-padding);
 }
 h1 {
 	font-size: 1.6em;

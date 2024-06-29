@@ -1,7 +1,7 @@
 .dragbar {
 	cursor: col-resize;
 	border-left: 4px solid gray;
-	margin-right: 2px;
+	margin-right: var(--reader-padding);
 	margin-left: 2px;
 }
 .readerGroup {
@@ -13,5 +13,6 @@
 	}
 	.readerGroup > article {
 		overflow: auto;
+		padding-left: 0;
 	}
 }

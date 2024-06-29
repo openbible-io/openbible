@@ -1,3 +1,9 @@
 export { default as CaretForwardIcon } from './io-caret-forward.svg';
 export { default as CaretBackIcon } from './io-caret-back.svg';
 export { default as InfoIcon } from './io-info-outline.svg';
+export { default as ThreeDotsVerticalIcon } from './bs-three-dots-vertical.svg';
+export { default as SettingsIcon } from './ri-settings.svg';
+export { default as SolidBibleIcon } from './bi-solid-bible.svg';
+export { default as SolidPlusIcon } from './fa-solid-plus.svg';
+export { default as SolidMinusIcon } from './fa-solid-minus.svg';
+export { default as SolidXIcon } from './fa-solid-x.svg';

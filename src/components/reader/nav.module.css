@@ -1,3 +1,12 @@
+.nav {
+	height: 100%;
+	display: inline-flex;
+	flex-wrap: wrap;
+	overflow: hidden;
+}
+.nav > * {
+	height: 100%;
+}
 .nav > [name="version"] {
 	width: 6ch;
 }
@@ -23,4 +32,20 @@
 }
 .versionInfo > nav > ul {
 	display: flex;
+}
+.overflowing {
+	visibility: hidden;
+}
+.vertical {
+	flex-direction: column;
+}
+.vertical > * {
+	width: 100% !important;
+	height: 2rem;
+}
+.nav.vertical > [name="chapter"] {
+	text-align-last: left;
+}
+.nav.vertical > [name="chapter"] > option {
+	direction: ltr;
 }

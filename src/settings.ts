@@ -15,7 +15,6 @@ export const cssVars = {
 	'--primary-text-color': {},
 	'--primary-theme-color': {},
 	'--primary-font-family': {},
-	'--secondary-font-family': {},
 	'--reader-font-family': {},
 	'--reader-font-size': {},
 	'--global-font-size': {},
@@ -67,15 +66,4 @@ export type BibleIndex = {
 	about?: string,
 };
 export type BibleIndices = { [version: string]: BibleIndex };
-
-// only send request once
-let cachedBibleIndices: ResourceReturn<BibleIndices, unknown> | undefined;
-
-export function bibleIndices() {
-	cachedBibleIndices ||= createResource(async () => {
-		return await fetch(`${import.meta.env['OPENBIBLE_STATIC_URL']}/bibles/index.json`)
-			.then(res => res.json() as Promise<BibleIndices>);
-	});
-	return cachedBibleIndices;
-}
 

@@ -1,8 +1,12 @@
-import { createSignal, createEffect, For, batch, Switch, Match, Suspense, createResource } from 'solid-js';
-import { getChapterPath, BookId, bookNames } from '../../utils';
-import { CaretForwardIcon, CaretBackIcon, InfoIcon } from '../../icons/index';
-import { bibleIndices, BibleIndices, BibleIndex } from '../../settings';
+import { createSignal, createEffect, For, batch, Switch, Match, Suspense, createResource, ResourceReturn, onCleanup, Show, JSX, } from 'solid-js';
+import { getChapterPath, BookId, bookNames, fetchHtml } from '../../utils';
+import { CaretForwardIcon, CaretBackIcon, InfoIcon, ThreeDotsVerticalIcon } from '../../icons/index';
+import { Dropdown } from '../index';
+import { BibleIndices, BibleIndex } from '../../settings';
 import styles from './nav.module.css';
+
+// Only fetch this once.
+let indexCache: ResourceReturn<BibleIndices> | undefined;
 
 export interface ReaderNavProps {
 	version: string;
@@ -11,15 +15,19 @@ export interface ReaderNavProps {
 	preload: boolean;
 	onNavChange: (version: string, book: BookId, chapter: number) => void;
 };
-
 export function ReaderNav(props: ReaderNavProps) {
 	const [version, setVersion] = createSignal(props.version);
 	const [book, setBook] = createSignal<BookId>(props.book);
 	const [chapter, setChapter] = createSignal(props.chapter);
 	createEffect(() => props.onNavChange(version(), book(), chapter()));
+	const [isOverflowing, setIsOverflowing] = createSignal(false);
+	const [overflowRef, setOverflowRef] = createSignal<HTMLDivElement>();
 
-
-	const [indices] = bibleIndices();
+	indexCache = indexCache || createResource<BibleIndices>(async () =>
+		 await fetch(`${import.meta.env['OPENBIBLE_STATIC_URL']}/bibles/index.json`)
+			.then(res => res.json() as Promise<BibleIndices>)
+	);
+	const [indices] = indexCache;
 	const getIndices = () => indices() ?? {
 		// Assume requested nav exists on static url.
 		[version()]: {
@@ -63,36 +71,59 @@ export function ReaderNav(props: ReaderNavProps) {
 
 	function nextPreload() {
 		if (!props.preload || !hasNextChapter(1)) return null;
-		return <link rel="prefetch" href={getChapterPath(version(), book(), chapter() + 1)} />
+		const next = getNextChapter(1);
+		return (
+			<link
+				rel="prefetch"
+				crossorigin="anonymous"
+				href={getChapterPath(version(), next.book, next.chapter)}
+			/>
+		);
 	}
 	const bookI = () => books().indexOf(book());
 	const chapterI = () => chapters().indexOf(chapter());
 	const setChapterI = (i: number) => setChapter(chapters()[i]);
 
-	function nextChapter(n: number) {
-		const nextChapter = chapters()[chapterI() + n];
-		if (nextChapter) {
-			setChapter(nextChapter);
-		} else {
-			const nextBook = books()[bookI() + n] as BookId;
-			if (!nextBook) return;
-			batch(() => {
-				setBook(nextBook);
-				if (n > 0) {
-					setChapterI(0);
-				} else {
-					setChapterI(chapters().length - 1);
-				}
-			});
+	function onNextChapter(n: number) {
+		const next = getNextChapter(n);
+		batch(() => {
+			setBook(next.book);
+			setChapter(next.chapter);
+		});
+	}
+
+	function getNextChapter(n: number) {
+		let nextBook = book();
+		let nextChapter = chapters()[chapterI() + n];
+		if (!nextChapter) {
+			nextBook = books()[bookI() + n] as BookId;
+			if (nextBook) {
+				const chaps = chapters();
+				nextChapter = n > 0 ? chaps[0] : chaps[chaps.length - 1];
+			}
 		}
+
+		return { book: nextBook, chapter: nextChapter };
 	}
 
 	function hasNextChapter(n: number): boolean {
 		return Boolean(chapters()[chapterI() + n] || books()[bookI() + n]);
 	}
 
-	return (
-		<nav class={styles.nav}>
+	createEffect(() => {
+		const r = overflowRef();
+		if (!r) return;
+		const observer = new ResizeObserver(() => {
+			setIsOverflowing(isOverflown(r));
+		});
+		observer.observe(r);
+
+		onCleanup(() => observer.disconnect());
+	});
+
+	const Nav = (props: JSX.HTMLAttributes<HTMLElement>) => (
+		<nav {...props}
+		>
 			<select name="version" value={version()} onChange={ev => onVersionChange(ev.target.value)}>
 				<For each={Object.keys(getIndices())}>
 					{v => <option value={v}>{v.substring(3)}</option>}
@@ -112,14 +143,32 @@ export function ReaderNav(props: ReaderNavProps) {
 					{c => <option value={c}>{c}</option>}
 				</For>
 			</select>
-			<button disabled={!hasNextChapter(-1)} onClick={() => nextChapter(-1)}>
+			<button disabled={!hasNextChapter(-1)} onClick={() => onNextChapter(-1)}>
 				<CaretBackIcon style={{ fill: '#5f6368' }} width="1rem" height="1rem" />
 			</button>
-			<button disabled={!hasNextChapter(1)} onClick={() => nextChapter(1)}>
+			<button disabled={!hasNextChapter(1)} onClick={() => onNextChapter(1)}>
 				<CaretForwardIcon style={{ fill: '#5f6368' }} width="1rem" height="1rem" />
 				{nextPreload()}
 			</button>
 		</nav>
+	);
+
+	return (
+		<>
+			<Show when={isOverflowing()}>
+				<Dropdown
+					buttonChildren={
+					<ThreeDotsVerticalIcon style={{ fill: '#5f6368' }} width="1rem" height="1rem" />
+					}
+				>
+					<Nav class={`${styles.nav} ${styles.vertical}`} />
+				</Dropdown>
+			</Show>
+			<Nav
+				classList={{[styles.nav]: true, [styles.overflowing]: isOverflowing() }}
+				ref={setOverflowRef}
+			/>
+		</>
 	);
 }
 
@@ -130,11 +179,11 @@ interface VersionInfoProps extends BibleIndex {
 function VersionInfo(props: VersionInfoProps) {
 	type View = 'info' | 'foreword';
 	const [view, setView] = createSignal<View>('info');
-	const [about] = createResource(async () => {
-		if (!props.about) return null;
+	const [about, setAbout] = createSignal('Loading...');
+	createEffect(() => {
+		if (!props.about) return setAbout('No foreword');
 		const url = `${import.meta.env['OPENBIBLE_STATIC_URL']}/bibles/${props.version}/${props.about}.html`;
-		console.log(url);
-		return await fetch(url).then(res => res.text()).catch(e => console.error('caught', e));
+		fetchHtml(url).then(setAbout);
 	});
 
 	return (
@@ -164,15 +213,6 @@ function VersionInfo(props: VersionInfoProps) {
 							</For>
 						</ul>
 					</div>
-					<div>Books:
-						<ol>
-							<For each={Object.entries(props.books)}>
-								{([name, n_chapters]) =>
-									<li>{name}, {n_chapters} chapters</li>
-								}
-							</For>
-						</ol>
-					</div>
 				</Match>
 				<Match when={view() == 'foreword'}>
 					<Suspense fallback="Loading...">
@@ -183,3 +223,8 @@ function VersionInfo(props: VersionInfoProps) {
 		</div>
 	);
 }
+
+function isOverflown(element: HTMLElement) {
+  return element.scrollHeight > element.clientHeight || element.scrollWidth > element.clientWidth;
+}
+
