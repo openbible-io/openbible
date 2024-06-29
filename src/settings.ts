@@ -18,8 +18,13 @@ export const cssVars = {
 	'--reader-font-family': {},
 	'--reader-font-size': {},
 	'--global-font-size': {},
+	'--h-display': {
+		label: 'Show section headers',
+		type: 'checkbox',
+		toString: (v: boolean) => v ? 'block' : 'none',
+	} as Partial<CssVarControl>,
 	'--sr-display': {
-		label: 'Show section references',
+		label: 'Show section header references',
 		type: 'checkbox',
 		toString: (v: boolean) => v ? 'block' : 'none',
 	} as Partial<CssVarControl>,
@@ -32,11 +37,6 @@ export const cssVars = {
 		label: 'Selectable verse numbers',
 		type: 'checkbox',
 		toString: (v: boolean) => v ? 'auto' : 'none',
-	} as Partial<CssVarControl>,
-	'--h-display': {
-		label: 'Display headers',
-		type: 'checkbox',
-		toString: (v: boolean) => v ? 'block' : 'none',
 	} as Partial<CssVarControl>,
 	'--first-chapter-letter-weight': {},
 	'--first-chapter-letter-size': {},
