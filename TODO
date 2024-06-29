@@ -19,10 +19,12 @@ styles
 - [x] font size in px
 - [x] settings in table
 - [x] toolbar overflow
-- [x] header overflow
+- [ ] header overflow (hide title)
 - [x] remove first letter bottom margin
 - [ ] pretty buttons
+	- [ ] clear disabled styles
 - [ ] popover padding + borders
+- [ ] tabs component
 
 footnotes
 - [ ] inline strongs
