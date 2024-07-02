@@ -4,16 +4,12 @@
 	flex: 1;
 }
 
-.article > header {
-	height: 2rem;
+.article > header:first-child {
+	width: 100%;
 	display: flex;
-	flex-wrap: nowrap;
 }
 .windowButtons {
-	height: 2rem;
 	display: flex;
-	column-gap: 8px;
-	font-size: 1.4rem;
 }
 
 /* libre-baskerville-regular - latin */
@@ -25,7 +21,7 @@
 	src: url('./fonts/libre-baskerville-v7-latin-regular.woff2') format('woff2'), /* Super Modern Browsers */
 			 url('./fonts/libre-baskerville-v7-latin-regular.woff') format('woff'), /* Modern Browsers */
 			 url('./fonts/libre-baskerville-v7-latin-regular.ttf') format('truetype'), /* Safari, Android, iOS */
-			 local('sans-serif'); /* fallback */
+			 local('Arial'); /* fallback */
 }
 .reader {
 	overflow-y: auto;
@@ -34,6 +30,7 @@
 	font-size: var(--reader-font-size);
 	padding-top: var(--reader-padding);
 	padding-right: var(--reader-padding);
+	word-break: break-word;
 }
 .reader > p:first-of-type::first-letter {
 	font-size: var(--first-chapter-letter-size);

@@ -1,4 +1,5 @@
 import { A as Link, AnchorProps as LinkProps } from '@solidjs/router';
+import { FavIcon } from '../../icons/index';
 import styles from './nav.module.css';
 
 const NavLink = (props: Omit<LinkProps, 'activeClass'>) => (
@@ -8,24 +9,18 @@ const NavLink = (props: Omit<LinkProps, 'activeClass'>) => (
 export function Nav() {
 	return (
 		<header class={styles.header}>
-			<nav class={styles.navbarGrow}>
-				<ul class={styles.navbar}>
-					<li>
-						<NavLink class={styles.navbarBrand} href="/">
-							Open Bible
-						</NavLink>
-					</li>
-				</ul>
-			</nav>
-			<div style={{ display: 'flex' }}>
+			<NavLink class={styles.navbarBrand} href="/">
+				<FavIcon height="2rem" width="2rem" />
+			</NavLink>
+			<nav>
 				<ul class={styles.navbar}>
 					<li><NavLink href="/about">About</NavLink></li>
 					<li><NavLink href="/settings">Settings</NavLink></li>
 				</ul>
-				<form class={styles.form}>
-					{/*<input placeholder="Search"></input>*/}
-				</form>
-			</div>
+			</nav>
+			<form class={styles.form}>
+				{/*<input placeholder="Search"></input>*/}
+			</form>
 		</header>
 	);
 }

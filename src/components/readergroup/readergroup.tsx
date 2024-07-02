@@ -4,8 +4,8 @@ import { useLocalStorage, BookId } from '../../utils';
 import styles from './readergroup.module.css';
 
 export const defaultReaders = [
+	// Single reader in case on small display
 	{ version: 'en_ust', book: 'gen' as BookId, chapter: 1 },
-	{ version: 'en_ult', book: 'psa' as BookId, chapter: 1 },
 ];
 
 export function ReaderGroup() {

@@ -6,6 +6,7 @@
 }
 .readerGroup {
 	display: flex;
+	width: 100%;
 }
 @media (max-width: 1200px) {
 	.readerGroup {

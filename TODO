@@ -10,6 +10,8 @@ settings
 	- [x] books table
 - [ ] font select
 - [x] media query hide preview
+- [ ] clear cookies
+- [ ] as drawer (remove settings page)
 
 styles
 - [x] paragraph indents
@@ -19,12 +21,15 @@ styles
 - [x] font size in px
 - [x] settings in table
 - [x] toolbar overflow
-- [ ] header overflow (hide title)
+- [x] header overflow (hide title)
 - [x] remove first letter bottom margin
 - [ ] pretty buttons
 	- [ ] clear disabled styles
 - [ ] popover padding + borders
 - [ ] tabs component
+- [ ] dark mode
+	- [ ] SVG fill
+- [x] favicon
 
 footnotes
 - [ ] inline strongs
@@ -44,6 +49,7 @@ a11y
 PWA
 - [ ] meta tags
 - [ ] offline download
+- [ ] prerender /about
 
 i18n
 - [ ] lang setting in header
@@ -51,6 +57,3 @@ i18n
 
 print
 - [ ] where to even start?
-- dark mode
-	- SVG fill
-- favicon

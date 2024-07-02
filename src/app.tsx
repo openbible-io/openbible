@@ -30,4 +30,4 @@ function Root(props: RouteSectionProps<unknown>) {
 	);
 }
 
-render(App, document.getElementById('root') as HTMLElement);
+render(App, document.body);

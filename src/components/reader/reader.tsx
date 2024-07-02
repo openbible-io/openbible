@@ -1,6 +1,5 @@
-import { createSignal, createUniqueId, JSX, Show } from 'solid-js';
-import { A } from '@solidjs/router';
-import { SettingsIcon, SolidBibleIcon, SolidPlusIcon, SolidXIcon } from '../../icons/index';
+import { createSignal, createUniqueId, JSX } from 'solid-js';
+import { SolidPlusIcon, SolidXIcon } from '../../icons/index';
 import { ReaderNav } from './nav';
 import { getChapter, BookId } from '../../utils';
 import styles from './reader.module.css';
@@ -59,15 +58,13 @@ export function Reader(props: ReaderProps) {
 					onNavChange={onNavChange}
 					preload={true}
 				/>
-				<WindowButtons style={{ visibility: 'hidden' }} /> {/* These are for making ReaderNav overflow */}
-				<WindowButtons style={{
-					position: 'absolute',
-					top: `anchor(${id} top)`,
-					right: `anchor(${id} right)`,
-				}} />
+				<div style="flex: 1" />
+				<WindowButtons />
 			</header>
 			<div ref={setDivRef} class={styles.reader} tabIndex={0}>
-				Loading...
+				<p>
+					Loading...
+				</p>
 			</div>
 		</article>
 	);

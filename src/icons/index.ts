@@ -7,3 +7,4 @@ export { default as SolidBibleIcon } from './bi-solid-bible.svg';
 export { default as SolidPlusIcon } from './fa-solid-plus.svg';
 export { default as SolidMinusIcon } from './fa-solid-minus.svg';
 export { default as SolidXIcon } from './fa-solid-x.svg';
+export { default as FavIcon } from './favicon.svg';

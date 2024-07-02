@@ -1,34 +1,38 @@
-import { JSX, createUniqueId } from 'solid-js';
+import { JSX, createSignal, createUniqueId } from 'solid-js';
 import styles from './dropdown.module.css';
 
 export interface DropdownProps {
-	buttonChildren: JSX.Element;
-	children: JSX.Element;
+	button: JSX.ButtonHTMLAttributes<HTMLButtonElement>;
+	div: JSX.HTMLAttributes<HTMLDivElement>;
 };
 export function Dropdown(props: DropdownProps) {
+	const [button, setButton] = createSignal<HTMLButtonElement>();
 	const id = createUniqueId();
-	const target = `--${createUniqueId()}`;
+	const div = (
+		<div
+			{...props.div}
+			id={id}
+			class={`${props.div.class ?? ''} ${styles.popover}`}
+			popover
+			onBeforeToggle={ev => {
+				const b = button();
+				const d = ev.target;
+				if (!b || !d) return;
+				const { x, y, height } = b.getBoundingClientRect();
+				d.style.left = `${x}px`;
+				d.style.top = `${y + height}px`;
+			}}
+		/>
+	) as HTMLDivElement;
 
 	return (
 		<>
 			<button
+				{...props.button}
+				ref={setButton}
 				popoverTarget={id}
-				popoverTargetAction="toggle"
-				style={`anchor-name: ${target}`}
-			>
-				{props.buttonChildren}
-			</button>
-			<div
-				popover="auto"
-				id={id}
-				class={styles.popover}
-				style={{
-					top: `anchor(${target} bottom)`,
-					left: `anchor(${target} left)`,
-				}}
-			>
-				{props.children}
-			</div>
+			/>
+			{div}
 		</>
 	);
 }

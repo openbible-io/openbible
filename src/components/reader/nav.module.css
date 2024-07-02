@@ -1,20 +1,28 @@
+.container {
+	/*cannot target container itself in @container queries*/
+	/*WHY? idk, wish it was documented*/
+	width: 100%;
+	container: reader-nav / inline-size;
+}
 .nav {
-	height: 100%;
 	display: inline-flex;
 	flex-wrap: wrap;
-	overflow: hidden;
+	width: 100%;
 }
-.nav > * {
-	height: 100%;
+
+@container reader-nav (width > 19em) {
+	.dropdown {
+		display: none;
+	}
+	.popover {
+		display: contents;
+	}
 }
-.nav > [name="version"] {
-	width: 6ch;
+[popover]:popover-open > .nav {
+	flex-direction: column;
 }
-.nav > [name="book"] {
-	width: 16ch;
-}
+
 .nav > [name="chapter"] {
-	width: 5ch;
 	text-align-last: right;
 }
 .nav > [name="chapter"] > option {
@@ -22,7 +30,7 @@
 }
 .versionInfo {
 	width: 80%;
-	max-height: 80%;
+	height: 80%;
 }
 .versionInfo > h1 {
 	text-align: center;
@@ -36,12 +44,13 @@
 .overflowing {
 	visibility: hidden;
 }
-.vertical {
-	flex-direction: column;
+
+.nav.vertical {
+	height: auto;
 }
-.vertical > * {
-	width: 100% !important;
-	height: 2rem;
+.nav.vertical > select,
+.nav.vertical > button {
+	width: 100%;
 }
 .nav.vertical > [name="chapter"] {
 	text-align-last: left;

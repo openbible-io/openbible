@@ -1,4 +1,4 @@
-import { createSignal, createEffect, For, batch, Switch, Match, Suspense, createResource, ResourceReturn, onCleanup, Show, JSX, } from 'solid-js';
+import { createSignal, createEffect, For, batch, Switch, Match, Suspense, createResource, ResourceReturn, JSX, } from 'solid-js';
 import { getChapterPath, BookId, bookNames, fetchHtml } from '../../utils';
 import { CaretForwardIcon, CaretBackIcon, InfoIcon, ThreeDotsVerticalIcon } from '../../icons/index';
 import { Dropdown } from '../index';
@@ -20,8 +20,6 @@ export function ReaderNav(props: ReaderNavProps) {
 	const [book, setBook] = createSignal<BookId>(props.book);
 	const [chapter, setChapter] = createSignal(props.chapter);
 	createEffect(() => props.onNavChange(version(), book(), chapter()));
-	const [isOverflowing, setIsOverflowing] = createSignal(false);
-	const [overflowRef, setOverflowRef] = createSignal<HTMLDivElement>();
 
 	indexCache = indexCache || createResource<BibleIndices>(async () =>
 		 await fetch(`${import.meta.env['OPENBIBLE_STATIC_URL']}/bibles/index.json`)
@@ -110,23 +108,11 @@ export function ReaderNav(props: ReaderNavProps) {
 		return Boolean(chapters()[chapterI() + n] || books()[bookI() + n]);
 	}
 
-	createEffect(() => {
-		const r = overflowRef();
-		if (!r) return;
-		const observer = new ResizeObserver(() => {
-			setIsOverflowing(isOverflown(r));
-		});
-		observer.observe(r);
-
-		onCleanup(() => observer.disconnect());
-	});
-
-	const Nav = (props: JSX.HTMLAttributes<HTMLElement>) => (
-		<nav {...props}
-		>
+	const nav = (
+		<nav class={styles.nav}>
 			<select name="version" value={version()} onChange={ev => onVersionChange(ev.target.value)}>
 				<For each={Object.keys(getIndices())}>
-					{v => <option value={v}>{v.substring(3)}</option>}
+					{v => <option value={v}>{v}</option>}
 				</For>
 			</select>
 			<button popoverTarget="version-info">
@@ -154,21 +140,18 @@ export function ReaderNav(props: ReaderNavProps) {
 	);
 
 	return (
-		<>
-			<Show when={isOverflowing()}>
-				<Dropdown
-					buttonChildren={
-					<ThreeDotsVerticalIcon style={{ fill: '#5f6368' }} width="1rem" height="1rem" />
-					}
-				>
-					<Nav class={`${styles.nav} ${styles.vertical}`} />
-				</Dropdown>
-			</Show>
-			<Nav
-				classList={{[styles.nav]: true, [styles.overflowing]: isOverflowing() }}
-				ref={setOverflowRef}
+		<div class={styles.container}>
+			<Dropdown
+				button={{
+					class: styles.dropdown,
+					children: <ThreeDotsVerticalIcon style={{ fill: '#5f6368' }} width="1rem" height="1rem" />
+				}}
+				div={{
+					class: styles.popover,
+					children: nav
+				}}
 			/>
-		</>
+		</div>
 	);
 }
 

@@ -1,11 +1,12 @@
 .header {
 	padding-left: .5rem;
-	padding-right: .5rem;
+	padding-bottom: .2rem;
 	display: flex;
 	align-items: baseline;
 	flex-wrap: wrap;
 	/* Safari */
 	flex-shrink: 0;
+	container: header / inline-size;
 }
 .navbar {
 	display: flex;
@@ -13,15 +14,10 @@
 	flex-wrap: wrap;
 }
 .navbar > li {
-	margin-left: 3px;
-	margin-right: 3px;
+	margin-left: 1rem;
 }
 .navbar > li > a {
 	color: var(--primary-theme-color);
-}
-.navbarGrow {
-	display: flex;
-	flex-grow: 1;
 }
 .navbarBrand {
 	font-size: 2em;
@@ -29,6 +25,20 @@
 	font-weight: 700;
 	margin-right: .5rem;
 }
+.navbarBrand::after {
+	content: 'Open Bible';
+}
+.navbarBrand > svg {
+	margin-bottom: -0.5rem;
+}
 .form {
 	margin-left: 3px;
+}
+@container header (width < 24rem) {
+	.navbarBrand::after {
+		content: '';
+	}
+	.navbar > li {
+		margin-left: 5vw;
+	}
 }
