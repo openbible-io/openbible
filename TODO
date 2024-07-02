@@ -1,17 +1,25 @@
 layout
 - [x] media query for horizontal vs vertical split
 - [ ] tiling
-	- [ ] reader nav
 - [ ] infiniscroll
 	- [ ] book titles
+	- [ ] chapter titles
+
+bugs
+- [ ] double fetching frt when duplicate tabs
 
 settings
 - [x] fix foreword
 	- [x] books table
 - [ ] font select
+	- [ ] multi select component w/ordering
 - [x] media query hide preview
-- [ ] clear cookies
-- [ ] as drawer (remove settings page)
+- [x] clear cookies
+- [ ] drawer instead of page
+
+about
+- [x] version number
+- [ ] prerender
 
 styles
 - [x] paragraph indents
@@ -42,18 +50,20 @@ rich text edit
 - [ ] limit selection to one document
 
 a11y
-- [ ] safari + firefox
-- [ ] version number
+- [x] safari + firefox
 - [x] form fields
+- [ ] find a voiceover friend
 
 PWA
 - [ ] meta tags
 - [ ] offline download
-- [ ] prerender /about
+
+SEO
+- [ ] more meta tags
 
 i18n
 - [ ] lang setting in header
 	- [ ] autodetect
 
 print
-- [ ] where to even start?
+- [ ] worth?

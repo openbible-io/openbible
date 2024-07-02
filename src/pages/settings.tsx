@@ -29,6 +29,9 @@ export function Settings() {
 					</tbody>
 				</table>
 				<input type="reset" value="Reset all" />
+				<button onClick={() => localStorage.clear()}>
+					Clear localstorage
+				</button>
 			</form>
 			<Reader class={styles.settingsReader} version="en_ust" book="psa" chapter={119} canClose={false} />
 		</>
