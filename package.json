@@ -1,0 +1,14 @@
+{
+	"devDependencies": {
+		"@types/bun": "^1.2.2",
+		"@biomejs/biome": "^1.9.4",
+		"typescript": "^5.7.3"
+	},
+	"workspaces": ["pkgs/*"],
+	"scripts": {
+		"lib": "bun --filter '*' lib",
+		"build": "bun --filter '*' build",
+		"site": "bun --filter '*' site",
+		"clean": "bun --filter '*' clean"
+	}
+}

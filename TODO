@@ -1,0 +1,6 @@
+- [x] parse bsb to zod schema
+- parse metadata to [schema.org book schema](https://github.com/google/schema-dts)
+- move over core site rendering
+	- bun bundle??
+	- book schema to rdfa
+

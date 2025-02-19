@@ -1,0 +1,39 @@
+{
+	"compilerOptions": {
+		// Enable latest features
+		"lib": ["ESNext", "DOM"],
+		"target": "ESNext",
+		"module": "ESNext",
+		"moduleDetection": "force",
+		"jsx": "react-jsx",
+		"jsxImportSource": "preact",
+		"allowJs": true,
+
+		// Bundler mode
+		"moduleResolution": "bundler",
+		"verbatimModuleSyntax": true,
+
+		// Best practices
+		"strict": true,
+		"skipLibCheck": true,
+		"noFallthroughCasesInSwitch": true,
+
+		// Some stricter flags
+		"noUnusedLocals": true,
+		"noUnusedParameters": true,
+		"noPropertyAccessFromIndexSignature": true,
+
+		// Let's also build each package.
+		"rootDir": "${configDir}/src",
+		"outDir": "${configDir}/lib",
+		"composite": true,
+		"incremental": true,
+		"declarationMap": true,
+		"customConditions": ["@openbible/source"]
+	},
+	"include": [
+		"${configDir}/src",
+		"${configDir}/site"
+	],
+	"exclude": ["**/*.test.*", "**/__snapshots__/*", "${configDir}/lib"]
+}

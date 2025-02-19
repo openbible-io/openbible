@@ -1,0 +1,25 @@
+{
+	"name": "@openbible/shareword",
+	"type": "module",
+	"main": "lib/index.js",
+	"types": "lib/index.d.ts",
+	"exports": {
+		".": {
+			"import": {
+				"types": "lib/index.d.ts",
+				"@openbible/source": "src/index.ts",
+				"default": "lib/index.js"
+			}
+		},
+		"./package.json": "package.json"
+	},
+	"devDependencies": {
+		"@openbible/dev-server": "workspace:*",
+		"preact": "^10.26.2"
+	},
+	"scripts": {
+		"build": "tsc",
+		"clean": "rm -rf lib tsconfig.tsbuildinfo",
+		"start": "dev-server ./site/index.html"
+	}
+}
