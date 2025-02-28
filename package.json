@@ -6,7 +6,6 @@
 	},
 	"workspaces": ["pkgs/*"],
 	"scripts": {
-		"lib": "bun --filter '*' lib",
 		"build": "bun --filter '*' build",
 		"site": "bun --filter '*' site",
 		"clean": "bun --filter '*' clean"

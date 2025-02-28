@@ -1,21 +1,21 @@
 {
 	"name": "@openbible/models",
 	"type": "module",
-	"main": "lib/index.js",
-	"types": "lib/index.d.ts",
+	"main": "./dist/index.js",
+	"types": "./dist/index.d.ts",
 	"exports": {
 		".": {
 			"import": {
-				"types": "lib/index.d.ts",
-				"@openbible/source": "src/index.ts",
-				"default": "lib/index.js"
+				"types": "./dist/index.d.ts",
+				"@openbible/source": "./src/index.ts",
+				"default": "./dist/index.js"
 			}
 		},
-		"./package.json": "package.json"
+		"./package.json": "./package.json"
 	},
 	"scripts": {
 		"build": "tsc",
-		"clean": "rm -rf lib tsconfig.tsbuildinfo"
+		"clean": "rm -rf dist tsconfig.tsbuildinfo"
 	},
 	"dependencies": {
 		"schema-dts": "^1.1.2",

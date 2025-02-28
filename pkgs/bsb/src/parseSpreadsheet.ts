@@ -5,14 +5,6 @@ import {
 	type Ref,
 } from "@openbible/models";
 import ExcelJS, { type CellValue, type Worksheet } from "exceljs";
-import { writeFile } from "node:fs/promises";
-//import { encode } from 'cbor-x';
-import { Encoder } from "cbor-x";
-const encoder = new Encoder({
-	pack: true,
-});
-//import {  CborEncoder } from "@jsonjoy.com/json-pack/lib/cbor/CborEncoder";
-//const encoder = new CborEncoder();
 
 type Books = {
 	[book in BookId]?: {
@@ -293,11 +285,13 @@ async function mainWorksheet(fname: string) {
 	throw Error("could not find main worksheet");
 }
 
-export async function parseSpreadsheet(fname: string) {
+async function parseSpreadsheet(fname: string) {
 	const interlinear = await mainWorksheet(fname);
 	return await parseWorksheet(interlinear);
 }
 
-const books = await parseSpreadsheet("./downloads/bsb_tables.xlsx");
-await writeFile("test.cbor2", encoder.encode(books));
-await writeFile("test.json", JSON.stringify(books));
+export async function books(): Promise<Books> {
+	const fname = import.meta.resolve("../downloads/bsb_tables.xlsx").replace("file://", "");
+	console.log(fname);
+	return parseSpreadsheet(fname);
+}

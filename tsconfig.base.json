@@ -25,15 +25,12 @@
 
 		// Let's also build each package.
 		"rootDir": "${configDir}/src",
-		"outDir": "${configDir}/lib",
+		"outDir": "${configDir}/dist",
 		"composite": true,
 		"incremental": true,
 		"declarationMap": true,
 		"customConditions": ["@openbible/source"]
 	},
-	"include": [
-		"${configDir}/src",
-		"${configDir}/site"
-	],
+	"include": ["${configDir}/src"],
 	"exclude": ["**/*.test.*", "**/__snapshots__/*", "${configDir}/lib"]
 }

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "preact/hooks";
+import { useEffect, useRef } from "preact/hooks";
 import type { Doc } from "../src";
 
 function claz(...names: (string | undefined | null)[]): string {
