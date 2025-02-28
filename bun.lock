@@ -9,18 +9,24 @@
         "typescript": "^5.7.3",
       },
     },
-    "pkgs/bsb": {
+    "bibles/bsb": {
       "name": "@openbible/bsb",
-      "dependencies": {
-        "@openbible/models": "workspace:*",
+      "devDependencies": {
+        "@openbible/core": "workspace:*",
         "exceljs": "^4.4.0",
       },
-      "devDependencies": {
+    },
+    "core": {
+      "name": "@openbible/core",
+      "dependencies": {
+        "@openbible/shareword": "workspace:*",
         "@types/progress": "^2.0.7",
         "progress": "^2.0.3",
+        "schema-dts": "^1.1.2",
+        "zod": "^3.24.2",
       },
     },
-    "pkgs/dev-server": {
+    "dev-server": {
       "name": "@openbible/dev-server",
       "bin": {
         "dev-server": "src/cli.ts"
@@ -31,14 +37,7 @@
         "tailwindcss": "^4.0.0",
       },
     },
-    "pkgs/models": {
-      "name": "@openbible/models",
-      "dependencies": {
-        "schema-dts": "^1.1.2",
-        "zod": "^3.24.2",
-      },
-    },
-    "pkgs/shareword": {
+    "shareword": {
       "name": "@openbible/shareword",
       "devDependencies": {
         "@openbible/dev-server": "workspace:*",
@@ -73,13 +72,13 @@
 
     "@fast-csv/parse": ["@fast-csv/parse@4.3.6", "", { "dependencies": { "@types/node": "^14.0.1", "lodash.escaperegexp": "^4.1.2", "lodash.groupby": "^4.6.0", "lodash.isfunction": "^3.0.9", "lodash.isnil": "^4.0.0", "lodash.isundefined": "^3.0.1", "lodash.uniq": "^4.5.0" } }, "sha512-uRsLYksqpbDmWaSmzvJcuApSEe38+6NQZBUsuAyMZKqHxH0g1wcJgsKUvN3WC8tewaqFjBMMGrkHmC+T7k8LvA=="],
 
-    "@openbible/bsb": ["@openbible/bsb@workspace:pkgs/bsb"],
+    "@openbible/bsb": ["@openbible/bsb@workspace:bibles/bsb"],
 
-    "@openbible/dev-server": ["@openbible/dev-server@workspace:pkgs/dev-server"],
+    "@openbible/core": ["@openbible/core@workspace:core"],
 
-    "@openbible/models": ["@openbible/models@workspace:pkgs/models"],
+    "@openbible/dev-server": ["@openbible/dev-server@workspace:dev-server"],
 
-    "@openbible/shareword": ["@openbible/shareword@workspace:pkgs/shareword"],
+    "@openbible/shareword": ["@openbible/shareword@workspace:shareword"],
 
     "@types/bun": ["@types/bun@1.2.2", "", { "dependencies": { "bun-types": "1.2.2" } }, "sha512-tr74gdku+AEDN5ergNiBnplr7hpDp3V1h7fqI2GcR/rsUaM39jpSeKH0TFibRvU0KwniRx5POgaYnaXbk0hU+w=="],
 

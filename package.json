@@ -4,7 +4,7 @@
 		"@biomejs/biome": "^1.9.4",
 		"typescript": "^5.7.3"
 	},
-	"workspaces": ["pkgs/*"],
+	"workspaces": ["shareword", "core", "dev-server", "bibles/*"],
 	"scripts": {
 		"build": "bun --filter '*' build",
 		"site": "bun --filter '*' site",
