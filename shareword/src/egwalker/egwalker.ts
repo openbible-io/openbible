@@ -31,8 +31,8 @@ export class EgWalker {
 	itemsByClock: Item[] = [];
 
 	#target<T>(oplog: OpLog<T>, clock: Clock): Item {
-		const op = oplog.ops[clock];
-		const target = op.delCount ? this.delTargets[clock] : clock;
+		const deleteCount = oplog.deleteCounts[clock];
+		const target = deleteCount ? this.delTargets[clock] : clock;
 		return this.itemsByClock[target];
 	}
 
@@ -45,10 +45,10 @@ export class EgWalker {
 	}
 
 	#apply<T>(oplog: OpLog<T>, clock: Clock, snapshot?: T[]) {
-		const op = oplog.ops[clock];
+		const opPos = oplog.positions[clock];
 
-		if (op.delCount) {
-			const { idx, endPos } = this.#findPos(op.pos, true);
+		if (oplog.deleteCounts[clock]) {
+			const { idx, endPos } = this.#findPos(opPos, true);
 			const item = this.items[idx];
 
 			if (!item.deleted) {
@@ -59,7 +59,7 @@ export class EgWalker {
 
 			this.delTargets[clock] = item.clock;
 		} else {
-			const { idx, endPos } = this.#findPos(op.pos, false);
+			const { idx, endPos } = this.#findPos(opPos, false);
 			const originLeft = idx === 0 ? -1 : this.items[idx - 1].clock;
 
 			let originRight = -1;
@@ -113,8 +113,8 @@ export class EgWalker {
 					? this.items.length
 					: this.#indexOfClock(other.originRight);
 
-			const newItemAgent = oplog.ops[newItem.clock].id.site;
-			const otherAgent = oplog.ops[other.clock].id.site;
+			const newItemAgent = oplog.sites[newItem.clock];
+			const otherAgent = oplog.sites[other.clock];
 
 			if (
 				oleft < left ||
@@ -135,9 +135,8 @@ export class EgWalker {
 
 		this.items.splice(idx, 0, newItem);
 
-		const op = oplog.ops[newItem.clock];
-		//assert(!op.delCount);
-		snapshot?.splice(endPos, 0, op.content);
+		//assert(!oplog.items[newItem.clock]);
+		snapshot?.splice(endPos, 0, oplog.items[newItem.clock]);
 	}
 
 	#indexOfClock(clock: Clock) {
@@ -171,9 +170,8 @@ export class EgWalker {
 	}
 
 	doOp<T>(oplog: OpLog<T>, clock: Clock, snapshot?: T[]) {
-		const op = oplog.ops[clock];
-
-		const { aOnly, bOnly } = oplog.diff(this.currentVersion, op.parents);
+		const parents = oplog.parents[clock];
+		const { aOnly, bOnly } = oplog.diff(this.currentVersion, parents);
 
 		for (const i of aOnly) this.#retreat(oplog, i);
 		for (const i of bOnly) this.#advance(oplog, i);

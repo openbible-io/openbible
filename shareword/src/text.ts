@@ -19,15 +19,13 @@ export class Text {
 	}
 
 	insert(pos: number, text: string) {
-		const inserted = [...text];
-		this.oplog.insert(this.agent, pos, inserted);
-		this.branch.snapshot.splice(pos, 0, ...inserted);
+		this.oplog.insert(this.agent, pos, [...text]);
+		this.branch.snapshot.splice(pos, 0, text);
 		this.branch.frontier = this.oplog.frontier.slice();
 	}
 
 	delete(pos: number, delLen: number) {
 		this.oplog.delete(this.agent, pos, delLen);
-		// this.snapshot = checkout(this.oplog)
 		this.branch.snapshot.splice(pos, delLen);
 		this.branch.frontier = this.oplog.frontier.slice();
 	}
@@ -38,7 +36,6 @@ export class Text {
 
 	merge(other: Text) {
 		this.oplog.merge(other.oplog);
-		// this.snapshot = checkout(this.oplog)
 		this.branch.checkoutFancy(this.oplog);
 	}
 

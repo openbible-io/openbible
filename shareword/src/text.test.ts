@@ -8,7 +8,7 @@ function fuzzer(seed: number) {
 	const randInt = (n: number) => Math.floor(random() * n);
 	const randBool = (weight = 0.5) => random() < weight;
 
-	const alphabet = [..." abcdefghijklmnopqrstuvwxyz"];
+	const alphabet = " abcdefghijklmnopqrstuvwxyz";
 	const randChar = () => alphabet[randInt(alphabet.length)];
 
 	const docs = [
@@ -66,12 +66,12 @@ test("correctness", () => {
 	d1.merge(d2);
 	d2.merge(d1);
 
+	console.table(d1.oplog);
 	const expected = "helloworld"
 	expect(d1.toString()).toBe(expected);
 	expect(d2.toString()).toBe(expected);
 
 	d2.insert(expected.length, "d");
-	console.table(d1.oplog.ops);
 });
 
 test("convergence with fuzzer", () => {
