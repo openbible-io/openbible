@@ -17,12 +17,14 @@ export type Op<T> = {
 	parents: Clock[];
 };
 
+/** An append-only list of immutable operations, similar to Git */
 export class OpLog<T> {
 	ops: Op<T>[] = [];
 	/** Leaf nodes */
 	frontier: Clock[] = [];
 	/** Latest clock value for each site. */
 	version: Record<Site, number> = {};
+	/** Allows storing ops in a columnar fashion */
 	emptyElement: T;
 
 	constructor(emptyElement: T) {

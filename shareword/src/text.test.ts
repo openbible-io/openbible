@@ -33,12 +33,12 @@ function fuzzer(seed: number) {
 				// Insert
 				const content = randChar();
 				const pos = randInt(len + 1);
-				doc.ins(pos, content);
+				doc.insert(pos, content);
 			} else {
 				// delete
 				const pos = randInt(len);
 				const delLen = randInt(Math.min(len - pos, 3));
-				doc.del(pos, delLen);
+				doc.delete(pos, delLen);
 			}
 
 			// doc.check()
@@ -50,15 +50,30 @@ function fuzzer(seed: number) {
 
 		if (a === b) continue;
 
-		a.mergeFrom(b);
-		b.mergeFrom(a);
+		a.merge(b);
+		b.merge(a);
 		expect(a.branch.snapshot).toEqual(b.branch.snapshot);
 	}
 }
 
-test("fuzz 100 x 100", () => {
-	for (let i = 0; i < 100; i++) {
-		console.log("seed", i);
-		fuzzer(i);
-	}
+test("correctness", () => {
+	const d1 = new Text("a");
+	const d2 = new Text("b");
+
+	d1.insert(0, "hello");
+	d2.insert(0, "world");
+
+	d1.merge(d2);
+	d2.merge(d1);
+
+	const expected = "helloworld"
+	expect(d1.toString()).toBe(expected);
+	expect(d2.toString()).toBe(expected);
+
+	d2.insert(expected.length, "d");
+	console.table(d1.oplog.ops);
+});
+
+test("convergence with fuzzer", () => {
+	for (let i = 0; i < 100; i++) fuzzer(i);
 });

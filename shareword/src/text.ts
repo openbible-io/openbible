@@ -1,5 +1,5 @@
-import { Branch } from "./branch";
-import { OpLog } from "./oplog";
+import { Branch } from "./egwalker/branch";
+import { OpLog } from "./egwalker/oplog";
 
 export class Text {
 	oplog: OpLog<string>;
@@ -18,14 +18,14 @@ export class Text {
 			throw Error("Document out of sync");
 	}
 
-	ins(pos: number, text: string) {
+	insert(pos: number, text: string) {
 		const inserted = [...text];
 		this.oplog.insert(this.agent, pos, inserted);
 		this.branch.snapshot.splice(pos, 0, ...inserted);
 		this.branch.frontier = this.oplog.frontier.slice();
 	}
 
-	del(pos: number, delLen: number) {
+	delete(pos: number, delLen: number) {
 		this.oplog.delete(this.agent, pos, delLen);
 		// this.snapshot = checkout(this.oplog)
 		this.branch.snapshot.splice(pos, delLen);
@@ -36,7 +36,7 @@ export class Text {
 		return this.branch.snapshot.join("");
 	}
 
-	mergeFrom(other: Text) {
+	merge(other: Text) {
 		this.oplog.merge(other.oplog);
 		// this.snapshot = checkout(this.oplog)
 		this.branch.checkoutFancy(this.oplog);

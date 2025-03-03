@@ -25,6 +25,6 @@ test("simple", () => {
 
 	d2.insert(expected.length, "d");
 
-	console.log(d2.text())
-	console.dir(d2, { depth: null });
+	//console.log(d2.text())
+	//console.dir(d2, { depth: null });
 });
