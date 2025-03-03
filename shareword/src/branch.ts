@@ -26,15 +26,13 @@ export class Branch<T> {
 				originRight: -1,
 			};
 			doc.items.push(item);
-			doc.itemsByLV[item.clock] = item;
+			doc.itemsByClock[item.clock] = item;
 		}
 
-		for (const lv of sharedOps) {
-			doc.do1Operation(oplog, lv, null);
-		}
+		for (const lv of sharedOps) doc.doOp(oplog, lv);
 
 		for (const lv of bOnlyOps) {
-			doc.do1Operation(oplog, lv, this.snapshot);
+			doc.doOp(oplog, lv, this.snapshot);
 			this.frontier = advanceFrontier(this.frontier, lv, oplog.ops[lv].parents);
 		}
 	}
