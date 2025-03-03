@@ -17,8 +17,6 @@ export class OpLog<T> {
 	/** Allows storing ops in a columnar fashion */
 	emptyElement: T;
 
-	// Columnar storage is faster!
-	/** A node of a causal graph */
 	sites: Site[] = [];
 	clocks: Clock[] = [];
 	parents: Clock[][] = [];
@@ -28,6 +26,26 @@ export class OpLog<T> {
 
 	constructor(emptyElement: T) {
 		this.emptyElement = emptyElement;
+	}
+
+	getSite(clock: Clock): Site {
+		return this.sites[clock];
+	}
+
+	getParents(clock: Clock): Clock[] {
+		return this.parents[clock];
+	}
+
+	getPosition(clock: Clock): number {
+		return this.positions[clock];
+	}
+
+	getDeleteCount(clock: Clock): number {
+		return this.deleteCounts[clock];
+	}
+
+	getItem(clock: Clock): T {
+		return this.items[clock];
 	}
 
 	#pushLocal(site: string, pos: number, deleteCount: number, content: T) {
@@ -49,20 +67,24 @@ export class OpLog<T> {
 		pos: number,
 		deleteCount: number,
 		content: T,
-		parentIds: Id[],
+		parentSites: Site[],
+		parentClocks: Clock[],
 	) {
 		const lastKnownSeq = this.version[site] ?? -1;
 		if (lastKnownSeq >= clock) return;
 
-		const parents = parentIds
-			.map((id) => {
-				for (let i = 0; i < this.sites.length; i++) {
-					if (this.sites[i] === id.site && this.clocks[i] === id.clock)
-						return i;
-				}
-				return -1;
-			})
-			.sort((a, b) => a - b);
+		const parents = [];
+		// assert(parentSites.length == parentSites.length);
+		for (let i = 0; i < parentSites.length; i++) {
+			for (let j = 0; j < this.sites.length; j++) {
+				if (
+					parentSites[i] === this.sites[j] &&
+					parentClocks[i] === this.clocks[j]
+				)
+					parents.push(j);
+			}
+		}
+		parents.sort((a, b) => a - b);
 
 		this.sites.push(site);
 		this.clocks.push(clock);
@@ -90,17 +112,14 @@ export class OpLog<T> {
 
 	merge(src: OpLog<T>) {
 		for (let i = 0; i < src.parents.length; i++) {
-			const parentIds = src.parents[i].map((clock) => ({
-				site: src.sites[clock],
-				clock: src.clocks[clock],
-			}));
 			this.#pushRemote(
 				src.sites[i],
 				src.clocks[i],
 				src.positions[i],
 				src.deleteCounts[i],
 				src.items[i],
-				parentIds,
+				src.parents[i].map((c) => src.sites[c]),
+				src.parents[i].map((c) => src.clocks[c]),
 			);
 		}
 	}

@@ -74,7 +74,7 @@ function generateSplices(corpus: string, nOps: number): Splice[] {
 }
 
 // Generate these ahead of time to run benchmarks quickly.
-const spliceLens = [1e2, 1e5];
+const spliceLens = [1e5];
 const maxSplices = Math.max(...spliceLens);
 const languageSplices = Object.entries(corpuses).reduce(
 	(acc, [lang, corpus]) => {

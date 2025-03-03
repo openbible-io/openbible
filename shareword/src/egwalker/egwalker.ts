@@ -31,7 +31,7 @@ export class EgWalker {
 	itemsByClock: Item[] = [];
 
 	#target<T>(oplog: OpLog<T>, clock: Clock): Item {
-		const deleteCount = oplog.deleteCounts[clock];
+		const deleteCount = oplog.getDeleteCount(clock);
 		const target = deleteCount ? this.delTargets[clock] : clock;
 		return this.itemsByClock[target];
 	}
@@ -45,9 +45,9 @@ export class EgWalker {
 	}
 
 	#apply<T>(oplog: OpLog<T>, clock: Clock, snapshot?: T[]) {
-		const opPos = oplog.positions[clock];
+		const opPos = oplog.getPosition(clock);
 
-		if (oplog.deleteCounts[clock]) {
+		if (oplog.getDeleteCount(clock)) {
 			const { idx, endPos } = this.#findPos(opPos, true);
 			const item = this.items[idx];
 
@@ -72,7 +72,7 @@ export class EgWalker {
 			}
 
 			const item: Item = {
-				clock: clock,
+				clock,
 				originLeft,
 				originRight,
 				deleted: false,
@@ -113,12 +113,12 @@ export class EgWalker {
 					? this.items.length
 					: this.#indexOfClock(other.originRight);
 
-			const newItemAgent = oplog.sites[newItem.clock];
-			const otherAgent = oplog.sites[other.clock];
+			const newItemSite = oplog.getSite(newItem.clock);
+			const otherSite = oplog.getSite(other.clock);
 
 			if (
 				oleft < left ||
-				(oleft === left && oright === right && newItemAgent < otherAgent)
+				(oleft === left && oright === right && newItemSite < otherSite)
 			) {
 				break;
 			}
@@ -136,7 +136,7 @@ export class EgWalker {
 		this.items.splice(idx, 0, newItem);
 
 		//assert(!oplog.items[newItem.clock]);
-		snapshot?.splice(endPos, 0, oplog.items[newItem.clock]);
+		snapshot?.splice(endPos, 0, oplog.getItem(newItem.clock));
 	}
 
 	#indexOfClock(clock: Clock) {
@@ -170,7 +170,7 @@ export class EgWalker {
 	}
 
 	doOp<T>(oplog: OpLog<T>, clock: Clock, snapshot?: T[]) {
-		const parents = oplog.parents[clock];
+		const parents = oplog.getParents(clock);
 		const { aOnly, bOnly } = oplog.diff(this.currentVersion, parents);
 
 		for (const i of aOnly) this.#retreat(oplog, i);

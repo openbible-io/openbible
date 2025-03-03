@@ -33,7 +33,7 @@ export class Branch<T> {
 
 		for (const clock of bOnlyOps) {
 			doc.doOp(oplog, clock, this.snapshot);
-			const parents = oplog.parents[clock];
+			const parents = oplog.getParents(clock);
 			this.frontier = advanceFrontier(this.frontier, clock, parents);
 		}
 	}
@@ -58,8 +58,6 @@ type OpsToVisit = {
 };
 
 function findOpsToVisit<T>(oplog: OpLog<T>, a: Clock[], b: Clock[]): OpsToVisit {
-	// if (a.length === 0 && b.length === 0) return { start: [], common: [], bOnly: [] }
-
 	type MergePoint = {
 		v: Clock[]; // Sorted in inverse order (highest to lowest)
 		isInA: boolean;
@@ -117,7 +115,7 @@ function findOpsToVisit<T>(oplog: OpLog<T>, a: Clock[], b: Clock[]): OpsToVisit 
 			if (isInA) sharedOps.push(clock);
 			else bOnlyOps.push(clock);
 
-			const parents = oplog.parents[clock];
+			const parents = oplog.getParents(clock);
 			enq(parents, isInA);
 		}
 	}

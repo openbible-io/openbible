@@ -20,22 +20,18 @@ function fuzzer(seed: number) {
 	const randDoc = () => docs[randInt(3)];
 
 	for (let i = 0; i < 100; i++) {
-		// console.log('ii', i)
 		for (let d = 0; d < 3; d++) {
 			// 1. Pick a random document
-			// 2. Make a random change to that document
 			const doc = randDoc();
 			const len = doc.branch.snapshot.length;
-
 			const insertWeight = len < 100 ? 0.65 : 0.35;
 
+			// 2. Make a random change to that document
 			if (len === 0 || randBool(insertWeight)) {
-				// Insert
 				const content = randChar();
 				const pos = randInt(len + 1);
 				doc.insert(pos, content);
 			} else {
-				// delete
 				const pos = randInt(len);
 				const delLen = randInt(Math.min(len - pos, 3));
 				doc.delete(pos, delLen);
@@ -66,12 +62,20 @@ test("correctness", () => {
 	d1.merge(d2);
 	d2.merge(d1);
 
-	console.table(d1.oplog);
-	const expected = "helloworld"
+	let expected = "helloworld"
 	expect(d1.toString()).toBe(expected);
 	expect(d2.toString()).toBe(expected);
 
-	d2.insert(expected.length, "d");
+	d1.delete("hellowor".length);
+	d2.delete(0, "hello".length);
+	d2.insert(0, "share");
+
+	d1.merge(d2);
+	d2.merge(d1);
+
+	expected = "shareword"
+	expect(d1.toString()).toBe(expected);
+	expect(d2.toString()).toBe(expected);
 });
 
 test("convergence with fuzzer", () => {
