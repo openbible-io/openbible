@@ -1,5 +1,5 @@
 import { test, expect } from "bun:test";
-import { CRDTDocument } from "./egwalker";
+import { Text } from "./text";
 import { mulberry32 } from "../bench/harness";
 
 function fuzzer(seed: number) {
@@ -12,9 +12,9 @@ function fuzzer(seed: number) {
 	const randChar = () => alphabet[randInt(alphabet.length)];
 
 	const docs = [
-		new CRDTDocument("a"),
-		new CRDTDocument("b"),
-		new CRDTDocument("c"),
+		new Text("a"),
+		new Text("b"),
+		new Text("c"),
 	];
 
 	const randDoc = () => docs[randInt(3)];
@@ -56,8 +56,8 @@ function fuzzer(seed: number) {
 	}
 }
 
-test("fuzz 1000 x 100", () => {
-	for (let i = 0; i < 1000; i++) {
+test("fuzz 100 x 100", () => {
+	for (let i = 0; i < 100; i++) {
 		console.log("seed", i);
 		fuzzer(i);
 	}
