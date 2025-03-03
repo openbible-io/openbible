@@ -1,8 +1,14 @@
 {
 	"name": "@openbible/shareword",
-	"type": "module",
 	"main": "./dist/index.js",
-	"types": "./dist/index.d.ts",
+	"devDependencies": {
+		"@openbible/dev-server": "workspace:*",
+		"commander": "^13.1.0",
+		"diamond-types-node": "^1.0.2",
+		"mitata": "^1.0.34",
+		"preact": "^10.26.2",
+		"yjs": "^13.6.23"
+	},
 	"exports": {
 		".": {
 			"import": {
@@ -13,17 +19,11 @@
 		},
 		"./package.json": "package.json"
 	},
-	"devDependencies": {
-		"@openbible/dev-server": "workspace:*",
-		"commander": "^13.1.0",
-		"diamond-types-node": "^1.0.2",
-		"mitata": "^1.0.34",
-		"preact": "^10.26.2",
-		"yjs": "^13.6.23"
-	},
 	"scripts": {
 		"build": "tsc",
 		"clean": "rm -rf ./dist tsconfig.tsbuildinfo",
 		"start": "dev-server ./site/index.html"
-	}
+	},
+	"type": "module",
+	"types": "./dist/index.d.ts"
 }

@@ -4,7 +4,7 @@ import corpuses from "./corpus/index";
 export type Splice = { pos: number; delCount: number; text: string };
 
 // PRNG for consistent runs.
-function mulberry32(seed: number): () => number {
+export function mulberry32(seed: number): () => number {
 	return () => {
 		let t = (seed += 0x6d2b79f5);
 		t = Math.imul(t ^ (t >>> 15), t | 1);
