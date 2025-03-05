@@ -1,12 +1,13 @@
 import { createWriteStream } from "node:fs";
+import { mkdir } from "node:fs/promises";
+import { dirname } from "node:path";
 import ProgressBar from "progress";
 
 /**
  * Download a url to a path with a progress bar.
  */
 export async function downloadFile(url: string, path: string) {
-	console.log(url);
-	const file = createWriteStream(path);
+	console.log(url, "->", path);
 	const resp = await fetch(url);
 
 	const contentLength = resp.headers.get("content-length");
@@ -20,6 +21,10 @@ export async function downloadFile(url: string, path: string) {
 	if (!resp.body) throw `${url} missing body`;
 
 	const reader = resp.body.getReader();
+
+	await mkdir(dirname(path), { recursive: true });
+	const file = createWriteStream(path);
+
 	while (true) {
 		const { done, value } = await reader.read();
 		if (done) break;

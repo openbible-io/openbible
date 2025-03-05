@@ -28,7 +28,7 @@ export class EgWalker {
 	currentVersion: Clock[] = [];
 
 	delTargets: Clock[] = [];
-	itemsByClock: Item[] = [];
+	itemsByClock: { [clock: Clock]: Item } = [];
 
 	#target<T>(oplog: OpLog<T>, clock: Clock): Item {
 		const deleteCount = oplog.getDeleteCount(clock);

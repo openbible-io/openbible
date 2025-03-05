@@ -2,3 +2,8 @@ node_modules
 dist
 tsconfig.tsbuildinfo
 downloads
+
+# for when TS decides to emit assets in-source
+*.d.ts.map
+*.d.ts
+*.js

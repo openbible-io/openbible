@@ -32,5 +32,5 @@
 		"customConditions": ["@openbible/source"]
 	},
 	"include": ["${configDir}/src"],
-	"exclude": ["**/*.test.*", "**/__snapshots__/*", "${configDir}/lib"]
+	"exclude": ["**/*.test.*", "**/__snapshots__/*"]
 }
