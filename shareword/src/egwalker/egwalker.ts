@@ -1,4 +1,4 @@
-import type { Clock, OpLog } from "./oplog";
+import type { LocalClock, OpLog } from "./oplog";
 
 export enum State {
 	NotInserted = -1,
@@ -10,11 +10,11 @@ export enum State {
 }
 
 export type Item = {
-	clock: Clock;
+	clock: LocalClock;
 	/** -1 = start of doc */
-	originLeft: Clock | -1;
+	originLeft: LocalClock | -1;
 	/** -1 = end of doc */
-	originRight: Clock | -1;
+	originRight: LocalClock | -1;
 	deleted: boolean;
 	state: State;
 };
@@ -25,30 +25,28 @@ export type Item = {
  */
 export class EgWalker {
 	items: Item[] = [];
-	currentVersion: Clock[] = [];
+	currentVersion: LocalClock[] = [];
 
-	delTargets: { [clock: Clock]: Clock } = {};
-	insTargets: { [clock: Clock]: Item } = {};
+	delTargets: { [clock: LocalClock]: LocalClock } = {};
+	targets: { [clock: LocalClock]: Item } = {};
 
-	#target<T>(oplog: OpLog<T>, clock: Clock): Item {
-		const op = oplog.get(clock);
-		const target = op.delCount ? this.delTargets[clock] : clock;
-		return this.insTargets[target];
+	#target<T>(oplog: OpLog<T>, clock: LocalClock): Item {
+		const target = oplog.getDeleteCount(clock) ? this.delTargets[clock] : clock;
+		return this.targets[target];
 	}
 
-	#retreat<T>(oplog: OpLog<T>, clock: Clock) {
+	#retreat<T>(oplog: OpLog<T>, clock: LocalClock) {
 		this.#target(oplog, clock).state -= 1;
 	}
 
-	#advance<T>(oplog: OpLog<T>, clock: Clock) {
+	#advance<T>(oplog: OpLog<T>, clock: LocalClock) {
 		this.#target(oplog, clock).state += 1;
 	}
 
-	#apply<T>(oplog: OpLog<T>, clock: Clock, snapshot?: T[]) {
-		const op = oplog.get(clock);
-
-		if (op.delCount) {
-			const { idx, endPos } = this.#findPos(op.pos, true);
+	#apply<T>(oplog: OpLog<T>, clock: LocalClock, snapshot?: T[]) {
+		const pos = oplog.getPos(clock);
+		if (oplog.getDeleteCount(clock)) {
+			const { idx, endPos } = this.#findPos(pos, true);
 			const item = this.items[idx];
 
 			if (!item.deleted) {
@@ -58,8 +56,10 @@ export class EgWalker {
 			item.state = State.Deleted;
 
 			this.delTargets[clock] = item.clock;
-		} else {
-			const { idx, endPos } = this.#findPos(op.pos, false);
+		}
+		const content = oplog.getContent(clock);
+		if (content) {
+			const { idx, endPos } = this.#findPos(pos, false);
 			const originLeft = idx === 0 ? -1 : this.items[idx - 1].clock;
 
 			let originRight = -1;
@@ -72,15 +72,15 @@ export class EgWalker {
 			}
 
 			const item: Item = {
-				clock: clock,
+				clock,
 				originLeft,
 				originRight,
 				deleted: false,
 				state: State.Inserted,
 			};
-			this.insTargets[clock] = item;
+			this.targets[clock] = item;
 
-			this.#integrate(oplog, item, idx, endPos, snapshot);
+			this.#integrate(oplog, item, idx, endPos, content, snapshot);
 		}
 	}
 
@@ -90,6 +90,7 @@ export class EgWalker {
 		newItem: Item,
 		idx: number,
 		endPos: number,
+		content: T,
 		snapshot?: T[],
 	) {
 		let scanIdx = idx;
@@ -99,7 +100,7 @@ export class EgWalker {
 		const right =
 			newItem.originRight === -1
 				? this.items.length
-				: this.#indexOfClock(newItem.originRight);
+				: this.#indexOfLocalClock(newItem.originRight);
 
 		let scanning = false;
 
@@ -107,14 +108,14 @@ export class EgWalker {
 			const other = this.items[scanIdx];
 			if (other.state !== State.NotInserted) break;
 
-			const oleft = this.#indexOfClock(other.originLeft);
+			const oleft = this.#indexOfLocalClock(other.originLeft);
 			const oright =
 				other.originRight === -1
 					? this.items.length
-					: this.#indexOfClock(other.originRight);
+					: this.#indexOfLocalClock(other.originRight);
 
-			const newSite = oplog.get(newItem.clock).id.site;
-			const otherSite = oplog.get(other.clock).id.site;
+			const newSite = oplog.getSite(newItem.clock);
+			const otherSite = oplog.getSite(other.clock);
 
 			if (
 				oleft < left ||
@@ -134,13 +135,10 @@ export class EgWalker {
 		}
 
 		this.items.splice(idx, 0, newItem);
-
-		const op = oplog.get(newItem.clock);
-		//assert(!op.delCount);
-		snapshot?.splice(endPos, 0, op.content);
+		snapshot?.splice(endPos, 0, content);
 	}
 
-	#indexOfClock(clock: Clock) {
+	#indexOfLocalClock(clock: LocalClock) {
 		return this.items.findIndex((item) => item.clock === clock);
 	}
 
@@ -170,10 +168,9 @@ export class EgWalker {
 		return { idx, endPos };
 	}
 
-	doOp<T>(oplog: OpLog<T>, clock: Clock, snapshot?: T[]) {
-		const op = oplog.get(clock);
-
-		const { aOnly, bOnly } = oplog.diff(this.currentVersion, op.parents);
+	doOp<T>(oplog: OpLog<T>, clock: LocalClock, snapshot?: T[]) {
+		const parents = oplog.getParents(clock);
+		const { aOnly, bOnly } = oplog.diff(this.currentVersion, parents);
 
 		for (const i of aOnly) this.#retreat(oplog, i);
 		for (const i of bOnly) this.#advance(oplog, i);

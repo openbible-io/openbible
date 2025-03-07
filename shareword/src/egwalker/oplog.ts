@@ -61,7 +61,7 @@ export function tryAppendOp<T extends string>(
 }
 
 /** An append-only list of immutable operations, similar to Git */
-export class OpLog<T extends string> {
+export class OpLog<T> {
 	//ops = new RleList<Op<T> & { index: number }>();
 	ops: Op<T>[] = [];
 	/** Leaf nodes */
@@ -75,37 +75,58 @@ export class OpLog<T extends string> {
 		this.emptyElement = emptyElement;
 	}
 
-	get(lc: LocalClock): Op<T> {
-		return this.ops[lc];
-		//if (lc < 0) throw "invalid clock";
-		//let idx = this.ops.findIndex(lc, (op, needle) => {
-		//	if (needle < op.index) return 1;
-		//	if (needle >= op.index + op.content.length) return -1;
-		//	return 0;
-		//});
-		//if (idx < 0) idx = ~idx;
-		//
-		//const op = this.ops.items[idx];
-		//const offset = lc - op.index;
-		//
-		//let parents: Clock[] = [];
-		//if (offset !== 0) {
-		//	parents = [(op.parents[0] ?? -1) + op.index + offset];
-		//}
-		//
-		//const res = {
-		//	id: {
-		//		site: op.id.site,
-		//		clock: op.id.clock + offset,
-		//	},
-		//	parents,
-		//	pos: op.pos + offset,
-		//	delCount: op.delCount ? 1 : 0,
-		//	content: op.content[offset],
-		//};
-		////console.log("uh oh", clock, idx, offset, op, res);
-		//// @ts-ignore
-		//return res;
+	//if (lc < 0) throw "invalid clock";
+	//let idx = this.ops.findIndex(lc, (op, needle) => {
+	//	if (needle < op.index) return 1;
+	//	if (needle >= op.index + op.content.length) return -1;
+	//	return 0;
+	//});
+	//if (idx < 0) idx = ~idx;
+	//
+	//const op = this.ops.items[idx];
+	//const offset = lc - op.index;
+	//
+	//let parents: Clock[] = [];
+	//if (offset !== 0) {
+	//	parents = [(op.parents[0] ?? -1) + op.index + offset];
+	//}
+	//
+	//const res = {
+	//	id: {
+	//		site: op.id.site,
+	//		clock: op.id.clock + offset,
+	//	},
+	//	parents,
+	//	pos: op.pos + offset,
+	//	delCount: op.delCount ? 1 : 0,
+	//	content: op.content[offset],
+	//};
+	////console.log("uh oh", clock, idx, offset, op, res);
+	//// @ts-ignore
+	//return res;
+
+	getSite(lc: LocalClock): Site {
+		return this.ops[lc].id.site;
+	}
+
+	getClock(lc: LocalClock): Clock {
+		return this.ops[lc].id.clock;
+	}
+
+	getContent(lc: LocalClock): T {
+		return this.ops[lc].content;
+	}
+
+	getDeleteCount(lc: LocalClock): number {
+		return this.ops[lc].delCount;
+	}
+
+	getParents(lc: LocalClock): LocalClock[] {
+		return this.ops[lc].parents;
+	}
+
+	getPos(lc: LocalClock): number {
+		return this.ops[lc].pos;
 	}
 
 	nextClock(content?: T) {
@@ -116,64 +137,19 @@ export class OpLog<T extends string> {
 	#pushLocal(site: Site, pos: number, delCount: number, content: T) {
 		const clock = (this.stateVector[site] ?? -1) + 1;
 
-		this.ops.push(
-			{
-				pos,
-				delCount,
-				content,
-				id: { site, clock },
-				parents: this.frontier,
-				});
+		this.ops.push({
+			pos,
+			delCount,
+			content,
+			id: { site, clock },
+			parents: this.frontier,
+		});
 		//		index: this.ops.length,
 		//	},
 		//	tryAppendOp,
 		//);
 		this.frontier = [this.nextClock(content)];
 		this.stateVector[site] = clock;
-	}
-
-	#idToLocalClock(id: Id): LocalClock {
-		return this.ops.findLastIndex((op) => op.id.site === id.site && op.id.clock === id.clock);
-		//const idx = this.ops.items.findLastIndex(
-		//	(op) =>
-		//		id.site === op.id.site &&
-		//		id.clock >= op.id.clock &&
-		//		id.clock < op.id.clock + op.content.length,
-		//);
-		//if (idx < 0) {
-		//	console.table(this.ops.items);
-		//	throw `Id (${id.site},${id.clock}) does not exist`;
-		//}
-		//const op = this.ops.items[idx];
-		//
-		//return op.index + (id.clock - op.id.clock);
-	}
-
-	#pushRemote(op: Op<T>, parentIds: Id[]) {
-		const { site, clock } = op.id;
-		const lastClock = this.stateVector[site] ?? -1;
-		if (lastClock >= clock) return;
-
-		const parents = parentIds
-			.map((id) => this.#idToLocalClock(id))
-			.sort((a, b) => a - b);
-
-		this.ops.push(
-			{
-				...op,
-				parents,
-				});
-		//		index: this.ops.length,
-		//	},
-		//	tryAppendOp,
-		//);
-		this.frontier = advanceFrontier(
-			this.frontier,
-			this.nextClock(op.content),
-			parents,
-		);
-		//assert(clock == lastKnownSeq + 1);
-		this.stateVector[site] = clock + op.content.length - 1;
 	}
 
 	insert(site: Site, pos: number, ...items: T[]) {
@@ -187,8 +163,49 @@ export class OpLog<T extends string> {
 
 	merge(src: OpLog<T>) {
 		for (const op of src.ops) {
-			const parentIds = op.parents.map((lc) => src.get(lc).id);
-			this.#pushRemote(op, parentIds);
+			const { site, clock } = op.id;
+			const lastClock = this.stateVector[site] ?? -1;
+			if (lastClock >= clock) continue;
+
+			const parents = op.parents
+				.map((lc) => {
+					const site = src.getSite(lc);
+					const clock = src.getClock(lc);
+
+					return this.ops.findLastIndex(
+						(op) => op.id.site === site && op.id.clock === clock,
+					);
+					//const idx = this.ops.items.findLastIndex(
+					//	(op) =>
+					//		id.site === op.id.site &&
+					//		id.clock >= op.id.clock &&
+					//		id.clock < op.id.clock + op.content.length,
+					//);
+					//if (idx < 0) {
+					//	console.table(this.ops.items);
+					//	throw `Id (${id.site},${id.clock}) does not exist`;
+					//}
+					//const op = this.ops.items[idx];
+					//
+					//return op.index + (id.clock - op.id.clock);
+				})
+				.sort((a, b) => a - b);
+
+			this.ops.push({
+				...op,
+				parents,
+			});
+			//		index: this.ops.length,
+			//	},
+			//	tryAppendOp,
+			//);
+			this.frontier = advanceFrontier(
+				this.frontier,
+				this.nextClock(op.content),
+				parents,
+			);
+			//assert(clock == lastKnownSeq + 1);
+			this.stateVector[site] = clock + op.content.length - 1;
 		}
 	}
 
@@ -227,8 +244,7 @@ export class OpLog<T extends string> {
 			else if (flag === "b") bOnly.push(clock);
 			else numShared--;
 
-			const op = this.get(clock);
-			for (const p of op.parents) enq(p, flag);
+			for (const p of this.getParents(clock)) enq(p, flag);
 		}
 
 		return { aOnly, bOnly };
@@ -292,8 +308,7 @@ export class OpLog<T extends string> {
 				if (inA) shared.push(lc);
 				else bOnly.push(lc);
 
-				const op = this.get(lc);
-				enq(op.parents, inA);
+				enq(this.getParents(lc), inA);
 			}
 		}
 

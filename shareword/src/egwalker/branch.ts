@@ -25,14 +25,14 @@ export class Branch<T> {
 				originRight: -1,
 			};
 			doc.items.push(item);
-			doc.insTargets[item.clock] = item;
+			doc.targets[item.clock] = item;
 		}
 
 		for (const lc of shared) doc.doOp(oplog, lc);
 
 		for (const lc of bOnly) {
 			doc.doOp(oplog, lc, this.snapshot);
-			this.frontier = advanceFrontier(this.frontier, lc, oplog.get(lc).parents);
+			this.frontier = advanceFrontier(this.frontier, lc, oplog.getParents(lc));
 		}
 	}
 }
