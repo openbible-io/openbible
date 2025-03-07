@@ -31,9 +31,9 @@ export class Branch<T> {
 
 		for (const lv of sharedOps) doc.doOp(oplog, lv);
 
-		for (const lv of bOnlyOps) {
-			doc.doOp(oplog, lv, this.snapshot);
-			this.frontier = advanceFrontier(this.frontier, lv, oplog.ops[lv].parents);
+		for (const lc of bOnlyOps) {
+			doc.doOp(oplog, lc, this.snapshot);
+			this.frontier = advanceFrontier(this.frontier, lc, oplog.get(lc).parents);
 		}
 	}
 }
@@ -111,12 +111,12 @@ function findOpsToVisit(oplog: OpLog<any>, a: Clock[], b: Clock[]): OpsToVisit {
 		if (v.length >= 2) {
 			for (const vv of v) enq([vv], isInA);
 		} else {
-			const lv = v[0];
+			const lc = v[0];
 			//assert(v.length == 1);
-			if (isInA) sharedOps.push(lv);
-			else bOnlyOps.push(lv);
+			if (isInA) sharedOps.push(lc);
+			else bOnlyOps.push(lc);
 
-			const op = oplog.ops[lv];
+			const op = oplog.get(lc);
 			enq(op.parents, isInA);
 		}
 	}

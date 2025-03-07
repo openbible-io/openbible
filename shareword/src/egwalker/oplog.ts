@@ -5,6 +5,8 @@ import PriorityQueue from "./pq";
 export type Site = string;
 /** Non-negative integer incremented after each operation */
 export type Clock = number;
+/** Clock local to this */
+export type LocalClock = Clock;
 /** Each UTF-16 code unit is assigned this */
 export type Id = { site: Site; clock: Clock };
 const idEq = (a: Id, b: Id) => a.site === b.site && a.clock === b.clock;
@@ -19,7 +21,7 @@ export type Op<T> = {
 
 /** An append-only list of immutable operations, similar to Git */
 export class OpLog<T> {
-	ops: Op<T>[] = [];
+	#ops: Op<T>[] = [];
 	/** Leaf nodes */
 	frontier: Clock[] = [];
 	/** Latest clock value for each site. */
@@ -31,17 +33,21 @@ export class OpLog<T> {
 		this.emptyElement = emptyElement;
 	}
 
+	get(localClock: LocalClock): Op<T> {
+		return this.#ops[localClock];
+	}
+
 	#pushLocal(site: string, pos: number, delCount: number, content: T) {
 		const clock = (this.version[site] ?? -1) + 1;
 
-		this.ops.push({
+		this.#ops.push({
 			pos,
 			delCount,
 			content,
 			id: { site, clock },
 			parents: this.frontier,
 		});
-		this.frontier = [this.ops.length - 1];
+		this.frontier = [this.#ops.length - 1];
 		this.version[site] = clock;
 	}
 
@@ -51,13 +57,13 @@ export class OpLog<T> {
 		if (lastKnownSeq >= clock) return;
 
 		const parents = parentIds
-			.map((id) => this.ops.findIndex((op) => idEq(op.id, id)))
+			.map((id) => this.#ops.findIndex((op) => idEq(op.id, id)))
 			.sort((a, b) => a - b);
 
-		this.ops.push({ ...op, parents });
+		this.#ops.push({ ...op, parents });
 		this.frontier = advanceFrontier(
 			this.frontier,
-			this.ops.length - 1,
+			this.#ops.length - 1,
 			parents,
 		);
 		//assert(clock == lastKnownSeq + 1);
@@ -74,8 +80,8 @@ export class OpLog<T> {
 	}
 
 	merge(src: OpLog<T>) {
-		for (const op of src.ops) {
-			const parentIds = op.parents.map((clock) => src.ops[clock].id);
+		for (const op of src.#ops) {
+			const parentIds = op.parents.map((clock) => src.#ops[clock].id);
 			this.#pushRemote(op, parentIds);
 		}
 	}
@@ -117,7 +123,7 @@ export class OpLog<T> {
 			else if (flag === "b") bOnly.push(clock);
 			else numShared--;
 
-			const op = this.ops[clock];
+			const op = this.#ops[clock];
 			for (const p of op.parents) enq(p, flag);
 		}
 
@@ -128,7 +134,7 @@ export class OpLog<T> {
 		const doc = new EgWalker();
 		const res: T[] = [];
 
-		for (let clock = 0; clock < this.ops.length; clock++)
+		for (let clock = 0; clock < this.#ops.length; clock++)
 			doc.doOp(this, clock, res);
 
 		return res;
