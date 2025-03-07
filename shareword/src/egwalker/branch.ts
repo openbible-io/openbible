@@ -29,12 +29,11 @@ export class Branch<T> {
 			doc.itemsByClock[item.clock] = item;
 		}
 
-		for (const clock of sharedOps) doc.doOp(oplog, clock);
+		for (const lv of sharedOps) doc.doOp(oplog, lv);
 
-		for (const clock of bOnlyOps) {
-			doc.doOp(oplog, clock, this.snapshot);
-			const parents = oplog.getParents(clock);
-			this.frontier = advanceFrontier(this.frontier, clock, parents);
+		for (const lv of bOnlyOps) {
+			doc.doOp(oplog, lv, this.snapshot);
+			this.frontier = advanceFrontier(this.frontier, lv, oplog.ops[lv].parents);
 		}
 	}
 }
@@ -57,7 +56,9 @@ type OpsToVisit = {
 	bOnlyOps: Clock[];
 };
 
-function findOpsToVisit<T>(oplog: OpLog<T>, a: Clock[], b: Clock[]): OpsToVisit {
+function findOpsToVisit(oplog: OpLog<any>, a: Clock[], b: Clock[]): OpsToVisit {
+	// if (a.length === 0 && b.length === 0) return { start: [], common: [], bOnly: [] }
+
 	type MergePoint = {
 		v: Clock[]; // Sorted in inverse order (highest to lowest)
 		isInA: boolean;
@@ -85,8 +86,8 @@ function findOpsToVisit<T>(oplog: OpLog<T>, a: Clock[], b: Clock[]): OpsToVisit 
 
 	// console.log('a', a, 'b', b)
 	while (true) {
-		// biome-ignore lint/style/noNonNullAssertion: <explanation>
 		let { v, isInA } = queue.pop()!;
+		// console.log('deq', v, isInA)
 		if (v.length === 0) {
 			// We've hit the root element.
 			commonVersion = [];
@@ -94,7 +95,7 @@ function findOpsToVisit<T>(oplog: OpLog<T>, a: Clock[], b: Clock[]): OpsToVisit 
 		}
 
 		while (!queue.isEmpty()) {
-			// biome-ignore lint/style/noNonNullAssertion: <explanation>
+			// We might have multiple elements that have the same merge point.
 			const { v: peekV, isInA: peekIsInA } = queue.peek()!;
 			if (compareClocks(v, peekV) !== 0) break;
 
@@ -110,13 +111,13 @@ function findOpsToVisit<T>(oplog: OpLog<T>, a: Clock[], b: Clock[]): OpsToVisit 
 		if (v.length >= 2) {
 			for (const vv of v) enq([vv], isInA);
 		} else {
+			const lv = v[0];
 			//assert(v.length == 1);
-			const clock = v[0];
-			if (isInA) sharedOps.push(clock);
-			else bOnlyOps.push(clock);
+			if (isInA) sharedOps.push(lv);
+			else bOnlyOps.push(lv);
 
-			const parents = oplog.getParents(clock);
-			enq(parents, isInA);
+			const op = oplog.ops[lv];
+			enq(op.parents, isInA);
 		}
 	}
 

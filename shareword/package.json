@@ -21,9 +21,14 @@
 	},
 	"scripts": {
 		"build": "tsc",
+		"bench": "bun run ./bench/cli.ts run",
+		"generate": "bun run --conditions @openbible/source ./bench/corpus/generate.ts",
 		"clean": "rm -rf ./dist tsconfig.tsbuildinfo",
 		"start": "dev-server ./site/index.html"
 	},
 	"type": "module",
-	"types": "./dist/index.d.ts"
+	"types": "./dist/index.d.ts",
+	"dependencies": {
+		"cbor-x": "^1.6.0"
+	}
 }

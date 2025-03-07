@@ -2,13 +2,22 @@
 import { type BookId, isNewTestament } from "@openbible/core";
 import { fname, downloadDir, parseRow } from "@openbible/bsb/build";
 import ExcelJS, { type Worksheet } from "exceljs";
-import { createWriteStream } from "node:fs";
+import { createWriteStream, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 
+const outdir = join(import.meta.dir, "dist");
+mkdirSync(outdir, { recursive: true });
+
+function writeStream(lang: string) {
+	const res = createWriteStream(join(outdir, `${lang}.ts`));
+	res.write("export default `");
+	return res;
+}
+
 const files = {
-	en: createWriteStream(join(import.meta.dir, "en.txt")),
-	he: createWriteStream(join(import.meta.dir, "he.txt")),
-	gr: createWriteStream(join(import.meta.dir, "gr.txt")),
+	en: writeStream("en"),
+	he: writeStream("he"),
+	gr: writeStream("gr"),
 };
 
 type Verse = {
@@ -90,4 +99,4 @@ const dir = dirname(
 const xlsx = join(dir, downloadDir, fname);
 console.log(xlsx);
 await parseSpreadsheet(xlsx);
-Object.values(files).forEach((f) => f.close());
+Object.values(files).forEach((f) => f.end("`;", () => f.close()));

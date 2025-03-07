@@ -28,7 +28,7 @@ function connect() {
 		/** @type import("./server.ts").WatcherMessage */
 		const data = JSON.parse(ev.data);
 		if (data.type === "error") {
-			console.error(logPrefix, data.raw);
+			console.error(logPrefix + "\n" + data.raw);
 			contents.innerHTML = data.html;
 			overlay.style.display = "flex";
 		} else if (data.type === "change") {

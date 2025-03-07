@@ -7,9 +7,19 @@ export type Site = string;
 export type Clock = number;
 /** Each UTF-16 code unit is assigned this */
 export type Id = { site: Site; clock: Clock };
+const idEq = (a: Id, b: Id) => a.site === b.site && a.clock === b.clock;
+
+export type Op<T> = {
+	pos: number;
+	delCount: number;
+	content: T;
+	id: Id;
+	parents: Clock[];
+};
 
 /** An append-only list of immutable operations, similar to Git */
 export class OpLog<T> {
+	ops: Op<T>[] = [];
 	/** Leaf nodes */
 	frontier: Clock[] = [];
 	/** Latest clock value for each site. */
@@ -17,84 +27,37 @@ export class OpLog<T> {
 	/** Allows storing ops in a columnar fashion */
 	emptyElement: T;
 
-	sites: Site[] = [];
-	clocks: Clock[] = [];
-	parents: Clock[][] = [];
-	positions: number[] = [];
-	deleteCounts: number[] = [];
-	items: T[] = [];
-
 	constructor(emptyElement: T) {
 		this.emptyElement = emptyElement;
 	}
 
-	getSite(clock: Clock): Site {
-		return this.sites[clock];
-	}
-
-	getParents(clock: Clock): Clock[] {
-		return this.parents[clock];
-	}
-
-	getPosition(clock: Clock): number {
-		return this.positions[clock];
-	}
-
-	getDeleteCount(clock: Clock): number {
-		return this.deleteCounts[clock];
-	}
-
-	getItem(clock: Clock): T {
-		return this.items[clock];
-	}
-
-	#pushLocal(site: string, pos: number, deleteCount: number, content: T) {
+	#pushLocal(site: string, pos: number, delCount: number, content: T) {
 		const clock = (this.version[site] ?? -1) + 1;
 
-		this.sites.push(site);
-		this.clocks.push(clock);
-		this.parents.push(this.frontier);
-		this.positions.push(pos);
-		this.deleteCounts.push(deleteCount);
-		this.items.push(content);
-		this.frontier = [this.clocks.length - 1];
+		this.ops.push({
+			pos,
+			delCount,
+			content,
+			id: { site, clock },
+			parents: this.frontier,
+		});
+		this.frontier = [this.ops.length - 1];
 		this.version[site] = clock;
 	}
 
-	#pushRemote(
-		site: string,
-		clock: Clock,
-		pos: number,
-		deleteCount: number,
-		content: T,
-		parentSites: Site[],
-		parentClocks: Clock[],
-	) {
+	#pushRemote(op: Op<T>, parentIds: Id[]) {
+		const { site, clock } = op.id;
 		const lastKnownSeq = this.version[site] ?? -1;
 		if (lastKnownSeq >= clock) return;
 
-		const parents = [];
-		// assert(parentSites.length == parentSites.length);
-		for (let i = 0; i < parentSites.length; i++) {
-			for (let j = 0; j < this.sites.length; j++) {
-				if (
-					parentSites[i] === this.sites[j] &&
-					parentClocks[i] === this.clocks[j]
-				)
-					parents.push(j);
-			}
-		}
-		parents.sort((a, b) => a - b);
+		const parents = parentIds
+			.map((id) => this.ops.findIndex((op) => idEq(op.id, id)))
+			.sort((a, b) => a - b);
 
-		this.sites.push(site);
-		this.clocks.push(clock);
-		this.parents.push(parents);
-		this.positions.push(pos);
-		this.deleteCounts.push(deleteCount);
-		this.items.push(content);
+		this.ops.push({ ...op, parents });
 		this.frontier = advanceFrontier(
 			this.frontier,
-			this.clocks.length - 1,
+			this.ops.length - 1,
 			parents,
 		);
 		//assert(clock == lastKnownSeq + 1);
@@ -105,22 +68,15 @@ export class OpLog<T> {
 		for (const c of content) this.#pushLocal(site, pos++, 0, c);
 	}
 
-	delete(site: string, pos: number, deleteCount: number) {
-		for (let i = 0; i < deleteCount; i++)
+	delete(site: string, pos: number, delCount: number) {
+		for (let i = 0; i < delCount; i++)
 			this.#pushLocal(site, pos, 1, this.emptyElement);
 	}
 
 	merge(src: OpLog<T>) {
-		for (let i = 0; i < src.parents.length; i++) {
-			this.#pushRemote(
-				src.sites[i],
-				src.clocks[i],
-				src.positions[i],
-				src.deleteCounts[i],
-				src.items[i],
-				src.parents[i].map((c) => src.sites[c]),
-				src.parents[i].map((c) => src.clocks[c]),
-			);
+		for (const op of src.ops) {
+			const parentIds = op.parents.map((clock) => src.ops[clock].id);
+			this.#pushRemote(op, parentIds);
 		}
 	}
 
@@ -161,7 +117,8 @@ export class OpLog<T> {
 			else if (flag === "b") bOnly.push(clock);
 			else numShared--;
 
-			for (const p of this.parents[clock]) enq(p, flag);
+			const op = this.ops[clock];
+			for (const p of op.parents) enq(p, flag);
 		}
 
 		return { aOnly, bOnly };
@@ -171,7 +128,7 @@ export class OpLog<T> {
 		const doc = new EgWalker();
 		const res: T[] = [];
 
-		for (let clock = 0; clock < this.clocks.length; clock++)
+		for (let clock = 0; clock < this.ops.length; clock++)
 			doc.doOp(this, clock, res);
 
 		return res;

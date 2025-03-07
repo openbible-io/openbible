@@ -28,11 +28,11 @@ export class EgWalker {
 	currentVersion: Clock[] = [];
 
 	delTargets: Clock[] = [];
-	itemsByClock: { [clock: Clock]: Item } = [];
+	itemsByClock: Item[] = [];
 
 	#target<T>(oplog: OpLog<T>, clock: Clock): Item {
-		const deleteCount = oplog.getDeleteCount(clock);
-		const target = deleteCount ? this.delTargets[clock] : clock;
+		const op = oplog.ops[clock];
+		const target = op.delCount ? this.delTargets[clock] : clock;
 		return this.itemsByClock[target];
 	}
 
@@ -45,10 +45,10 @@ export class EgWalker {
 	}
 
 	#apply<T>(oplog: OpLog<T>, clock: Clock, snapshot?: T[]) {
-		const opPos = oplog.getPosition(clock);
+		const op = oplog.ops[clock];
 
-		if (oplog.getDeleteCount(clock)) {
-			const { idx, endPos } = this.#findPos(opPos, true);
+		if (op.delCount) {
+			const { idx, endPos } = this.#findPos(op.pos, true);
 			const item = this.items[idx];
 
 			if (!item.deleted) {
@@ -59,7 +59,7 @@ export class EgWalker {
 
 			this.delTargets[clock] = item.clock;
 		} else {
-			const { idx, endPos } = this.#findPos(opPos, false);
+			const { idx, endPos } = this.#findPos(op.pos, false);
 			const originLeft = idx === 0 ? -1 : this.items[idx - 1].clock;
 
 			let originRight = -1;
@@ -72,7 +72,7 @@ export class EgWalker {
 			}
 
 			const item: Item = {
-				clock,
+				clock: clock,
 				originLeft,
 				originRight,
 				deleted: false,
@@ -113,12 +113,12 @@ export class EgWalker {
 					? this.items.length
 					: this.#indexOfClock(other.originRight);
 
-			const newItemSite = oplog.getSite(newItem.clock);
-			const otherSite = oplog.getSite(other.clock);
+			const newItemAgent = oplog.ops[newItem.clock].id.site;
+			const otherAgent = oplog.ops[other.clock].id.site;
 
 			if (
 				oleft < left ||
-				(oleft === left && oright === right && newItemSite < otherSite)
+				(oleft === left && oright === right && newItemAgent < otherAgent)
 			) {
 				break;
 			}
@@ -135,8 +135,9 @@ export class EgWalker {
 
 		this.items.splice(idx, 0, newItem);
 
-		//assert(!oplog.items[newItem.clock]);
-		snapshot?.splice(endPos, 0, oplog.getItem(newItem.clock));
+		const op = oplog.ops[newItem.clock];
+		//assert(!op.delCount);
+		snapshot?.splice(endPos, 0, op.content);
 	}
 
 	#indexOfClock(clock: Clock) {
@@ -170,8 +171,9 @@ export class EgWalker {
 	}
 
 	doOp<T>(oplog: OpLog<T>, clock: Clock, snapshot?: T[]) {
-		const parents = oplog.getParents(clock);
-		const { aOnly, bOnly } = oplog.diff(this.currentVersion, parents);
+		const op = oplog.ops[clock];
+
+		const { aOnly, bOnly } = oplog.diff(this.currentVersion, op.parents);
 
 		for (const i of aOnly) this.#retreat(oplog, i);
 		for (const i of bOnly) this.#advance(oplog, i);

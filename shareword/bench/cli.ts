@@ -15,7 +15,7 @@ program
 	)
 	.argument("<string>", "Name of library to bench")
 	.action(async (libName, options) => {
-		const mod = await import(`./${libName}`);
+		const mod = await import(`./libs/${libName}`);
 		summary(mod.default);
 		await run({ format: options.format ?? "mitata", throw: true });
 	});

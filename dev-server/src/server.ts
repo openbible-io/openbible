@@ -1,6 +1,6 @@
 import type { Stats } from "node:fs";
 import * as fs from "node:fs/promises";
-import { extname, join } from "node:path";
+import { extname, join, resolve } from "node:path";
 import type { BuildConfig, Server, ServerWebSocket } from "bun";
 import { FancyAnsi } from "fancy-ansi";
 import PluginWatch from "./plugin-watch";
@@ -8,10 +8,10 @@ import PluginWatch from "./plugin-watch";
 export type WatcherMessage =
 	| { type: "change" }
 	| {
-		type: "error";
-		raw: string;
-		html: string;
-	};
+			type: "error";
+			raw: string;
+			html: string;
+	  };
 
 const ansi = new FancyAnsi();
 const liveReload = await fs.readFile(
@@ -26,7 +26,7 @@ const rewriter = new HTMLRewriter().on("body", {
 });
 
 async function fileStat(path: string) {
-	const res: Stats = await fs.stat(path);;
+	const res: Stats = await fs.stat(path);
 	if (!res.isFile()) throw Error(`${path} not a file`);
 	return res;
 }
@@ -34,6 +34,7 @@ async function fileStat(path: string) {
 export default async function start(config: BuildConfig) {
 	const outdir = config.outdir;
 	if (!outdir) throw new Error("must provide `outdir` to serve from");
+	console.log("serving", resolve(outdir));
 
 	const pluginWatch = PluginWatch(tryBuild);
 	config.plugins = config.plugins ?? [];
@@ -43,9 +44,8 @@ export default async function start(config: BuildConfig) {
 	// Persist this to send to new clients
 	let buildError: WatcherMessage | undefined;
 
-	function watcherError(err: AggregateError): WatcherMessage {
-		const raw = Bun.inspect(err, { colors: true });
-		console.error(raw);
+	function watcherError(err: AggregateError) {
+		const raw = Bun.inspect(err, { colors: true }).trim();
 		const html = ansi.toHtml(raw).replaceAll("\n", "<br>");
 		buildError = { type: "error", raw, html };
 		return buildError;
@@ -54,14 +54,23 @@ export default async function start(config: BuildConfig) {
 	async function tryBuild() {
 		let msg: WatcherMessage = { type: "change" };
 
+		const time = performance.now();
 		try {
 			await Bun.build(config);
-			pluginWatch.onBuilt();
 			buildError = undefined;
+			console.log("✅ built in", Math.round(performance.now() - time), "ms");
 		} catch (err) {
 			msg = watcherError(err as AggregateError);
+			console.error(
+				"❌ in",
+				Math.round(performance.now() - time),
+				"ms\n",
+				msg.raw,
+				"\n",
+			);
 		}
 
+		pluginWatch.onBuilt();
 		for (const ws of websockets) ws.send(JSON.stringify(msg));
 	}
 
@@ -71,7 +80,7 @@ export default async function start(config: BuildConfig) {
 		development: true,
 
 		websocket: {
-			message() { },
+			message() {},
 			open(ws) {
 				websockets.add(ws);
 				if (buildError) ws.send(JSON.stringify(buildError));
@@ -84,7 +93,7 @@ export default async function start(config: BuildConfig) {
 		async fetch(req: Request, server: Server) {
 			const url = new URL(req.url);
 			// Unfortunately service workers intercept SSE streams and prevent a new
-			// worker from activating until it's closed.
+			// service worker from activating until it's closed.
 			// Web workers can't currently touch websockets, so use that instead.
 			if (url.pathname === "/liveReload") {
 				if (req.headers.get("upgrade") !== "websocket") {
