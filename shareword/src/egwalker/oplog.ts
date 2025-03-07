@@ -24,8 +24,8 @@ export class OpLog<T> {
 	#ops: Op<T>[] = [];
 	/** Leaf nodes */
 	frontier: Clock[] = [];
-	/** Latest clock value for each site. */
-	version: Record<Site, Clock> = {};
+	/** Max known clock for each site. */
+	stateVector: Record<Site, Clock> = {};
 	/** Allows storing ops in a columnar fashion */
 	emptyElement: T;
 
@@ -38,7 +38,7 @@ export class OpLog<T> {
 	}
 
 	#pushLocal(site: Site, pos: number, delCount: number, content: T) {
-		const clock = (this.version[site] ?? -1) + 1;
+		const clock = (this.stateVector[site] ?? -1) + 1;
 
 		this.#ops.push({
 			pos,
@@ -48,13 +48,13 @@ export class OpLog<T> {
 			parents: this.frontier,
 		});
 		this.frontier = [this.#ops.length - 1];
-		this.version[site] = clock;
+		this.stateVector[site] = clock;
 	}
 
 	#pushRemote(op: Op<T>, parentIds: Id[]) {
 		const { site, clock } = op.id;
-		const lastKnownSeq = this.version[site] ?? -1;
-		if (lastKnownSeq >= clock) return;
+		const lastClock = this.stateVector[site] ?? -1;
+		if (lastClock >= clock) return;
 
 		const parents = parentIds
 			.map((id) => this.#ops.findIndex((op) => idEq(op.id, id)))
@@ -67,7 +67,7 @@ export class OpLog<T> {
 			parents,
 		);
 		//assert(clock == lastKnownSeq + 1);
-		this.version[site] = clock;
+		this.stateVector[site] = clock;
 	}
 
 	insert(site: Site, pos: number, ...items: T[]) {
