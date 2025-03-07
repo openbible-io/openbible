@@ -554,22 +554,3 @@ function filterChanges(
 
 	return { inserts, deletes };
 }
-
-import { do_not_optimize } from "mitata";
-import { benchLib, type Splice } from "./harness";
-
-export default function run() {
-	benchLib("naive", (arr: Splice[]) => {
-		const doc = new Doc("agent1");
-
-		for (const splice of arr) {
-			if (splice.delCount) {
-				doc.delete(splice.pos, splice.delCount);
-			}
-
-			doc.insert(splice.pos, splice.text);
-		}
-
-		return do_not_optimize(doc);
-	});
-}

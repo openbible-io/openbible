@@ -64,8 +64,8 @@ export class OpLog<T> {
 		this.version[site] = clock;
 	}
 
-	insert(site: string, pos: number, content: T[]) {
-		for (const c of content) this.#pushLocal(site, pos++, 0, c);
+	insert(site: string, pos: number, ...items: T[]) {
+		for (const c of items) this.#pushLocal(site, pos++, 0, c);
 	}
 
 	delete(site: string, pos: number, delCount: number) {

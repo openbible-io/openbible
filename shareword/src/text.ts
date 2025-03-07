@@ -1,4 +1,4 @@
-import { List } from "./egwalker/list";
+import { List } from "./list";
 
 export class Text extends List<string> {
 	constructor(agent: string) {
@@ -7,7 +7,7 @@ export class Text extends List<string> {
 
 	override insert(pos: number, text: string) {
 		// Each character is an item
-		this.oplog.insert(this.agent, pos, [...text]);
+		this.oplog.insert(this.agent, pos, ...text);
 		this.branch.snapshot.splice(pos, 0, ...text);
 		this.branch.frontier = this.oplog.frontier.slice();
 	}
