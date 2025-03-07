@@ -1,4 +1,5 @@
 import PriorityQueue from "./pq";
+import { RleList } from "./util/rle-list";
 
 /** A collaborating agent */
 export type Site = string;
@@ -8,14 +9,13 @@ export type Clock = number;
 export type LocalClock = Clock;
 /** Each UTF-16 code unit is assigned this */
 export type Id = { site: Site; clock: Clock };
-const idEq = (a: Id, b: Id) => a.site === b.site && a.clock === b.clock;
 
 export type Op<T> = {
 	pos: number;
 	delCount: number;
 	content: T;
 	id: Id;
-	parents: Clock[];
+	parents: LocalClock[];
 };
 
 export function advanceFrontier(
@@ -28,8 +28,36 @@ export function advanceFrontier(
 	return f.sort((a, b) => a - b);
 }
 
+function idxCmp<T>(a: Op<T> & { index: number }, b: number) {
+	return a.index - b;
+}
+
+export function tryAppendOp<T extends string>(
+	prev: Op<T>,
+	cur: Op<T>,
+): boolean {
+	const prevLength = prev.content.length;
+
+	if (
+		prev &&
+		prev.id.site === cur.id.site &&
+		prev.id.clock + prevLength === cur.id.clock &&
+		cur.parents.length === 1 &&
+		cur.parents[0] + 1 === prev.id.clock + prevLength &&
+		prev.pos + prevLength === cur.pos &&
+		prev.delCount === cur.delCount
+	) {
+		// @ts-ignore
+		prev.content += cur.content;
+		return true;
+	}
+
+	return false;
+}
+
 /** An append-only list of immutable operations, similar to Git */
-export class OpLog<T> {
+export class OpLog<T extends string> {
+	//#ops = new RleList<Op<T> & { index: number }>();
 	#ops: Op<T>[] = [];
 	/** Leaf nodes */
 	frontier: Clock[] = [];
@@ -42,8 +70,38 @@ export class OpLog<T> {
 		this.emptyElement = emptyElement;
 	}
 
-	get(localClock: LocalClock): Op<T> {
-		return this.#ops[localClock];
+	get(lc: LocalClock): Op<T> {
+		return this.#ops[lc];
+		//if (lc < 0) throw "invalid clock";
+		//let idx = this.#ops.findIndex(lc, idxCmp);
+		//if (idx < 0) idx = ~idx - 1;
+		//
+		//const op = this.#ops.items[idx];
+		//const offset = lc - op.index;
+		//
+		//let parents: Clock[] = [];
+		//if (offset !== 0) {
+		//	parents = [(op.parents[0] ?? -1) + op.index + offset];
+		//}
+		//
+		//const res = {
+		//	id: {
+		//		site: op.id.site,
+		//		clock: op.id.clock + offset,
+		//	},
+		//	parents,
+		//	pos: op.pos + offset,
+		//	delCount: op.delCount ? 1 : 0,
+		//	content: op.content[offset],
+		//};
+		////console.log("uh oh", clock, idx, offset, op, res);
+		//// @ts-ignore
+		//return res;
+	}
+
+	#nextClock(content: T) {
+		const len = Math.max(1, content.length);
+		return this.#ops.length + len - 2;
 	}
 
 	#pushLocal(site: Site, pos: number, delCount: number, content: T) {
@@ -56,8 +114,27 @@ export class OpLog<T> {
 			id: { site, clock },
 			parents: this.frontier,
 		});
-		this.frontier = [this.#ops.length - 1];
+		//	index: this.#ops.length,
+		//}, tryAppendOp);
+		this.frontier = [this.#nextClock(content)];
 		this.stateVector[site] = clock;
+	}
+
+	#idToLocalClock(id: Id): LocalClock {
+		return this.#ops.findLastIndex((op) => op.id.site === id.site && op.id.clock === id.clock);
+		//const idx = this.#ops.items.findLastIndex(
+		//	(op) =>
+		//		id.site === op.id.site &&
+		//		id.clock >= op.id.clock &&
+		//		id.clock < op.id.clock + op.content.length,
+		//);
+		//if (idx < 0) {
+		//	console.table(this.#ops.items);
+		//	throw `Id (${id.site},${id.clock}) does not exist`;
+		//}
+		//const op = this.#ops.items[idx];
+		//
+		//return op.index + (id.clock - op.id.clock);
 	}
 
 	#pushRemote(op: Op<T>, parentIds: Id[]) {
@@ -66,17 +143,21 @@ export class OpLog<T> {
 		if (lastClock >= clock) return;
 
 		const parents = parentIds
-			.map((id) => this.#ops.findIndex((op) => idEq(op.id, id)))
+			.map((id) => this.#idToLocalClock(id))
 			.sort((a, b) => a - b);
 
-		this.#ops.push({ ...op, parents });
+		this.#ops.push({
+			...op, parents,
+			});
+		//	index: this.#ops.length,
+		//}, tryAppendOp);
 		this.frontier = advanceFrontier(
 			this.frontier,
-			this.#ops.length - 1,
+			this.#nextClock(op.content),
 			parents,
 		);
 		//assert(clock == lastKnownSeq + 1);
-		this.stateVector[site] = clock;
+		this.stateVector[site] = clock + op.content.length - 1;
 	}
 
 	insert(site: Site, pos: number, ...items: T[]) {
@@ -90,14 +171,15 @@ export class OpLog<T> {
 
 	merge(src: OpLog<T>) {
 		for (const op of src.#ops) {
-			const parentIds = op.parents.map((clock) => src.#ops[clock].id);
+			const parentIds = op.parents.map((lc) => src.get(lc).id);
+			//console.log(op.parents, parentIds);
 			this.#pushRemote(op, parentIds);
 		}
 	}
 
 	diff(a: Clock[], b: Clock[]): { aOnly: Clock[]; bOnly: Clock[] } {
 		type DiffFlag = "a" | "b" | "both";
-		const flags: { [clock: Clock] : DiffFlag } = {};
+		const flags: { [clock: Clock]: DiffFlag } = {};
 
 		let numShared = 0;
 
@@ -130,7 +212,7 @@ export class OpLog<T> {
 			else if (flag === "b") bOnly.push(clock);
 			else numShared--;
 
-			const op = this.#ops[clock];
+			const op = this.get(clock);
 			for (const p of op.parents) enq(p, flag);
 		}
 

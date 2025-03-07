@@ -1,3 +1,28 @@
+// Most operations apply to continous runs. Observe the following example where
+// site "a" types "hello" and site "b" types "world":
+//┌──────────────┬────┬─────┬─────┬─────┬─────┬────┬─────┬─────┬─────┬─────┐
+//│       clock  │ 0  │ 1   │ 2   │ 3   │ 4   │ 5  │ 6   │ 7   │ 8   │ 9   │
+//├──────────────┼────┼─────┼─────┼─────┼─────┼────┼─────┼─────┼─────┼─────┤
+//│        sites │ a  │ a   │ a   │ a   │ a   │ b  │ b   │ b   │ b   │ b   │
+//│       clocks │ 0  │ 1   │ 2   │ 3   │ 4   │ 0  │ 1   │ 2   │ 3   │ 4   │
+//│      parents │ [] │ [0] │ [1] │ [2] │ [3] │ [] │ [5] │ [6] │ [7] │ [8] │
+//│    positions │ 0  │ 1   │ 2   │ 3   │ 4   │ 0  │ 1   │ 2   │ 3   │ 4   │
+//│ deleteCounts │ 0  │ 0   │ 0   │ 0   │ 0   │ 0  │ 0   │ 0   │ 0   │ 0   │
+//│        items │ h  │ e   │ l   │ l   │ o   │ w  │ o   │ r   │ l   │ d   │
+//└──────────────┴────┴─────┴─────┴─────┴─────┴────┴─────┴─────┴─────┴─────┘
+//
+// We can encode it simply as:
+//┌──────────────┬───────┬───────┐
+//│              │ 0     │ 1     │
+//├──────────────┼───────┼───────┤
+//│   localClock │ 0     │ 5     │
+//│        sites │ a     │ b     │
+//│       clocks │ 0     │ 0     │
+//│      parents │ []    │ []    │
+//│    positions │ 0     │ 0     │
+//│ deleteCounts │ 0     │ 0     │
+//│        items │ hello │ world │
+//└──────────────┴───────┴───────┘
 import bsearch from "./bsearch";
 
 type Comparator<T, B> = (

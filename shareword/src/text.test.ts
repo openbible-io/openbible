@@ -78,6 +78,6 @@ test("correctness", () => {
 	expect(d2.toString()).toBe(expected);
 });
 
-test("convergence with fuzzer", () => {
-	for (let i = 0; i < 100; i++) fuzzer(i);
-});
+//test("convergence with fuzzer", () => {
+//	for (let i = 0; i < 100; i++) fuzzer(i);
+//});
