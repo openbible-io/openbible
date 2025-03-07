@@ -34,7 +34,7 @@ export class List<T> {
 
 	merge(other: List<T>) {
 		this.oplog.merge(other.oplog);
-		this.branch.checkoutFancy(this.oplog);
+		this.branch.checkout(this.oplog);
 	}
 
 	reset() {

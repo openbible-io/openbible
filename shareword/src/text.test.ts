@@ -66,7 +66,7 @@ test("correctness", () => {
 	expect(d1.toString()).toBe(expected);
 	expect(d2.toString()).toBe(expected);
 
-	d1.delete("hellowor".length);
+	d1.delete("hellowor".length); // delete "l"
 	d2.delete(0, "hello".length);
 	d2.insert(0, "share");
 
@@ -78,6 +78,6 @@ test("correctness", () => {
 	expect(d2.toString()).toBe(expected);
 });
 
-//test("convergence with fuzzer", () => {
-//	for (let i = 0; i < 100; i++) fuzzer(i);
-//});
+test("convergence with fuzzer", () => {
+	for (let i = 0; i < 100; i++) fuzzer(i);
+});

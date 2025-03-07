@@ -27,13 +27,13 @@ export class EgWalker {
 	items: Item[] = [];
 	currentVersion: Clock[] = [];
 
-	delTargets: Clock[] = [];
-	itemsByClock: Item[] = [];
+	delTargets: { [clock: Clock]: Clock } = {};
+	insTargets: { [clock: Clock]: Item } = {};
 
 	#target<T>(oplog: OpLog<T>, clock: Clock): Item {
 		const op = oplog.get(clock);
 		const target = op.delCount ? this.delTargets[clock] : clock;
-		return this.itemsByClock[target];
+		return this.insTargets[target];
 	}
 
 	#retreat<T>(oplog: OpLog<T>, clock: Clock) {
@@ -78,7 +78,7 @@ export class EgWalker {
 				deleted: false,
 				state: State.Inserted,
 			};
-			this.itemsByClock[clock] = item;
+			this.insTargets[clock] = item;
 
 			this.#integrate(oplog, item, idx, endPos, snapshot);
 		}

@@ -36,19 +36,24 @@ export function tryAppendOp<T extends string>(
 	prev: Op<T>,
 	cur: Op<T>,
 ): boolean {
-	const prevLength = prev.content.length;
+	const prevLength = prev.delCount || prev.content.length;
 
 	if (
-		prev &&
-		prev.id.site === cur.id.site &&
-		prev.id.clock + prevLength === cur.id.clock &&
-		cur.parents.length === 1 &&
-		cur.parents[0] + 1 === prev.id.clock + prevLength &&
-		prev.pos + prevLength === cur.pos &&
-		prev.delCount === cur.delCount
-	) {
+		prev.id.site !== cur.id.site ||
+		prev.id.clock + prevLength !== cur.id.clock ||
+		cur.parents.length !== 1 ||
+		(prev.parents[0] ?? -1) + prevLength !== cur.parents[0]
+	)
+		return false;
+
+	if (!prev.delCount && !cur.delCount && prev.pos + prevLength === cur.pos) {
 		// @ts-ignore
 		prev.content += cur.content;
+		return true;
+	}
+
+	if (prev.delCount && cur.delCount && prev.pos === cur.pos) {
+		prev.delCount += cur.delCount;
 		return true;
 	}
 
@@ -57,8 +62,8 @@ export function tryAppendOp<T extends string>(
 
 /** An append-only list of immutable operations, similar to Git */
 export class OpLog<T extends string> {
-	//#ops = new RleList<Op<T> & { index: number }>();
-	#ops: Op<T>[] = [];
+	//ops = new RleList<Op<T> & { index: number }>();
+	ops: Op<T>[] = [];
 	/** Leaf nodes */
 	frontier: Clock[] = [];
 	/** Max known clock for each site. */
@@ -71,12 +76,16 @@ export class OpLog<T extends string> {
 	}
 
 	get(lc: LocalClock): Op<T> {
-		return this.#ops[lc];
+		return this.ops[lc];
 		//if (lc < 0) throw "invalid clock";
-		//let idx = this.#ops.findIndex(lc, idxCmp);
-		//if (idx < 0) idx = ~idx - 1;
+		//let idx = this.ops.findIndex(lc, (op, needle) => {
+		//	if (needle < op.index) return 1;
+		//	if (needle >= op.index + op.content.length) return -1;
+		//	return 0;
+		//});
+		//if (idx < 0) idx = ~idx;
 		//
-		//const op = this.#ops.items[idx];
+		//const op = this.ops.items[idx];
 		//const offset = lc - op.index;
 		//
 		//let parents: Clock[] = [];
@@ -99,40 +108,43 @@ export class OpLog<T extends string> {
 		//return res;
 	}
 
-	#nextClock(content: T) {
-		const len = Math.max(1, content.length);
-		return this.#ops.length + len - 2;
+	nextClock(content?: T) {
+		const len = Math.max(1, content?.length ?? 0);
+		return this.ops.length + len - 2;
 	}
 
 	#pushLocal(site: Site, pos: number, delCount: number, content: T) {
 		const clock = (this.stateVector[site] ?? -1) + 1;
 
-		this.#ops.push({
-			pos,
-			delCount,
-			content,
-			id: { site, clock },
-			parents: this.frontier,
-		});
-		//	index: this.#ops.length,
-		//}, tryAppendOp);
-		this.frontier = [this.#nextClock(content)];
+		this.ops.push(
+			{
+				pos,
+				delCount,
+				content,
+				id: { site, clock },
+				parents: this.frontier,
+				});
+		//		index: this.ops.length,
+		//	},
+		//	tryAppendOp,
+		//);
+		this.frontier = [this.nextClock(content)];
 		this.stateVector[site] = clock;
 	}
 
 	#idToLocalClock(id: Id): LocalClock {
-		return this.#ops.findLastIndex((op) => op.id.site === id.site && op.id.clock === id.clock);
-		//const idx = this.#ops.items.findLastIndex(
+		return this.ops.findLastIndex((op) => op.id.site === id.site && op.id.clock === id.clock);
+		//const idx = this.ops.items.findLastIndex(
 		//	(op) =>
 		//		id.site === op.id.site &&
 		//		id.clock >= op.id.clock &&
 		//		id.clock < op.id.clock + op.content.length,
 		//);
 		//if (idx < 0) {
-		//	console.table(this.#ops.items);
+		//	console.table(this.ops.items);
 		//	throw `Id (${id.site},${id.clock}) does not exist`;
 		//}
-		//const op = this.#ops.items[idx];
+		//const op = this.ops.items[idx];
 		//
 		//return op.index + (id.clock - op.id.clock);
 	}
@@ -146,14 +158,18 @@ export class OpLog<T extends string> {
 			.map((id) => this.#idToLocalClock(id))
 			.sort((a, b) => a - b);
 
-		this.#ops.push({
-			...op, parents,
-			});
-		//	index: this.#ops.length,
-		//}, tryAppendOp);
+		this.ops.push(
+			{
+				...op,
+				parents,
+				});
+		//		index: this.ops.length,
+		//	},
+		//	tryAppendOp,
+		//);
 		this.frontier = advanceFrontier(
 			this.frontier,
-			this.#nextClock(op.content),
+			this.nextClock(op.content),
 			parents,
 		);
 		//assert(clock == lastKnownSeq + 1);
@@ -161,7 +177,7 @@ export class OpLog<T extends string> {
 	}
 
 	insert(site: Site, pos: number, ...items: T[]) {
-		for (const c of items) this.#pushLocal(site, pos++, 0, c);
+		for (const i of items) this.#pushLocal(site, pos++, 0, i);
 	}
 
 	delete(site: Site, pos: number, delCount: number) {
@@ -170,9 +186,8 @@ export class OpLog<T extends string> {
 	}
 
 	merge(src: OpLog<T>) {
-		for (const op of src.#ops) {
+		for (const op of src.ops) {
 			const parentIds = op.parents.map((lc) => src.get(lc).id);
-			//console.log(op.parents, parentIds);
 			this.#pushRemote(op, parentIds);
 		}
 	}
