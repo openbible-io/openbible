@@ -113,12 +113,12 @@ export class EgWalker {
 					? this.items.length
 					: this.#indexOfClock(other.originRight);
 
-			const newItemAgent = oplog.get(newItem.clock).id.site;
-			const otherAgent = oplog.get(other.clock).id.site;
+			const newSite = oplog.get(newItem.clock).id.site;
+			const otherSite = oplog.get(other.clock).id.site;
 
 			if (
 				oleft < left ||
-				(oleft === left && oright === right && newItemAgent < otherAgent)
+				(oleft === left && oright === right && newSite < otherSite)
 			) {
 				break;
 			}

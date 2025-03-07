@@ -25,7 +25,7 @@ export class OpLog<T> {
 	/** Leaf nodes */
 	frontier: Clock[] = [];
 	/** Latest clock value for each site. */
-	version: Record<Site, number> = {};
+	version: Record<Site, Clock> = {};
 	/** Allows storing ops in a columnar fashion */
 	emptyElement: T;
 
@@ -37,7 +37,7 @@ export class OpLog<T> {
 		return this.#ops[localClock];
 	}
 
-	#pushLocal(site: string, pos: number, delCount: number, content: T) {
+	#pushLocal(site: Site, pos: number, delCount: number, content: T) {
 		const clock = (this.version[site] ?? -1) + 1;
 
 		this.#ops.push({
@@ -70,11 +70,11 @@ export class OpLog<T> {
 		this.version[site] = clock;
 	}
 
-	insert(site: string, pos: number, ...items: T[]) {
+	insert(site: Site, pos: number, ...items: T[]) {
 		for (const c of items) this.#pushLocal(site, pos++, 0, c);
 	}
 
-	delete(site: string, pos: number, delCount: number) {
+	delete(site: Site, pos: number, delCount: number) {
 		for (let i = 0; i < delCount; i++)
 			this.#pushLocal(site, pos, 1, this.emptyElement);
 	}
@@ -128,16 +128,6 @@ export class OpLog<T> {
 		}
 
 		return { aOnly, bOnly };
-	}
-
-	checkout(): T[] {
-		const doc = new EgWalker();
-		const res: T[] = [];
-
-		for (let clock = 0; clock < this.#ops.length; clock++)
-			doc.doOp(this, clock, res);
-
-		return res;
 	}
 }
 
