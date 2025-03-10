@@ -1,5 +1,5 @@
 import { test, expect } from "bun:test";
-import { tryAppendOp, type Op } from "./oplog";
+import { tryAppendOp, OpLog, type Op } from "./oplog-rle";
 
 test("insert", () => {
 	const op1: Op<string> = {

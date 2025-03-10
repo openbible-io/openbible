@@ -8,14 +8,10 @@ function fuzzer(seed: number) {
 	const randInt = (n: number) => Math.floor(random() * n);
 	const randBool = (weight = 0.5) => random() < weight;
 
-	const alphabet = " abcdefghijklmnopqrstuvwxyz";
+	const alphabet = "abcdefghijklmnopqrstuvwxyz";
 	const randChar = () => alphabet[randInt(alphabet.length)];
 
-	const docs = [
-		new Text("a"),
-		new Text("b"),
-		new Text("c"),
-	];
+	const docs = [new Text("a"), new Text("b"), new Text("c")];
 
 	const randDoc = () => docs[randInt(3)];
 
@@ -48,7 +44,11 @@ function fuzzer(seed: number) {
 
 		a.merge(b);
 		b.merge(a);
-		expect(a.branch.snapshot).toEqual(b.branch.snapshot);
+		try {
+			expect(a.branch.snapshot).toEqual(b.branch.snapshot);
+		} catch (e) {
+			throw e;
+		}
 	}
 }
 
@@ -62,7 +62,7 @@ test("correctness", () => {
 	d1.merge(d2);
 	d2.merge(d1);
 
-	let expected = "helloworld"
+	let expected = "helloworld";
 	expect(d1.toString()).toBe(expected);
 	expect(d2.toString()).toBe(expected);
 
@@ -72,12 +72,17 @@ test("correctness", () => {
 
 	d1.merge(d2);
 	d2.merge(d1);
+	//console.table(d1.oplog.ops.items);
+	//console.table(d2.oplog.ops.items);
 
-	expected = "shareword"
+	expected = "shareword";
 	expect(d1.toString()).toBe(expected);
 	expect(d2.toString()).toBe(expected);
 });
 
 test("convergence with fuzzer", () => {
-	for (let i = 0; i < 100; i++) fuzzer(i);
+	for (let i = 0; i < 100; i++) {
+		console.log(i);
+		fuzzer(i);
+	}
 });

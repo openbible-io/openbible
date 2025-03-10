@@ -1,5 +1,5 @@
 import { Branch } from "./egwalker/branch";
-import { OpLog, type Site } from "./egwalker/oplog";
+import { OpLog, type Site } from "./egwalker/oplog-rle";
 
 export class List<T> {
 	oplog: OpLog<T>;
@@ -42,4 +42,3 @@ export class List<T> {
 		this.branch = new Branch();
 	}
 }
-

@@ -34,12 +34,10 @@ type Comparator<T, B> = (
 
 export class RleList<T> {
 	items: T[] = [];
-	length = 0;
 
 	push(item: T, tryAppend: (prev: T, cur: T) => boolean) {
 		const last = this.last();
 		if (!last || !tryAppend(last, item)) this.items.push(item);
-		this.length += 1;
 	}
 
 	insert(
@@ -63,7 +61,6 @@ export class RleList<T> {
 
 			if (idx === 0 || !tryAppend(list[idx - 1], newItem)) {
 				list.splice(idx, 0, newItem);
-				this.length += 1;
 			}
 		}
 	}
@@ -78,7 +75,6 @@ export class RleList<T> {
 
 	find<B>(needle: B, comparator: Comparator<T, B>): T | undefined {
 		const idx = this.findIndex(needle, comparator);
-		if (idx < 0) return;
-		return this.items[idx];
+		return idx ? this.items[idx] : undefined;
 	}
 }
