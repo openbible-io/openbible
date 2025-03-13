@@ -1,5 +1,5 @@
 import { MultiArrayList } from "./util/multi-array-list";
-import { Rle } from "./util/rle";
+import { Rle, type Range } from "./util/rle";
 
 /** A collaborating agent */
 export type Site = string;
@@ -11,24 +11,16 @@ export type Clock = number;
 /** Each UTF-16 code unit is assigned this */
 export type Id = { site: Site; clock: Clock };
 
-export type Op<T> = {
-	id: Id;
-	parents: Clock[];
-
-	pos: number;
-	delCount: number;
-	content: T;
-};
-
 type RleOp<ArrT> = {
 	id: Id;
 	position: number;
-	deleteCount: number;
+	deleted: boolean;
 	items: ArrT;
 };
 
 /**
- * An oplog optimized to use less memory
+ * An oplog optimized to use less memory.
+ *
  * @param T The item type.
  * @param ArrT The container to use for runs of items.
  */
@@ -44,66 +36,19 @@ export class RleOpLog<T, ArrT extends ArrayLike<T>> {
 	opsParents: Rle<Clock[]>;
 
 	constructor(
-		private emptyElement: ArrT,
+		public emptyElement: ArrT,
 		mergeFn: (acc: ArrT, cur: ArrT) => ArrT,
 	) {
 		this.ops = new Rle(
-			new MultiArrayList({
+			new MultiArrayList<RleOp<ArrT>>({
 				id: { site: "", clock: 0 },
 				position: 0,
-				deleteCount: 0,
+				deleted: false,
 				items: emptyElement,
 			}),
-			(items, cur, lastRange) => {
-				const curLen = cur.items.length;
-				if (!lastRange) return { curLen, appended: false };
-
-				const prevPos = last(items.fields.position);
-				const prevDelCount = last(items.fields.deleteCount);
-				const prevId = last(items.fields.id);
-				const prevLength = lastRange.len;
-
-				if (
-					prevId.site !== cur.id.site ||
-					prevId.clock + prevLength !== cur.id.clock
-				)
-					return { curLen, appended: false };
-
-				if (
-					!prevDelCount &&
-					!cur.deleteCount &&
-					prevPos + prevLength === cur.position
-				) {
-					items.fields.items[items.fields.items.length - 1] = mergeFn(
-						items.fields.items[items.fields.items.length - 1],
-						cur.items,
-					);
-					return { curLen, appended: true };
-				}
-
-				if (prevDelCount && cur.deleteCount && prevPos === cur.position) {
-					items.fields.deleteCount[items.length - 1] += cur.deleteCount;
-					return { curLen, appended: true };
-				}
-
-				return { curLen, appended: false };
-			},
+			(items, cur, lastRange) => appendOp(mergeFn, items, cur, lastRange),
 		);
-		this.opsParents = new Rle<Clock[]>([], (items, cur) => {
-			const curLen = 1;
-			const lastParents: Clock[] | undefined = items[items.length - 1];
-			if (
-				cur.length === 1 &&
-				lastParents &&
-				lastParents.length === 1 &&
-				lastParents[0] + 1 === cur[0]
-			) {
-
-				return { curLen, appended: true };
-			}
-
-			return { curLen, appended: false };
-		});
+		this.opsParents = new Rle<Clock[]>([], appendOpParents);
 	}
 
 	getId(lc: Clock): Id {
@@ -114,14 +59,15 @@ export class RleOpLog<T, ArrT extends ArrayLike<T>> {
 	}
 
 	getPos(lc: Clock): number {
-		let { idx, offset } = this.ops.offsetOf(lc);
-		if (this.ops.items.fields.deleteCount[idx]) offset = 0;
-		return this.ops.items.fields.position[idx] + offset;
+		const { idx, offset } = this.ops.offsetOf(lc);
+		const pos = this.ops.items.fields.position[idx];
+		if (this.getDeleted(lc)) return pos;
+		return pos + offset;
 	}
 
-	getDeleteCount(lc: Clock): number {
+	getDeleted(lc: Clock): boolean {
 		const { idx } = this.ops.offsetOf(lc);
-		return this.ops.items.fields.deleteCount[idx];
+		return this.ops.items.fields.deleted[idx];
 	}
 
 	getContent(lc: Clock): T {
@@ -129,12 +75,17 @@ export class RleOpLog<T, ArrT extends ArrayLike<T>> {
 		return this.ops.items.fields.items[idx][offset];
 	}
 
+	getAllContent(lc: Clock): ArrT {
+		const { idx } = this.ops.offsetOf(lc);
+		return this.ops.items.fields.items[idx];
+	}
+
 	getParents(lc: Clock): Clock[] {
 		const { idx, offset } = this.opsParents.offsetOf(lc);
-		const parents: Clock[] | undefined = this.opsParents.items[idx];
-		console.dir(this.opsParents);
-		console.log({ lc, idx, offset, parents });
-		if (offset) return [(parents?.[0] ?? -1) + offset];
+		const start = this.opsParents.ranges.fields.start[idx];
+		const parents = this.opsParents.items[idx];
+		if (offset) return [start + offset - 1];
+
 		return parents;
 	}
 
@@ -149,13 +100,21 @@ export class RleOpLog<T, ArrT extends ArrayLike<T>> {
 		deleteCount: number,
 		items: ArrT = this.emptyElement,
 	): void {
-		this.ops.push({
-			id,
-			position,
-			deleteCount,
-			items,
-		});
-		this.opsParents.push(parents);
+		if (deleteCount > 0) {
+			const nextClock = this.nextClock();
+			this.ops.push(
+				{ id, position, deleted: true, items: this.emptyElement },
+				deleteCount,
+			);
+			this.opsParents.push(parents, 1);
+			this.opsParents.push([nextClock], deleteCount - 1);
+		}
+		if (items.length) {
+			const nextClock = this.nextClock();
+			this.ops.push({ id, position, deleted: false, items }, items.length);
+			this.opsParents.push(parents, 1);
+			this.opsParents.push([nextClock], items.length - 1);
+		}
 	}
 
 	get length(): number {
@@ -165,4 +124,47 @@ export class RleOpLog<T, ArrT extends ArrayLike<T>> {
 
 function last<T>(arr: T[]) {
 	return arr[arr.length - 1];
+}
+
+function appendOp<T>(
+	mergeFn: (acc: T, cur: T) => T,
+	items: MultiArrayList<RleOp<T>>,
+	cur: RleOp<T>,
+	lastRange?: Range,
+): boolean {
+	if (!lastRange) return false;
+
+	const prevDeleted = last(items.fields.deleted);
+	const prevPos = last(items.fields.position);
+	const prevId = last(items.fields.id);
+	const prevLength = lastRange.len;
+
+	if (prevId.site !== cur.id.site || prevId.clock + prevLength !== cur.id.clock)
+		return false;
+
+	if (prevDeleted && cur.deleted && prevPos === cur.position) return true;
+	if (!prevDeleted && !cur.deleted && prevPos + prevLength === cur.position) {
+		items.fields.items[items.fields.items.length - 1] = mergeFn(
+			items.fields.items[items.fields.items.length - 1],
+			cur.items,
+		);
+		return true;
+	}
+
+	return false;
+}
+
+function appendOpParents(
+	_items: Clock[][],
+	cur: Clock[],
+	lastRange?: Range,
+): boolean {
+	if (
+		lastRange &&
+		cur.length === 1 &&
+		lastRange.start + lastRange.len - 1 === cur[0]
+	)
+		return true;
+
+	return false;
 }

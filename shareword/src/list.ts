@@ -3,22 +3,22 @@ import { OpLog, type Site } from "./egwalker/oplog";
 
 export class List<T> {
 	site: Site;
-	oplog = new OpLog<T, T[]>(
-		(acc, ...others) => {
-			const res = acc ?? []; 
-			res.push(...others);
-			return res;
-		},
-		(item, delCount) => item.length + delCount,
-	);
+	oplog: OpLog<T>;
 	branch = new Branch<T>();
 
-	constructor(site: Site) {
+	constructor(site: Site, emptyElement: T[]) {
 		this.site = site;
+		this.oplog = new OpLog<T>(
+			emptyElement,
+			(acc, cur) => {
+				acc.push(...cur);
+				return acc;
+			},
+		);
 	}
 
 	insert(pos: number, ...items: T[]) {
-		this.oplog.insert(this.site, pos, ...items);
+		this.oplog.insert(this.site, pos, items);
 		this.branch.snapshot.splice(pos, 0, ...items);
 		this.branch.frontier = this.oplog.frontier.slice();
 	}

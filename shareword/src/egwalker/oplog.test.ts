@@ -1,5 +1,5 @@
 import { test, expect } from "bun:test";
-import { OpLog } from "./oplog";
+import { debugPrint, OpLog } from "./oplog";
 
 function stringOpLog() {
 	return new OpLog<string, string>(
@@ -9,14 +9,16 @@ function stringOpLog() {
 }
 
 function expectHel(oplog: ReturnType<typeof stringOpLog>) {
-	// rle works?
 	expect(oplog.length).toBe(3);
 	expect(oplog.ops.items.fields.items[0]).toBe("hel");
 	expect(oplog.getId(2)).toEqual({ site: "a", clock: 2 });
 	expect(oplog.getPos(2)).toBe(2);
-	expect(oplog.getDeleteCount(2)).toBe(0);
+	expect(oplog.getDeleted(2)).toBe(false);
 	expect(oplog.getContent(2)).toBe("l");
+	expect(oplog.getParents(0)).toEqual([]);
+	expect(oplog.getParents(1)).toEqual([0]);
 	expect(oplog.getParents(2)).toEqual([1]);
+	expect(() => oplog.getParents(3)).toThrowError();
 }
 
 test("insert", () => {
@@ -35,12 +37,52 @@ test("insert", () => {
 });
 
 test("delete", () => {
-	const oplog = stringOpLog();
+	let oplog = stringOpLog();
+
+	oplog.insert("a", 0, "hel");
+	expectHel(oplog);
 
 	oplog.delete("b", 0, 1);
 	oplog.delete("b", 0, 1);
 	oplog.delete("b", 0, 1);
+	expect(oplog.getDeleted(4)).toBe(true);
 
-	// rle works?
-	expect(oplog.getDeleteCount(0)).toBe(3);
+	oplog = stringOpLog();
+	oplog.insert("a", 0, "hel");
+	oplog.delete("b", 0, 3);
+	expect(oplog.getDeleted(4)).toBe(true);
+});
+
+test("parents", () => {
+	const a = stringOpLog();
+	const site = "a";
+	let clock = 0;
+
+	a.push({ site, clock }, [], 0, 0, "abc");
+	clock += 3;
+	a.push({ site, clock }, [0,1], 0, 0, "def");
+
+	debugPrint(a, true);
+	debugPrint(a);
+
+	expect(a.getParents(0)).toEqual([]);
+	expect(a.getParents(1)).toEqual([0]);
+	expect(a.getParents(2)).toEqual([1]);
+	expect(a.getParents(3)).toEqual([0,1]);
+	expect(a.getParents(4)).toEqual([3]);
+	expect(a.getParents(5)).toEqual([4]);
+});
+
+test("merge", () => {
+	const a = stringOpLog();
+	const b = stringOpLog();
+
+	a.insert("a", 0, "1");
+	b.insert("b", 0, "23");
+
+	a.merge(b);
+
+	expect(a.getParents(0)).toEqual([]);
+	expect(a.getParents(1)).toEqual([]);
+	expect(a.getParents(2)).toEqual([1]);
 });

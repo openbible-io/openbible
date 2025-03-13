@@ -1,5 +1,6 @@
 import { test, expect } from "bun:test";
 import { Text } from "./text";
+import { debugPrint } from "./egwalker/oplog";
 import { mulberry32 } from "../bench/harness";
 
 function fuzzer(seed: number) {
@@ -57,9 +58,27 @@ test("correctness", () => {
 	d1.merge(d2);
 	d2.merge(d1);
 
-	//["positions", "deleteCounts", "items", "ids", "clocks", "parents"].forEach(
-	//	(p) => console.log(p, this.oplog[p]),
-	//);
+	// expected d1:
+	//┌───┬─────┬──────────┬─────────┬──────┬───────┬─────────┐
+	//│   │ pos │ delCount │ content │ site │ clock │ parents │
+	//├───┼─────┼──────────┼─────────┼──────┼───────┼─────────┤
+	//│ 0 │ 0   │ 0        │ h       │ a    │ 0     │ []      │
+	//│ 1 │ 1   │ 0        │ e       │ a    │ 1     │ [ 0 ]   │
+	//│ 2 │ 2   │ 0        │ l       │ a    │ 2     │ [ 1 ]   │
+	//│ 3 │ 3   │ 0        │ l       │ a    │ 3     │ [ 2 ]   │
+	//│ 4 │ 4   │ 0        │ o       │ a    │ 4     │ [ 3 ]   │
+	//│ 5 │ 0   │ 0        │ w       │ b    │ 0     │ []      │
+	//│ 6 │ 1   │ 0        │ o       │ b    │ 1     │ [ 5 ]   │
+	//│ 7 │ 2   │ 0        │ r       │ b    │ 2     │ [ 6 ]   │
+	//│ 8 │ 3   │ 0        │ l       │ b    │ 3     │ [ 7 ]   │
+	//│ 9 │ 4   │ 0        │ d       │ b    │ 4     │ [ 8 ]   │
+	//└───┴─────┴──────────┴─────────┴──────┴───────┴─────────┘
+	//debugPrint(d1.oplog);
+	//debugPrint(d2.oplog);
+	expect(d1.oplog.frontier).toEqual([4, 9]);
+	expect(d1.oplog.stateVector).toEqual({ [d1.site]: 4, [d2.site]: 4 });
+	expect(d1.oplog.getParents(5)).toEqual([]);
+	expect(d1.oplog.getParents(9)).toEqual([8]);
 
 	let expected = "helloworld";
 	expect(d1.toString()).toBe(expected);
@@ -71,7 +90,35 @@ test("correctness", () => {
 
 	d1.merge(d2);
 	d2.merge(d1);
-	//console.table(d2.oplog.ops.items);
+	// expected d1:
+	//┌────┬─────┬──────────┬─────────┬──────┬───────┬──────────┐
+	//│    │ pos │ delCount │ content │ site │ clock │ parents  │
+	//├────┼─────┼──────────┼─────────┼──────┼───────┼──────────┤
+	//│  0 │ 0   │ 0        │ h       │ a    │ 0     │ []       │
+	//│  1 │ 1   │ 0        │ e       │ a    │ 1     │ [ 0 ]    │
+	//│  2 │ 2   │ 0        │ l       │ a    │ 2     │ [ 1 ]    │
+	//│  3 │ 3   │ 0        │ l       │ a    │ 3     │ [ 2 ]    │
+	//│  4 │ 4   │ 0        │ o       │ a    │ 4     │ [ 3 ]    │
+	//│  5 │ 0   │ 0        │ w       │ b    │ 0     │ []       │
+	//│  6 │ 1   │ 0        │ o       │ b    │ 1     │ [ 5 ]    │
+	//│  7 │ 2   │ 0        │ r       │ b    │ 2     │ [ 6 ]    │
+	//│  8 │ 3   │ 0        │ l       │ b    │ 3     │ [ 7 ]    │
+	//│  9 │ 4   │ 0        │ d       │ b    │ 4     │ [ 8 ]    │
+	//│ 10 │ 8   │ 1        │         │ a    │ 5     │ [ 4, 9 ] │
+	//│ 11 │ 0   │ 1        │         │ b    │ 5     │ [ 4, 9 ] │
+	//│ 12 │ 0   │ 1        │         │ b    │ 6     │ [ 11 ]   │
+	//│ 13 │ 0   │ 1        │         │ b    │ 7     │ [ 12 ]   │
+	//│ 14 │ 0   │ 1        │         │ b    │ 8     │ [ 13 ]   │
+	//│ 15 │ 0   │ 1        │         │ b    │ 9     │ [ 14 ]   │
+	//│ 16 │ 0   │ 0        │ s       │ b    │ 10    │ [ 15 ]   │
+	//│ 17 │ 1   │ 0        │ h       │ b    │ 11    │ [ 16 ]   │
+	//│ 18 │ 2   │ 0        │ a       │ b    │ 12    │ [ 17 ]   │
+	//│ 19 │ 3   │ 0        │ r       │ b    │ 13    │ [ 18 ]   │
+	//│ 20 │ 4   │ 0        │ e       │ b    │ 14    │ [ 19 ]   │
+	//└────┴─────┴──────────┴─────────┴──────┴───────┴──────────┘
+	debugPrint(d1.oplog, true);
+	debugPrint(d1.oplog);
+	//debugPrint(d2.oplog);
 
 	expected = "shareword";
 	expect(d1.toString()).toBe(expected);

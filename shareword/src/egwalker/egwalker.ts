@@ -23,29 +23,30 @@ export type Item = {
  * A CRDT document implemented as an Event Graph Walker.
  * - https://arxiv.org/pdf/2409.14252
  */
-export class EgWalker {
+export class EgWalker<T, ArrT extends ArrayLike<T>> {
 	items: Item[] = [];
 	currentVersion: Clock[] = [];
 
 	delTargets: { [clock: Clock]: Clock } = {};
 	targets: { [clock: Clock]: Item } = {};
 
-	#target<T>(oplog: OpLog<T>, clock: Clock): Item {
-		const target = oplog.getDeleteCount(clock) ? this.delTargets[clock] : clock;
+	#target(oplog: OpLog<T, ArrT>, clock: Clock): Item {
+		const target = oplog.getDeleted(clock) ? this.delTargets[clock] : clock;
 		return this.targets[target];
 	}
 
-	#retreat<T>(oplog: OpLog<T>, clock: Clock) {
+	#retreat(oplog: OpLog<T, ArrT>, clock: Clock) {
 		this.#target(oplog, clock).state -= 1;
 	}
 
-	#advance<T>(oplog: OpLog<T>, clock: Clock) {
+	#advance(oplog: OpLog<T, ArrT>, clock: Clock) {
 		this.#target(oplog, clock).state += 1;
 	}
 
-	#apply<T>(oplog: OpLog<T>, clock: Clock, snapshot?: T[]) {
+	#apply(oplog: OpLog<T, ArrT>, clock: Clock, snapshot?: T[]) {
 		const pos = oplog.getPos(clock);
-		if (oplog.getDeleteCount(clock)) {
+
+		if (oplog.getDeleted(clock)) {
 			const { idx, endPos } = this.#findPos(pos, true);
 			const item = this.items[idx];
 
@@ -56,9 +57,8 @@ export class EgWalker {
 			item.state = State.Deleted;
 
 			this.delTargets[clock] = item.clock;
-		}
-		const content = oplog.getContent(clock);
-		if (content) {
+		} else {
+			const content = oplog.getContent(clock);
 			const { idx, endPos } = this.#findPos(pos, false);
 			const originLeft = idx === 0 ? -1 : this.items[idx - 1].clock;
 
@@ -85,8 +85,8 @@ export class EgWalker {
 	}
 
 	/** FugueMax */
-	#integrate<T>(
-		oplog: OpLog<T>,
+	#integrate(
+		oplog: OpLog<T, ArrT>,
 		newItem: Item,
 		idx: number,
 		endPos: number,
@@ -114,8 +114,8 @@ export class EgWalker {
 					? this.items.length
 					: this.#indexOfLocalClock(other.originRight);
 
-			const newSite = oplog.getSite(newItem.clock);
-			const otherSite = oplog.getSite(other.clock);
+			const newSite = oplog.getId(newItem.clock).site;
+			const otherSite = oplog.getId(other.clock).site;
 
 			if (
 				oleft < left ||
@@ -168,7 +168,7 @@ export class EgWalker {
 		return { idx, endPos };
 	}
 
-	doOp<T>(oplog: OpLog<T>, clock: Clock, snapshot?: T[]) {
+	doOp(oplog: OpLog<T, ArrT>, clock: Clock, snapshot?: T[]) {
 		const parents = oplog.getParents(clock);
 		const { aOnly, bOnly } = oplog.diff(this.currentVersion, parents);
 

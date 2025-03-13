@@ -1,9 +1,9 @@
 import binarySearch from "./bsearch";
 import { MultiArrayList } from "./multi-array-list";
 
-type Range = { start: number; len: number };
+export type Range = { start: number; len: number };
 
-interface Container<T> {
+export interface Container<T> {
 	at(i: number): T | undefined;
 	push(item: T): void;
 	length: number;
@@ -15,7 +15,7 @@ export class Rle<T, C extends Container<T> = Array<T>> {
 
 	/**
 	 * @param items The container type to use.
-	 * @param append Function that attempts to append `cur` to `items
+	 * @param append Function that returns true if appends `cur` to `items`
 	*/
 	constructor(
 		public items: C,
@@ -23,19 +23,20 @@ export class Rle<T, C extends Container<T> = Array<T>> {
 			items: C,
 			cur: T,
 			lastRange?: Range,
-		) => { curLen: number; appended: boolean },
+		) => boolean,
 	) {}
 
-	push(item: T) {
+	push(item: T, len = 1) {
+		if (len <= 0) return;
+
 		const lastRange = this.ranges.at(this.ranges.length - 1);
-		const { curLen, appended } = this.append(this.items, item, lastRange);
-		if (appended) {
-			// hooray, we appended to a run!
+
+		if (this.append(this.items, item, lastRange)) {
 			const lens = this.ranges.fields.len;
-			lens[lens.length - 1] += curLen;
+			lens[lens.length - 1] += len;
 		} else {
 			this.items.push(item);
-			this.ranges.push({ start: this.length, len: curLen });
+			this.ranges.push({ start: this.length, len });
 		}
 	}
 
@@ -53,15 +54,16 @@ export class Rle<T, C extends Container<T> = Array<T>> {
 		);
 	}
 
-	offsetOf(idx: number): { idx: number; offset: number } {
-		const rIdx = this.#rangeIndex(idx);
-		const offset = idx - rIdx;
-		return { idx: rIdx, offset };
+	offsetOf(i: number): { idx: number; offset: number } {
+		const idx = this.#rangeIndex(i);
+		if (idx >= this.ranges.length) throw new Error(`${i} out of bounds`);
+		const start = this.ranges.fields.start[idx];
+		const offset = i - start;
+		return { idx, offset };
 	}
 
-	at(idx: number): T | undefined {
-		const item = this.items.at(this.#rangeIndex(idx));
-		return item;
+	at(i: number): T | undefined {
+		return this.items.at(this.#rangeIndex(i));
 	}
 
 	get length() {

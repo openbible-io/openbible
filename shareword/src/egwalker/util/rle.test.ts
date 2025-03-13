@@ -16,6 +16,7 @@ function testFoo(rle: Rle<Foo, any>) {
 	expect(rle.ranges.at(1)).toEqual({ start: 3, len: 2 });
 
 	expect(rle.offsetOf(1)).toEqual({ idx: 0, offset: 1 });
+	expect(rle.offsetOf(4)).toEqual({ idx: 1, offset: 1 });
 	expect(rle.at(0)).toEqual({ foo: "abc" });
 	expect(rle.at(1)).toEqual({ foo: "abc" });
 	expect(rle.at(2)).toEqual({ foo: "abc" });
@@ -27,13 +28,11 @@ function testFoo(rle: Rle<Foo, any>) {
 test("rle array", () => {
 	testFoo(
 		new Rle<Foo, Foo[]>([], (items, cur) => {
-			const curLen = cur.foo.length;
-
 			if (items.length === 0 || cur.foo === "1")
-				return { curLen, appended: false };
+				return false;
 
 			items[items.length - 1].foo += cur.foo;
-			return { curLen, appended: true };
+			return true;
 		}),
 	);
 });
@@ -43,12 +42,10 @@ test("rle multiarraylist", () => {
 		new Rle<Foo, MultiArrayList<Foo>>(
 			new MultiArrayList<Foo>({ foo: "abc" }),
 			(items, cur) => {
-				const curLen = cur.foo.length;
-
-				if (items.length === 0 || cur.foo === "1") return { curLen, appended: false };
+				if (items.length === 0 || cur.foo === "1") return false;
 
 				items.fields.foo[items.length - 1] += cur.foo;
-				return { curLen, appended: true };
+				return true;
 			},
 		),
 	);
