@@ -1,15 +1,20 @@
 import { Branch } from "./egwalker/branch";
-import { OpLog, type Site } from "./egwalker/oplog-rle";
+import { OpLog, type Site } from "./egwalker/oplog";
 
 export class List<T> {
-	oplog: OpLog<T>;
 	site: Site;
-	branch: Branch<T>;
+	oplog = new OpLog<T, T[]>(
+		(acc, ...others) => {
+			const res = acc ?? []; 
+			res.push(...others);
+			return res;
+		},
+		(item, delCount) => item.length + delCount,
+	);
+	branch = new Branch<T>();
 
-	constructor(site: Site, emptyElement: T) {
-		this.oplog = new OpLog(emptyElement);
+	constructor(site: Site) {
 		this.site = site;
-		this.branch = new Branch();
 	}
 
 	insert(pos: number, ...items: T[]) {
@@ -24,10 +29,6 @@ export class List<T> {
 		this.branch.frontier = this.oplog.frontier.slice();
 	}
 
-	toString() {
-		return this.branch.snapshot.join("");
-	}
-
 	items() {
 		return this.branch.snapshot;
 	}
@@ -35,10 +36,5 @@ export class List<T> {
 	merge(other: List<T>) {
 		this.oplog.merge(other.oplog);
 		this.branch.checkout(this.oplog);
-	}
-
-	reset() {
-		this.oplog = new OpLog(this.oplog.emptyElement);
-		this.branch = new Branch();
 	}
 }

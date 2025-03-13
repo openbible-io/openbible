@@ -13,6 +13,7 @@ export default function binarySearch<A, B>(
 	haystack: ArrayLike<A>,
 	needle: B,
 	comparator: (a: A, b: B, index: number, haystack: ArrayLike<A>) => number,
+	failXor = -1,
 	fromIdx = 0,
 	toIdx = haystack.length - 1,
 ): number {
@@ -44,5 +45,5 @@ export default function binarySearch<A, B>(
 	// Return one less than where the key would go.
 	// We could return -fromIdx, but then the caller would be forced to check
 	// for `-0` vs `0` and that's complicated.
-	return ~fromIdx;
+	return fromIdx ^ failXor;
 }

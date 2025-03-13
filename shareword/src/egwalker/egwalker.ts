@@ -1,4 +1,4 @@
-import type { LocalClock, OpLog } from "./oplog";
+import type { Clock, OpLog } from "./oplog";
 
 export enum State {
 	NotInserted = -1,
@@ -10,11 +10,11 @@ export enum State {
 }
 
 export type Item = {
-	clock: LocalClock;
+	clock: Clock;
 	/** -1 = start of doc */
-	originLeft: LocalClock | -1;
+	originLeft: Clock | -1;
 	/** -1 = end of doc */
-	originRight: LocalClock | -1;
+	originRight: Clock | -1;
 	deleted: boolean;
 	state: State;
 };
@@ -25,25 +25,25 @@ export type Item = {
  */
 export class EgWalker {
 	items: Item[] = [];
-	currentVersion: LocalClock[] = [];
+	currentVersion: Clock[] = [];
 
-	delTargets: { [clock: LocalClock]: LocalClock } = {};
-	targets: { [clock: LocalClock]: Item } = {};
+	delTargets: { [clock: Clock]: Clock } = {};
+	targets: { [clock: Clock]: Item } = {};
 
-	#target<T>(oplog: OpLog<T>, clock: LocalClock): Item {
+	#target<T>(oplog: OpLog<T>, clock: Clock): Item {
 		const target = oplog.getDeleteCount(clock) ? this.delTargets[clock] : clock;
 		return this.targets[target];
 	}
 
-	#retreat<T>(oplog: OpLog<T>, clock: LocalClock) {
+	#retreat<T>(oplog: OpLog<T>, clock: Clock) {
 		this.#target(oplog, clock).state -= 1;
 	}
 
-	#advance<T>(oplog: OpLog<T>, clock: LocalClock) {
+	#advance<T>(oplog: OpLog<T>, clock: Clock) {
 		this.#target(oplog, clock).state += 1;
 	}
 
-	#apply<T>(oplog: OpLog<T>, clock: LocalClock, snapshot?: T[]) {
+	#apply<T>(oplog: OpLog<T>, clock: Clock, snapshot?: T[]) {
 		const pos = oplog.getPos(clock);
 		if (oplog.getDeleteCount(clock)) {
 			const { idx, endPos } = this.#findPos(pos, true);
@@ -138,7 +138,7 @@ export class EgWalker {
 		snapshot?.splice(endPos, 0, content);
 	}
 
-	#indexOfLocalClock(clock: LocalClock) {
+	#indexOfLocalClock(clock: Clock) {
 		return this.items.findIndex((item) => item.clock === clock);
 	}
 
@@ -168,7 +168,7 @@ export class EgWalker {
 		return { idx, endPos };
 	}
 
-	doOp<T>(oplog: OpLog<T>, clock: LocalClock, snapshot?: T[]) {
+	doOp<T>(oplog: OpLog<T>, clock: Clock, snapshot?: T[]) {
 		const parents = oplog.getParents(clock);
 		const { aOnly, bOnly } = oplog.diff(this.currentVersion, parents);
 

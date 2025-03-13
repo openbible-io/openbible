@@ -5,7 +5,8 @@ export class Branch<T> {
 	snapshot: T[] = [];
 	frontier: Clock[] = [];
 
-	checkout(oplog: OpLog<T>, mergeFrontier: Clock[] = oplog.frontier) {
+	// biome-ignore lint/suspicious/noExplicitAny: <explanation>
+	checkout(oplog: OpLog<T, any>, mergeFrontier: Clock[] = oplog.frontier) {
 		const { head, shared, bOnly } = oplog.diff2(
 			this.frontier,
 			mergeFrontier,

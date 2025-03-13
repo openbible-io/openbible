@@ -1,22 +1,8 @@
+import { RleOpLog } from "./oplog-rle";
+import type { Site, Clock, Id, Op } from "./oplog-rle";
 import PriorityQueue from "./pq";
-import { RleList } from "./util/rle-list";
 
-/** A collaborating agent */
-export type Site = string;
-/** Non-negative integer incremented after each operation */
-export type Clock = number;
-/** Clock local to this */
-export type LocalClock = Clock;
-/** Each UTF-16 code unit is assigned this */
-export type Id = { site: Site; clock: Clock };
-
-export type Op<T> = {
-	pos: number;
-	delCount: number;
-	content: T;
-	id: Id;
-	parents: LocalClock[];
-};
+export type { Site, Clock, Id, Op };
 
 export function advanceFrontier(
 	frontier: Clock[],
@@ -28,141 +14,75 @@ export function advanceFrontier(
 	return f.sort((a, b) => a - b);
 }
 
-function idxCmp<T>(a: Op<T> & { index: number }, b: number) {
-	return a.index - b;
-}
-
-export function tryAppendOp<T extends string>(
-	prev: Op<T>,
-	cur: Op<T>,
-): boolean {
-	const prevLength = prev.delCount || prev.content.length;
-
-	if (
-		prev.id.site !== cur.id.site ||
-		prev.id.clock + prevLength !== cur.id.clock ||
-		cur.parents.length !== 1 ||
-		(prev.parents[0] ?? -1) + prevLength !== cur.parents[0]
-	)
-		return false;
-
-	if (!prev.delCount && !cur.delCount && prev.pos + prevLength === cur.pos) {
-		// @ts-ignore
-		prev.content += cur.content;
-		return true;
-	}
-
-	if (prev.delCount && cur.delCount && prev.pos === cur.pos) {
-		prev.delCount += cur.delCount;
-		return true;
-	}
-
-	return false;
-}
-
-/** An append-only list of immutable operations, similar to Git */
-export class OpLog<T> {
-	//ops = new RleList<Op<T> & { index: number }>();
-	ops: Op<T>[] = [];
+/** An append-only list of immutable operations */
+export class OpLog<T, ArrT extends ArrayLike<T>> extends RleOpLog<T, ArrT> {
 	/** Leaf nodes */
 	frontier: Clock[] = [];
 	/** Max known clock for each site. */
 	stateVector: Record<Site, Clock> = {};
-	/** Allows storing ops in a columnar fashion */
-	emptyElement: T;
 
-	constructor(emptyElement: T) {
-		this.emptyElement = emptyElement;
-	}
+	#pushLocal(site: Site, pos: number, delCount: number, items?: ArrT) {
+		let clock = (this.stateVector[site] ?? -1) + 1;
 
-	getSite(lc: LocalClock): Site {
-		return this.ops[lc].id.site;
-	}
-
-	getClock(lc: LocalClock): Clock {
-		return this.ops[lc].id.clock;
-	}
-
-	getContent(lc: LocalClock): T {
-		return this.ops[lc].content;
-	}
-
-	getDeleteCount(lc: LocalClock): number {
-		return this.ops[lc].delCount;
-	}
-
-	getParents(lc: LocalClock): LocalClock[] {
-		return this.ops[lc].parents;
-	}
-
-	getPos(lc: LocalClock): number {
-		return this.ops[lc].pos;
-	}
-
-	nextClock(content?: T) {
-		const len = Math.max(1, content?.length ?? 0);
-		return this.ops.length + len - 2;
-	}
-
-	#pushLocal(site: Site, pos: number, delCount: number, content: T) {
-		const clock = (this.stateVector[site] ?? -1) + 1;
-
-		this.ops.push({
-			pos,
-			delCount,
-			content,
-			id: { site, clock },
-			parents: this.frontier,
-		});
-		//		index: this.ops.length,
-		//	},
-		//	tryAppendOp,
-		//);
-		this.frontier = [this.nextClock(content)];
+		this.push({ site, clock }, this.frontier, pos, delCount, items);
+		clock = this.nextClock() - 1;
+		this.frontier = [clock];
 		this.stateVector[site] = clock;
 	}
 
-	insert(site: Site, pos: number, ...items: T[]) {
-		for (const i of items) this.#pushLocal(site, pos++, 0, i);
+	insert(site: Site, pos: number, items: ArrT) {
+		this.#pushLocal(site, pos, 0, items);
 	}
 
 	delete(site: Site, pos: number, delCount: number) {
-		for (let i = 0; i < delCount; i++)
-			this.#pushLocal(site, pos, 1, this.emptyElement);
+		this.#pushLocal(site, pos, delCount);
 	}
 
-	merge(src: OpLog<T>) {
-		for (const op of src.ops) {
-			const { site, clock } = op.id;
-			const lastClock = this.stateVector[site] ?? -1;
-			if (lastClock >= clock) continue;
+	#idToClock(id: Id): Clock {
+		const { site, clock } = id;
+		const idx = this.ops.items.fields.id.findLastIndex(
+			(id, i) =>
+				site === id.site &&
+				clock >= id.clock &&
+				clock <= id.clock + this.ops.ranges.fields.len[i],
+		);
+		if (idx < 0) {
+			throw `Id (${site},${clock}) does not exist`;
+		}
 
-			const parents = op.parents
-				.map((lc) => {
-					const site = src.getSite(lc);
-					const clock = src.getClock(lc);
+		return (
+			this.ops.ranges.fields.start[idx] +
+			clock -
+			this.ops.items.fields.id[idx].clock
+		);
+	}
 
-					return this.ops.findLastIndex(
-						(op) => op.id.site === site && op.id.clock === clock,
-					);
-				})
+	merge(src: OpLog<T, ArrT>) {
+		for (let i = 0; i < src.ops.length; i++) {
+			const { fields } = src.ops.items;
+			const opPos = fields.position[i];
+			const opDelCount = fields.deleteCount[i];
+			const opItem = fields.items[i];
+			const opId = fields.id[i];
+			const opLen = src.ops.ranges.fields.len[i];
+
+			const opParents = src.opsParents.items[i];
+			const lastClock = this.stateVector[opId.site] ?? -1;
+			if (lastClock >= opId.clock) continue;
+
+			const parents = opParents
+				.map((srcClock) => this.#idToClock(src.getId(srcClock)))
 				.sort((a, b) => a - b);
+			const nextClock = this.nextClock();
 
-			this.ops.push({
-				...op,
-				parents,
-			});
-			//		index: this.ops.length,
-			//	},
-			//	tryAppendOp,
-			//);
+			this.push(opId, parents, opPos, opDelCount, opItem);
 			this.frontier = advanceFrontier(
 				this.frontier,
-				this.nextClock(op.content),
+				nextClock + opLen - 1,
 				parents,
 			);
 			//assert(clock == lastKnownSeq + 1);
-			this.stateVector[site] = clock + op.content.length - 1;
+			this.stateVector[opId.site] = opId.clock + opLen - 1;
 		}
 	}
 
@@ -215,8 +135,9 @@ export class OpLog<T> {
 		shared: Clock[];
 		bOnly: Clock[];
 	} {
+		console.log("diff2", a, b);
 		type MergePoint = {
-			clocks: LocalClock[];
+			clocks: Clock[];
 			inA: boolean;
 		};
 
@@ -224,7 +145,7 @@ export class OpLog<T> {
 			cmpClocks(b.clocks, a.clocks),
 		);
 
-		const enq = (localClocks: LocalClock[], inA: boolean) => {
+		const enq = (localClocks: Clock[], inA: boolean) => {
 			queue.push({
 				clocks: localClocks.toSorted((a, b) => b - a),
 				inA,
@@ -261,7 +182,7 @@ export class OpLog<T> {
 				for (const lc of next.clocks) enq([lc], inA);
 			} else {
 				const lc = next.clocks[0];
-				//assert(v.length == 1);
+				//assert(next.clocks.length == 1);
 				if (inA) shared.push(lc);
 				else bOnly.push(lc);
 

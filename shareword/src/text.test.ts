@@ -44,11 +44,7 @@ function fuzzer(seed: number) {
 
 		a.merge(b);
 		b.merge(a);
-		try {
-			expect(a.branch.snapshot).toEqual(b.branch.snapshot);
-		} catch (e) {
-			throw e;
-		}
+		expect(a.branch.snapshot).toEqual(b.branch.snapshot);
 	}
 }
 
@@ -58,9 +54,12 @@ test("correctness", () => {
 
 	d1.insert(0, "hello");
 	d2.insert(0, "world");
-
 	d1.merge(d2);
 	d2.merge(d1);
+
+	//["positions", "deleteCounts", "items", "ids", "clocks", "parents"].forEach(
+	//	(p) => console.log(p, this.oplog[p]),
+	//);
 
 	let expected = "helloworld";
 	expect(d1.toString()).toBe(expected);
@@ -72,7 +71,6 @@ test("correctness", () => {
 
 	d1.merge(d2);
 	d2.merge(d1);
-	//console.table(d1.oplog.ops.items);
 	//console.table(d2.oplog.ops.items);
 
 	expected = "shareword";
