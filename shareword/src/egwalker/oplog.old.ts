@@ -37,7 +37,7 @@ export class OpLog<T> {
 	/** Leaf nodes */
 	frontier: Clock[] = [];
 	/** Latest clock value for each site. */
-	version: Record<Site, number> = {};
+	stateVector: Record<Site, number> = {};
 	/** Allows storing ops in a columnar fashion */
 	emptyElement: T;
 
@@ -50,7 +50,7 @@ export class OpLog<T> {
 	}
 
 	#pushLocal(site: string, pos: number, delCount: number, content: T) {
-		const clock = (this.version[site] ?? -1) + 1;
+		const clock = (this.stateVector[site] ?? -1) + 1;
 
 		this.ops.push({
 			pos,
@@ -61,7 +61,7 @@ export class OpLog<T> {
 			parents: this.frontier,
 		});
 		this.frontier = [this.ops.length - 1];
-		this.version[site] = clock;
+		this.stateVector[site] = clock;
 	}
 
 	nextClock() {
@@ -71,7 +71,7 @@ export class OpLog<T> {
 	#pushRemote(op: Op<T>, parentIds: Id[]) {
 		const site = op.site;
 		const clock = op.clock;
-		const lastKnownSeq = this.version[site] ?? -1;
+		const lastKnownSeq = this.stateVector[site] ?? -1;
 		if (lastKnownSeq >= clock) return;
 
 		const parents = parentIds
@@ -89,7 +89,7 @@ export class OpLog<T> {
 			parents,
 		);
 		//assert(clock == lastKnownSeq + 1);
-		this.version[site] = clock;
+		this.stateVector[site] = clock;
 	}
 
 	insert(site: string, pos: number, ...content: T[]) {

@@ -62,9 +62,6 @@ test("parents", () => {
 	clock += 3;
 	a.push({ site, clock }, [0,1], 0, 0, "def");
 
-	debugPrint(a, true);
-	debugPrint(a);
-
 	expect(a.getParents(0)).toEqual([]);
 	expect(a.getParents(1)).toEqual([0]);
 	expect(a.getParents(2)).toEqual([1]);

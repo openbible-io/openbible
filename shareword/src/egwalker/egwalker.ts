@@ -1,4 +1,5 @@
-import type { Clock, OpLog } from "./oplog";
+import type { OpLog } from "./oplog";
+import type { Clock } from "./util/state-vector";
 
 export enum State {
 	NotInserted = -1,

@@ -1,5 +1,6 @@
 import { MultiArrayList } from "./util/multi-array-list";
 import { Rle, type Range } from "./util/rle";
+import type { StateVectorDiff } from "./util/state-vector";
 
 /** A collaborating agent */
 export type Site = string;
@@ -16,24 +17,39 @@ type RleOp<ArrT> = {
 	position: number;
 	deleted: boolean;
 	items: ArrT;
+	parents: number[];
 };
 
+//class Patch<ArrT> {
+//	ops: MultiArrayList<{ len: number } & RleOp<ArrT>>;
+//	opsParents: MultiArrayList<{ len: number } & { parents: Clock[] }>;
+//
+//	constructor(public emptyElement: ArrT) {
+//		this.ops = new MultiArrayList({
+//			len: 0,
+//			id: { site: "", clock: 0 },
+//			position: 0,
+//			deleted: false,
+//			items: emptyElement,
+//		});
+//		this.opsParents = new MultiArrayList({
+//			len: 0,
+//			parents: [],
+//		});
+//	}
+//};
+
 /**
- * An oplog optimized to use less memory.
+ * An oplog optimized to use less memory. Run length is a natural choice
+ * because list edits usually occur in runs.
  *
  * @param T The item type.
  * @param ArrT The container to use for runs of items.
  */
 export class RleOpLog<T, ArrT extends ArrayLike<T>> {
-	// We have a lot of choices of how to encode Ops. Run length is a natural
-	// choice because people usually type in runs.
+	// We have a lot of choices of how to encode Ops.
 	//
-	// Each run requires extra metadata for its range, which we'd like to
-	// minimize. We could encode everything as a run, but parents will require
-	// new runs whenever there is concurrency. For that reason we separate them
-	// out.
 	ops: Rle<RleOp<ArrT>, MultiArrayList<RleOp<ArrT>>>;
-	opsParents: Rle<Clock[]>;
 
 	constructor(
 		public emptyElement: ArrT,
@@ -45,48 +61,63 @@ export class RleOpLog<T, ArrT extends ArrayLike<T>> {
 				position: 0,
 				deleted: false,
 				items: emptyElement,
+				parents: [],
 			}),
 			(items, cur, lastRange) => appendOp(mergeFn, items, cur, lastRange),
 		);
-		this.opsParents = new Rle<Clock[]>([], appendOpParents);
 	}
 
-	getId(lc: Clock): Id {
-		const { idx, offset } = this.ops.offsetOf(lc);
+	getIdRaw(idx: number, offset: number): Id {
 		const res = { ...this.ops.items.fields.id[idx] };
 		res.clock += offset;
 		return res;
 	}
 
+	getId(lc: Clock): Id {
+		const { idx, offset } = this.ops.offsetOf(lc);
+		return this.getIdRaw(idx, offset);
+	}
+
+	getPosRaw(idx: number, offset: number, deleted: boolean): number {
+		const pos = this.ops.items.fields.position[idx];
+		if (deleted) return pos;
+		return pos + offset;
+	}
+
 	getPos(lc: Clock): number {
 		const { idx, offset } = this.ops.offsetOf(lc);
-		const pos = this.ops.items.fields.position[idx];
-		if (this.getDeleted(lc)) return pos;
-		return pos + offset;
+		return this.getPosRaw(idx, offset, this.getDeleted(lc));
+	}
+
+	getDeletedRaw(idx: number): boolean {
+		return this.ops.items.fields.deleted[idx];
 	}
 
 	getDeleted(lc: Clock): boolean {
 		const { idx } = this.ops.offsetOf(lc);
-		return this.ops.items.fields.deleted[idx];
+		return this.getDeletedRaw(idx);
+	}
+
+	getContentRaw(idx: number): ArrT {
+		return this.ops.items.fields.items[idx];
 	}
 
 	getContent(lc: Clock): T {
 		const { idx, offset } = this.ops.offsetOf(lc);
-		return this.ops.items.fields.items[idx][offset];
+		return this.getContentRaw(idx)[offset];
 	}
 
-	getAllContent(lc: Clock): ArrT {
-		const { idx } = this.ops.offsetOf(lc);
-		return this.ops.items.fields.items[idx];
-	}
-
-	getParents(lc: Clock): Clock[] {
-		const { idx, offset } = this.opsParents.offsetOf(lc);
-		const start = this.opsParents.ranges.fields.start[idx];
-		const parents = this.opsParents.items[idx];
+	getParentsRaw(idx: number, offset: number): Clock[] {
+		const start = this.ops.ranges.fields.start[idx];
+		const parents = this.ops.items.fields.parents[idx];
 		if (offset) return [start + offset - 1];
 
 		return parents;
+	}
+
+	getParents(lc: Clock): Clock[] {
+		const { idx, offset } = this.ops.offsetOf(lc);
+		return this.getParentsRaw(idx, offset);
 	}
 
 	nextClock() {
@@ -101,25 +132,75 @@ export class RleOpLog<T, ArrT extends ArrayLike<T>> {
 		items: ArrT = this.emptyElement,
 	): void {
 		if (deleteCount > 0) {
-			const nextClock = this.nextClock();
 			this.ops.push(
-				{ id, position, deleted: true, items: this.emptyElement },
+				{ id, parents, position, deleted: true, items: this.emptyElement },
 				deleteCount,
 			);
-			this.opsParents.push(parents, 1);
-			this.opsParents.push([nextClock], deleteCount - 1);
 		}
 		if (items.length) {
-			const nextClock = this.nextClock();
-			this.ops.push({ id, position, deleted: false, items }, items.length);
-			this.opsParents.push(parents, 1);
-			this.opsParents.push([nextClock], items.length - 1);
+			this.ops.push(
+				{ id, parents, position, deleted: false, items },
+				items.length,
+			);
 		}
 	}
 
 	get length(): number {
 		return this.ops.length;
 	}
+
+	idToClock(id: Id): Clock {
+		const { site, clock } = id;
+		const idx = this.ops.items.fields.id.findLastIndex(
+			(id, i) =>
+				site === id.site &&
+				clock >= id.clock &&
+				clock <= id.clock + this.ops.ranges.fields.len[i],
+		);
+		if (idx < 0) {
+			throw new Error(`Id (${site},${clock}) does not exist`);
+		}
+
+		return (
+			this.ops.ranges.fields.start[idx] +
+			clock -
+			this.ops.items.fields.id[idx].clock
+		);
+	}
+
+	//patch(svd: StateVectorDiff): Patch<ArrT> {
+	//	const res = new Patch(this.emptyElement);
+	//
+	//	// Find start of iteration.
+	//	// TODO: make cheaper by having oplog store { site: { clock, lc } }
+	//	const startClock = Object.entries(svd)
+	//		.map(([site, clock]) => this.idToClock({ site, clock }))
+	//		.reduce((acc, cur) => Math.min(acc, cur), 0);
+	//	const { idx: startIdx } = this.ops.offsetOf(startClock);
+	//
+	//	// Push all the relevant ops.
+	//	const { items } = this.ops;
+	//	const { fields } = items;
+	//	for (let i = startIdx; i < items.length; i++) {
+	//		const id = fields.id[i];
+	//		const opLen = this.ops.ranges.fields.len[i];
+	//		const opEnd = id.clock + opLen;
+	//		const needFrom = svd[id.site];
+	//		if (!needFrom || needFrom <= opEnd) continue;
+	//
+	//		//const offset = opEnd - needFrom;
+	//
+	//		res.ops.push({
+	//			len: opLen,
+	//			id,
+	//			position: fields.position[i],
+	//			deleted: fields.deleted[i],
+	//			items: fields.items[i],
+	//		});
+	//	}
+	//
+	//	return res;
+	//}
 }
 
 function last<T>(arr: T[]) {
@@ -134,37 +215,30 @@ function appendOp<T>(
 ): boolean {
 	if (!lastRange) return false;
 
-	const prevDeleted = last(items.fields.deleted);
-	const prevPos = last(items.fields.position);
-	const prevId = last(items.fields.id);
-	const prevLength = lastRange.len;
+	const { fields } = items;
+	const prevDeleted = last(fields.deleted);
+	const prevPos = last(fields.position);
+	const prevId = last(fields.id);
+	const prevLen = lastRange.len;
 
-	if (prevId.site !== cur.id.site || prevId.clock + prevLength !== cur.id.clock)
+	if (
+		// non-consecutive id?
+		prevId.site !== cur.id.site ||
+		prevId.clock + prevLen !== cur.id.clock ||
+		// non-consecutive parents?
+		cur.parents.length !== 1 ||
+		lastRange.start + prevLen - 1 !== cur.parents[0]
+	)
 		return false;
 
 	if (prevDeleted && cur.deleted && prevPos === cur.position) return true;
-	if (!prevDeleted && !cur.deleted && prevPos + prevLength === cur.position) {
+	if (!prevDeleted && !cur.deleted && prevPos + prevLen === cur.position) {
 		items.fields.items[items.fields.items.length - 1] = mergeFn(
 			items.fields.items[items.fields.items.length - 1],
 			cur.items,
 		);
 		return true;
 	}
-
-	return false;
-}
-
-function appendOpParents(
-	_items: Clock[][],
-	cur: Clock[],
-	lastRange?: Range,
-): boolean {
-	if (
-		lastRange &&
-		cur.length === 1 &&
-		lastRange.start + lastRange.len - 1 === cur[0]
-	)
-		return true;
 
 	return false;
 }

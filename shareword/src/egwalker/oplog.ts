@@ -1,25 +1,24 @@
 import { RleOpLog } from "./oplog-rle";
-import type { Site, Clock, Id, Op } from "./oplog-rle";
 import PriorityQueue from "./pq";
-
-export type { Site, Clock, Id, Op };
+import StateVector, { type Clock, type Site } from "./util/state-vector";
 
 /** An append-only list of immutable operations */
 export class OpLog<T, ArrT extends ArrayLike<T> = T[]> extends RleOpLog<
 	T,
 	ArrT
 > {
-	/** Leaf nodes */
+	/** `parents` for next Op */
 	frontier: Clock[] = [];
 	/** Max known clock for each site. */
-	stateVector: Record<Site, Clock> = {};
+	stateVector = new StateVector();
 
 	#pushLocal(site: Site, pos: number, delCount: number, items?: ArrT) {
-		const clock = (this.stateVector[site] ?? -1) + 1;
+		const clock = (this.stateVector.clocks[site] ?? -1) + 1;
 
+		const lenBefore = this.ops.length;
 		this.push({ site, clock }, this.frontier, pos, delCount, items);
 		this.frontier = [this.nextClock() - 1];
-		this.stateVector[site] = clock - 1 + (items?.length || delCount);
+		this.stateVector.clocks[site] = clock + this.ops.length - lenBefore - 1;
 	}
 
 	insert(site: Site, pos: number, items: ArrT) {
@@ -30,75 +29,47 @@ export class OpLog<T, ArrT extends ArrayLike<T> = T[]> extends RleOpLog<
 		this.#pushLocal(site, pos, delCount);
 	}
 
-	#idToClock(id: Id): Clock {
-		const { site, clock } = id;
-		const idx = this.ops.items.fields.id.findLastIndex(
-			(id, i) =>
-				site === id.site &&
-				clock >= id.clock &&
-				clock <= id.clock + this.ops.ranges.fields.len[i],
-		);
-		if (idx < 0) {
-			throw new Error(`Id (${site},${clock}) does not exist`);
-		}
-
-		return (
-			this.ops.ranges.fields.start[idx] +
-			clock -
-			this.ops.items.fields.id[idx].clock
-		);
-	}
-
-	// Assumes `src` uses the same encoding.
 	merge(src: OpLog<T, ArrT>) {
 		const { items } = src.ops;
 		const { fields } = items;
 		for (let i = 0; i < items.length; i++) {
 			const id = fields.id[i];
 			const opLen = src.ops.ranges.fields.len[i];
-			if (this.stateVector[id.site] >= id.clock) continue;
+			const offset =
+				id.clock + opLen - (this.stateVector.clocks[id.site] ?? -1) - 1;
+			if (offset <= 0) continue;
+
+			const opOffset = opLen - offset;
+
+			const parents = src.getParentsRaw(i, opOffset)
+				.map((srcClock) => this.idToClock(src.getId(srcClock)))
+				.sort((a, b) => a - b);
+			const deleted = src.getDeletedRaw(i);
 
 			this.ops.push(
 				{
-					id,
-					position: fields.position[i],
-					deleted: fields.deleted[i],
-					items: fields.items[i],
+					id: src.getIdRaw(i, opOffset),
+					position: src.getPosRaw(i, opOffset, deleted),
+					deleted,
+					items: src.getContentRaw(i).slice(opOffset),
+					parents,
 				},
-				opLen,
+				opLen - opOffset,
 			);
-			this.stateVector[id.site] = id.clock + opLen - 1;
-		}
-
-		const parentItems = src.opsParents.items;
-		for (let i = 0; i < parentItems.length; i++) {
-			const srcStart = src.opsParents.ranges.fields.start[i];
-			const srcLen = src.opsParents.ranges.fields.len[i];
-			const srcParents = parentItems[i];
-
-			const parents = srcParents
-				.map((srcClock) => this.#idToClock(src.getId(srcClock)))
-				.sort((a, b) => a - b);
-			console.log("merge", srcStart, srcLen, srcParents, parents);
-			this.opsParents.push(parents, srcLen);
-
-			if (i === parentItems.length - 1) {
-				this.frontier = advanceFrontier(
-					this.frontier,
-					this.nextClock() - 1,
-					src.getParents(srcStart + srcLen - 1),
-				);
-			}
+			this.frontier = advanceFrontier(
+				this.frontier,
+				this.nextClock() - 1,
+				parents,
+			);
+			this.stateVector.clocks[id.site] = id.clock + opLen - 1;
 		}
 	}
 
 	diff(a: Clock[], b: Clock[]): { aOnly: Clock[]; bOnly: Clock[] } {
 		type DiffFlag = "a" | "b" | "both";
 		const flags: { [clock: Clock]: DiffFlag } = {};
-
-		let numShared = 0;
-
 		const queue = new PriorityQueue<Clock>((a, b) => b - a);
+		let numShared = 0;
 
 		function enq(v: Clock, flag: DiffFlag) {
 			const oldFlag = flags[v];
@@ -229,9 +200,6 @@ export function debugPrint<T, ArrT extends ArrayLike<T>>(
 	oplog: OpLog<T, ArrT>,
 	full = false,
 ) {
-	console.log("frontier", oplog.frontier);
-	console.log("stateVector", oplog.stateVector);
-
 	if (full) {
 		type Op = {
 			position: number;
@@ -264,6 +232,7 @@ export function debugPrint<T, ArrT extends ArrayLike<T>>(
 			item: ArrT;
 			site: Site;
 			clock: Clock;
+			parents: number[];
 		};
 		const ops: Op[] = [];
 		const { fields } = oplog.ops.items;
@@ -277,22 +246,9 @@ export function debugPrint<T, ArrT extends ArrayLike<T>>(
 				item: fields.items[i],
 				site: fields.id[i].site,
 				clock: fields.id[i].clock,
+				parents: fields.parents[i],
 			});
 		}
 		console.table(ops);
-		type OpParent = {
-			start: number;
-			len: number;
-			parents: Clock[];
-		};
-		const opParents: OpParent[] = [];
-		for (let i = 0; i < oplog.opsParents.items.length; i++) {
-			opParents.push({
-				start: oplog.opsParents.ranges.fields.start[i],
-				len: oplog.opsParents.ranges.fields.len[i],
-				parents: oplog.opsParents.items[i],
-			});
-		}
-		console.table(opParents);
 	}
 }
