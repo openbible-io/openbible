@@ -1,10 +1,11 @@
 import { Branch } from "./egwalker/branch";
-import { OpLog, type Site } from "./egwalker/oplog";
+import { OpLog } from "./egwalker/oplog";
+import type { Site } from "./egwalker/oplog-rle";
 
 export class List<T> {
 	site: Site;
 	oplog: OpLog<T>;
-	branch = new Branch<T>();
+	branch = new Branch<T, T[]>();
 
 	constructor(site: Site, emptyElement: T[]) {
 		this.site = site;

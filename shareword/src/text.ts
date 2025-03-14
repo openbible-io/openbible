@@ -28,16 +28,12 @@ export class Text {
 		this.branch.frontier = this.oplog.frontier.slice();
 	}
 
-	items() {
-		return this.branch.snapshot;
-	}
-
 	merge(other: Text) {
 		this.oplog.merge(other.oplog);
 		this.branch.checkout(this.oplog);
 	}
 
 	toString() {
-		return this.items().join("");
+		return this.branch.snapshot.join("");
 	}
 }

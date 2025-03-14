@@ -1,22 +1,23 @@
 import { advanceFrontier, type OpLog } from "./oplog";
 import { EgWalker, State, type Item } from "./egwalker";
 import type { Clock } from "./util/state-vector";
+import type { Accumulator } from "./oplog-rle";
 
-export class Branch<T, ArrT extends ArrayLike<T>> {
+export class Branch<T, AccT extends Accumulator<T>> {
 	snapshot: T[] = [];
 	frontier: Clock[] = [];
 
-	checkout(oplog: OpLog<T, ArrT>, mergeFrontier: Clock[] = oplog.frontier) {
+	checkout(oplog: OpLog<T, AccT>, mergeFrontier: Clock[] = oplog.frontier) {
 		const { head, shared, bOnly } = oplog.diff2(
 			this.frontier,
 			mergeFrontier,
 		);
 
-		const doc = new EgWalker<T, ArrT>();
+		const doc = new EgWalker<T, AccT>();
 		doc.currentVersion = head;
 
 		const placeholderLength = Math.max(...this.frontier) + 1;
-		const placeholderOffset = oplog.nextClock();
+		const placeholderOffset = oplog.length;
 		for (let i = 0; i < placeholderLength; i++) {
 			const item: Item = {
 				clock: i + placeholderOffset,

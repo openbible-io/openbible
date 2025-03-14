@@ -1,4 +1,5 @@
 import type { OpLog } from "./oplog";
+import type { Accumulator } from "./oplog-rle";
 import type { Clock } from "./util/state-vector";
 
 export enum State {
@@ -24,27 +25,27 @@ export type Item = {
  * A CRDT document implemented as an Event Graph Walker.
  * - https://arxiv.org/pdf/2409.14252
  */
-export class EgWalker<T, ArrT extends ArrayLike<T>> {
+export class EgWalker<T, AccT extends Accumulator<T>> {
 	items: Item[] = [];
 	currentVersion: Clock[] = [];
 
 	delTargets: { [clock: Clock]: Clock } = {};
 	targets: { [clock: Clock]: Item } = {};
 
-	#target(oplog: OpLog<T, ArrT>, clock: Clock): Item {
+	#target(oplog: OpLog<T, AccT>, clock: Clock): Item {
 		const target = oplog.getDeleted(clock) ? this.delTargets[clock] : clock;
 		return this.targets[target];
 	}
 
-	#retreat(oplog: OpLog<T, ArrT>, clock: Clock) {
+	#retreat(oplog: OpLog<T, AccT>, clock: Clock) {
 		this.#target(oplog, clock).state -= 1;
 	}
 
-	#advance(oplog: OpLog<T, ArrT>, clock: Clock) {
+	#advance(oplog: OpLog<T, AccT>, clock: Clock) {
 		this.#target(oplog, clock).state += 1;
 	}
 
-	#apply(oplog: OpLog<T, ArrT>, clock: Clock, snapshot?: T[]) {
+	#apply(oplog: OpLog<T, AccT>, clock: Clock, snapshot?: T[]) {
 		const pos = oplog.getPos(clock);
 
 		if (oplog.getDeleted(clock)) {
@@ -59,7 +60,7 @@ export class EgWalker<T, ArrT extends ArrayLike<T>> {
 
 			this.delTargets[clock] = item.clock;
 		} else {
-			const content = oplog.getContent(clock);
+			const content = oplog.getItem(clock);
 			const { idx, endPos } = this.#findPos(pos, false);
 			const originLeft = idx === 0 ? -1 : this.items[idx - 1].clock;
 
@@ -87,7 +88,7 @@ export class EgWalker<T, ArrT extends ArrayLike<T>> {
 
 	/** FugueMax */
 	#integrate(
-		oplog: OpLog<T, ArrT>,
+		oplog: OpLog<T, AccT>,
 		newItem: Item,
 		idx: number,
 		endPos: number,
@@ -169,7 +170,7 @@ export class EgWalker<T, ArrT extends ArrayLike<T>> {
 		return { idx, endPos };
 	}
 
-	doOp(oplog: OpLog<T, ArrT>, clock: Clock, snapshot?: T[]) {
+	doOp(oplog: OpLog<T, AccT>, clock: Clock, snapshot?: T[]) {
 		const parents = oplog.getParents(clock);
 		const { aOnly, bOnly } = oplog.diff(this.currentVersion, parents);
 

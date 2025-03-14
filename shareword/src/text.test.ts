@@ -44,11 +44,6 @@ function fuzzer(seed: number) {
 		a.merge(b);
 		b.merge(a);
 
-		//if (seed === 9 && i < 2) {
-		//	debugPrint(a.oplog, true);
-		//	debugPrint(b.oplog, true);
-		//}
-
 		// 4. expect them to be the same
 		try {
 			expect(a.branch.snapshot.join("")).toBe(b.branch.snapshot.join(""));
@@ -71,12 +66,12 @@ function toOplogRows(text: Text): Row[] {
 	const res: Row[] = [];
 
 	const oplog = text.oplog;
-	for (let i = 0; i < oplog.ops.length; i++) {
+	for (let i = 0; i < oplog.length; i++) {
 		const id = oplog.getId(i);
 		res.push([
 			oplog.getPos(i),
 			oplog.getDeleted(i),
-			oplog.getContent(i) ?? oplog.emptyElement,
+			oplog.getItem(i) ?? "",
 			id.site,
 			id.clock,
 			oplog.getParents(i),

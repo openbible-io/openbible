@@ -1,64 +1,63 @@
-import { RleOpLog } from "./oplog-rle";
+import { RleOpLog, type Accumulator } from "./oplog-rle";
 import PriorityQueue from "./pq";
 import StateVector, { type Clock, type Site } from "./util/state-vector";
 
 /** An append-only list of immutable operations */
-export class OpLog<T, ArrT extends ArrayLike<T> = T[]> extends RleOpLog<
+export class OpLog<T, AccT extends Accumulator<T> = T[]> extends RleOpLog<
 	T,
-	ArrT
+	AccT
 > {
 	/** `parents` for next Op */
 	frontier: Clock[] = [];
 	/** Max known clock for each site. */
 	stateVector = new StateVector();
 
-	#pushLocal(site: Site, pos: number, delCount: number, items?: ArrT) {
+	insert(site: Site, pos: number, items: AccT) {
 		const clock = (this.stateVector.clocks[site] ?? -1) + 1;
-
-		const lenBefore = this.ops.length;
-		this.push({ site, clock }, this.frontier, pos, delCount, items);
-		this.frontier = [this.nextClock() - 1];
-		this.stateVector.clocks[site] = clock + this.ops.length - lenBefore - 1;
-	}
-
-	insert(site: Site, pos: number, items: ArrT) {
-		this.#pushLocal(site, pos, 0, items);
+		this.insertRle({ site, clock }, this.frontier, pos, items);
+		this.frontier = [this.length - 1];
+		this.stateVector.clocks[site] = clock + items.length - 1;
 	}
 
 	delete(site: Site, pos: number, delCount = 1) {
-		this.#pushLocal(site, pos, delCount);
+		const clock = (this.stateVector.clocks[site] ?? -1) + 1;
+		this.deleteRle({ site, clock }, this.frontier, pos, delCount);
+		this.frontier = [this.length - 1];
+		this.stateVector.clocks[site] = clock + delCount - 1;
 	}
 
-	merge(src: OpLog<T, ArrT>) {
-		const { items } = src.ops;
+	merge(src: OpLog<T, AccT>) {
+		const { items } = src;
 		const { fields } = items;
 		for (let i = 0; i < items.length; i++) {
 			const id = fields.id[i];
-			const opLen = src.ops.ranges.fields.len[i];
+			const opLen = src.ranges.fields.len[i];
 			const offset =
 				id.clock + opLen - (this.stateVector.clocks[id.site] ?? -1) - 1;
 			if (offset <= 0) continue;
 
 			const opOffset = opLen - offset;
 
-			const parents = src.getParentsRaw(i, opOffset)
+			const parents = src
+				.getParentsRaw(i, opOffset)
 				.map((srcClock) => this.idToClock(src.getId(srcClock)))
 				.sort((a, b) => a - b);
 			const deleted = src.getDeletedRaw(i);
 
-			this.ops.push(
+			this.push(
 				{
 					id: src.getIdRaw(i, opOffset),
 					position: src.getPosRaw(i, opOffset, deleted),
 					deleted,
-					items: src.getContentRaw(i).slice(opOffset),
+					// @ts-ignore idc if diff subtype as long as fulfills interface
+					items: src.getItemRaw(i).slice(opOffset),
 					parents,
 				},
 				opLen - opOffset,
 			);
 			this.frontier = advanceFrontier(
 				this.frontier,
-				this.nextClock() - 1,
+				this.length - 1,
 				parents,
 			);
 			this.stateVector.clocks[id.site] = id.clock + opLen - 1;
@@ -196,8 +195,8 @@ export function advanceFrontier(
 	return f.sort((a, b) => a - b);
 }
 
-export function debugPrint<T, ArrT extends ArrayLike<T>>(
-	oplog: OpLog<T, ArrT>,
+export function debugPrint<T, AccT extends Accumulator<T>>(
+	oplog: OpLog<T, AccT>,
 	full = false,
 ) {
 	if (full) {
@@ -210,13 +209,13 @@ export function debugPrint<T, ArrT extends ArrayLike<T>>(
 			parents: Clock[];
 		};
 		const ops: Op[] = [];
-		for (let i = 0; i < oplog.ops.length; i++) {
+		for (let i = 0; i < oplog.length; i++) {
 			const id = oplog.getId(i);
 
 			ops.push({
 				position: oplog.getPos(i),
 				deleted: oplog.getDeleted(i),
-				item: oplog.getContent(i) ?? "",
+				item: oplog.getItem(i) ?? "",
 				site: id.site,
 				clock: id.clock,
 				parents: oplog.getParents(i),
@@ -229,15 +228,15 @@ export function debugPrint<T, ArrT extends ArrayLike<T>>(
 			len: number;
 			position: number;
 			deleted: boolean;
-			item: ArrT;
+			item: AccT;
 			site: Site;
 			clock: Clock;
 			parents: number[];
 		};
 		const ops: Op[] = [];
-		const { fields } = oplog.ops.items;
-		const rangeFields = oplog.ops.ranges.fields;
-		for (let i = 0; i < oplog.ops.items.length; i++) {
+		const { fields } = oplog.items;
+		const rangeFields = oplog.ranges.fields;
+		for (let i = 0; i < oplog.items.length; i++) {
 			ops.push({
 				start: rangeFields.start[i],
 				len: rangeFields.len[i],
