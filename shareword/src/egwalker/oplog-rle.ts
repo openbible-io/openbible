@@ -24,15 +24,19 @@ export interface Accumulator<T> extends ArrayLike<T> {
 }
 
 /**
- * An oplog optimized to use less memory.
+ * Append-only list of `RleOp<T>` optimized to use less memory.
  *
- * @param T The item type.
- * @param AccT The container to use for runs of items.
+ * @param T Single item type.
+ * @param AccT Container type for runs.
  */
 export class RleOpLog<T, AccT extends Accumulator<T>> extends Rle<
 	RleOp<AccT>,
 	MultiArrayList<RleOp<AccT>>
 > {
+	/**
+	* @param emptyItem For runs that are deletions.
+	* @param mergeFn How to merge runs together.
+	*/
 	constructor(
 		private emptyItem: AccT,
 		mergeFn: (acc: AccT, cur: AccT) => AccT,

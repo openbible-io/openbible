@@ -18,7 +18,7 @@ export function createDoc(arr: Splice[]) {
 }
 
 export function exportDoc(doc: ReturnType<typeof createDoc>) {
-	return encode(doc.oplog);
+	return JSON.stringify(doc.oplog);
 }
 
 export default function run() {
