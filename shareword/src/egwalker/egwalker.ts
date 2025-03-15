@@ -153,7 +153,7 @@ export class EgWalker<T, AccT extends Accumulator<T>> {
 		let idx = 0;
 
 		for (; curPos < targetPos; idx++) {
-			if (idx >= this.items.length) throw Error("Past end of items list");
+			if (idx >= this.items.length) throw new Error("Past end of items list");
 
 			const item = this.items[idx];
 			if (item.state === State.Inserted) curPos++;

@@ -1,0 +1,5 @@
+- btree crdtdoc w/ rle items
+	- parentless runs skip crdt
+- generate + apply patches from state vectors
+	- binary encoding
+
