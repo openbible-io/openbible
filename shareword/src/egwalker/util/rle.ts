@@ -26,18 +26,25 @@ export class Rle<T, C extends Container<T> = Array<T>> {
 		) => boolean,
 	) {}
 
-	push(item: T, len = 1) {
-		if (len <= 0) return;
+	/**
+	 * Pushes `item` of `len`.
+	 *
+	 * @returns If appended to previous item.
+	*/
+	push(item: T, len = 1): boolean {
+		if (len <= 0) return false;
 
 		const lastRange = this.ranges.at(this.ranges.length - 1);
 
 		if (this.append(this.items, item, lastRange)) {
 			const lens = this.ranges.fields.len;
 			lens[lens.length - 1] += len;
-		} else {
-			this.items.push(item);
-			this.ranges.push({ start: this.length, len });
+			return true;
 		}
+
+		this.items.push(item);
+		this.ranges.push({ start: this.length, len });
+		return false
 	}
 
 	#rangeIndex(idx: number): number {

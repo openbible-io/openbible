@@ -1,6 +1,5 @@
-import { RleOpLog, type Accumulator } from "./oplog-rle";
+import { RleOpLog, type Accumulator, type Clock, type Site } from "./oplog-rle";
 import PriorityQueue from "./pq";
-import StateVector, { type Clock, type Site } from "./util/state-vector";
 
 /** An append-only list of immutable operations */
 export class OpLog<T, AccT extends Accumulator<T> = T[]> extends RleOpLog<
@@ -9,44 +8,71 @@ export class OpLog<T, AccT extends Accumulator<T> = T[]> extends RleOpLog<
 > {
 	/** `parents` for next Op */
 	frontier: Clock[] = [];
-	/** Max known clock for each site. */
-	stateVector = new StateVector();
+	/** Indices into `this.fields` for each site. */
+	stateVector: Record<Site, number> = {};
+
+	#nextClock(site: Site): Clock {
+		return (this.stateVector[site] ?? -1) + 1;
+	}
 
 	insert(site: Site, pos: number, items: AccT) {
-		const clock = (this.stateVector.clocks[site] ?? -1) + 1;
-		this.insertRle({ site, clock }, this.frontier, pos, items);
+		const clock = this.#nextClock(site);
+
+		this.insertRle(site, clock, this.frontier, pos, items);
 		this.frontier = [this.length - 1];
-		this.stateVector.clocks[site] = clock + items.length - 1;
+		this.stateVector[site] = clock + items.length - 1;
 	}
 
 	delete(site: Site, pos: number, delCount = 1) {
-		const clock = (this.stateVector.clocks[site] ?? -1) + 1;
-		this.deleteRle({ site, clock }, this.frontier, pos, delCount);
+		const clock = this.#nextClock(site);
+
+		this.deleteRle(site, clock, this.frontier, pos, delCount);
 		this.frontier = [this.length - 1];
-		this.stateVector.clocks[site] = clock + delCount - 1;
+		this.stateVector[site] = clock + delCount - 1;
 	}
 
+	//idToClock(site: Site, clock: Clock): Clock {
+	//	const res = this.idClocks[site]?.[clock];
+	//	if (!res) {
+	//		debugPrint(this);
+	//		throw new Error(`Id (${site},${clock}) does not exist`);
+	//	}
+	//	return res;
+	//}
+
 	merge(src: OpLog<T, AccT>) {
+		//const missing = Object.entries(src.stateVector.diff(this.stateVector));
+		//if (!missing.length) return;
+		//
+		//let i = missing.reduce((acc, [site, clock]) =>
+		//	Math.max(0, Math.min(acc, src.idToIdx({ site, clock })));
+		// Number.POSITIVE_INFINITY);
+
 		const { items } = src;
 		const { fields } = items;
 		for (let i = 0; i < items.length; i++) {
-			const id = fields.id[i];
+			const opSite = src.getSiteRaw(i);
+			const opClock = fields.clock[i];
 			const opLen = src.ranges.fields.len[i];
-			const offset =
-				id.clock + opLen - (this.stateVector.clocks[id.site] ?? -1) - 1;
+			const offset = opClock + opLen - this.#nextClock(opSite);
 			if (offset <= 0) continue;
 
 			const opOffset = opLen - offset;
-
 			const parents = src
 				.getParentsRaw(i, opOffset)
-				.map((srcClock) => this.idToClock(src.getId(srcClock)))
+				.map((srcClock) => {
+					const { idx, offset } = src.offsetOf(srcClock);
+					const site = src.getSiteRaw(idx);
+					const clock = src.getClockRaw(idx, offset);
+					return this.idToClock(site, clock);
+				})
 				.sort((a, b) => a - b);
 			const deleted = src.getDeletedRaw(i);
 
 			this.push(
 				{
-					id: src.getIdRaw(i, opOffset),
+					site: this.getOrPutSite(opSite),
+					clock: src.getClockRaw(i, opOffset),
 					position: src.getPosRaw(i, opOffset, deleted),
 					deleted,
 					// @ts-ignore idc if diff subtype as long as fulfills interface
@@ -55,12 +81,8 @@ export class OpLog<T, AccT extends Accumulator<T> = T[]> extends RleOpLog<
 				},
 				opLen - opOffset,
 			);
-			this.frontier = advanceFrontier(
-				this.frontier,
-				this.length - 1,
-				parents,
-			);
-			this.stateVector.clocks[id.site] = id.clock + opLen - 1;
+			this.frontier = advanceFrontier(this.frontier, this.length - 1, parents);
+			this.stateVector[opSite] = opClock + opLen - 1;
 		}
 	}
 
@@ -210,14 +232,12 @@ export function debugPrint<T, AccT extends Accumulator<T>>(
 		};
 		const ops: Op[] = [];
 		for (let i = 0; i < oplog.length; i++) {
-			const id = oplog.getId(i);
-
 			ops.push({
 				position: oplog.getPos(i),
 				deleted: oplog.getDeleted(i),
 				item: oplog.getItem(i) ?? "",
-				site: id.site,
-				clock: id.clock,
+				site: oplog.getSite(i),
+				clock: oplog.getClock(i),
 				parents: oplog.getParents(i),
 			});
 		}
@@ -243,8 +263,8 @@ export function debugPrint<T, AccT extends Accumulator<T>>(
 				position: fields.position[i],
 				deleted: fields.deleted[i],
 				item: fields.items[i],
-				site: fields.id[i].site,
-				clock: fields.id[i].clock,
+				site: oplog.sites[fields.site[i]],
+				clock: fields.clock[i],
 				parents: fields.parents[i],
 			});
 		}

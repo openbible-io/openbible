@@ -1,6 +1,5 @@
 import type { OpLog } from "./oplog";
-import type { Accumulator } from "./oplog-rle";
-import type { Clock } from "./util/state-vector";
+import type { Accumulator, Clock } from "./oplog-rle";
 
 export enum State {
 	NotInserted = -1,
@@ -116,8 +115,8 @@ export class EgWalker<T, AccT extends Accumulator<T>> {
 					? this.items.length
 					: this.#indexOfLocalClock(other.originRight);
 
-			const newSite = oplog.getId(newItem.clock).site;
-			const otherSite = oplog.getId(other.clock).site;
+			const newSite = oplog.getSite(newItem.clock);
+			const otherSite = oplog.getSite(other.clock);
 
 			if (
 				oleft < left ||

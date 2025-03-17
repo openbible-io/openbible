@@ -1,5 +1,5 @@
 import { test, expect } from "bun:test";
-import { debugPrint, OpLog } from "./oplog";
+import { OpLog } from "./oplog";
 
 function stringOpLog() {
 	return new OpLog<string, string>(
@@ -11,7 +11,8 @@ function stringOpLog() {
 function expectHel(oplog: ReturnType<typeof stringOpLog>) {
 	expect(oplog.length).toBe(3);
 	expect(oplog.items.fields.items[0]).toBe("hel");
-	expect(oplog.getId(2)).toEqual({ site: "a", clock: 2 });
+	expect(oplog.getSite(2)).toEqual("a");
+	expect(oplog.getClock(2)).toEqual(2);
 	expect(oplog.getPos(2)).toBe(2);
 	expect(oplog.getDeleted(2)).toBe(false);
 	expect(oplog.getItem(2)).toBe("l");
@@ -58,9 +59,9 @@ test("parents", () => {
 	const site = "a";
 	let clock = 0;
 
-	a.insertRle({ site, clock }, [],  0, "abc");
+	a.insertRle(site, clock, [],  0, "abc");
 	clock += 3;
-	a.insertRle({ site, clock }, [0,1],  0, "def");
+	a.insertRle(site, clock, [0,1],  0, "def");
 
 	expect(a.getParents(0)).toEqual([]);
 	expect(a.getParents(1)).toEqual([0]);

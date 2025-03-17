@@ -85,7 +85,7 @@ async function mainWorksheet(fname: string) {
 		const w = worksheet as unknown as Worksheet;
 		if (w.name === "biblosinterlinear96") return worksheet;
 	}
-	throw Error("could not find main worksheet");
+	throw new Error("could not find main worksheet");
 }
 
 async function parseSpreadsheet(fname: string) {

@@ -8,11 +8,10 @@ export type Site = string;
  * Lamport timestamp.
  */
 export type Clock = number;
-/** Each UTF-16 code unit is assigned this */
-export type Id = { site: Site; clock: Clock };
 
 type RleOp<AccT> = {
-	id: Id;
+	site: number;
+	clock: number;
 	position: number;
 	deleted: boolean;
 	items: AccT;
@@ -33,17 +32,23 @@ export class RleOpLog<T, AccT extends Accumulator<T>> extends Rle<
 	RleOp<AccT>,
 	MultiArrayList<RleOp<AccT>>
 > {
+	/** Append-only unique list. */
+	sites: string[] = [];
+	/** For fast pushing. */
+	siteMap: Record<Site, number> = {};
+
 	/**
-	* @param emptyItem For runs that are deletions.
-	* @param mergeFn How to merge runs together.
-	*/
+	 * @param emptyItem For runs that are deletions.
+	 * @param mergeFn How to merge runs together.
+	 */
 	constructor(
 		private emptyItem: AccT,
 		mergeFn: (acc: AccT, cur: AccT) => AccT,
 	) {
 		super(
 			new MultiArrayList<RleOp<AccT>>({
-				id: { site: "", clock: 0 },
+				site: 0,
+				clock: 0,
 				position: 0,
 				deleted: false,
 				items: emptyItem,
@@ -53,15 +58,25 @@ export class RleOpLog<T, AccT extends Accumulator<T>> extends Rle<
 		);
 	}
 
-	protected getIdRaw(idx: number, offset: number): Id {
-		const res = { ...this.items.fields.id[idx] };
-		res.clock += offset;
+	protected getSiteRaw(idx: number): Site {
+		const site = this.items.fields.site[idx];
+		return this.sites[site];
+	}
+
+	getSite(c: Clock): Site {
+		const { idx } = this.offsetOf(c);
+		return this.getSiteRaw(idx);
+	}
+
+	protected getClockRaw(idx: number, offset: number): Clock {
+		let res = this.items.fields.clock[idx];
+		res += offset;
 		return res;
 	}
 
-	getId(c: Clock): Id {
+	getClock(c: Clock): Clock {
 		const { idx, offset } = this.offsetOf(c);
-		return this.getIdRaw(idx, offset);
+		return this.getClockRaw(idx, offset);
 	}
 
 	protected getPosRaw(idx: number, offset: number, deleted: boolean): number {
@@ -106,50 +121,68 @@ export class RleOpLog<T, AccT extends Accumulator<T>> extends Rle<
 		return this.getParentsRaw(idx, offset);
 	}
 
+	protected getOrPutSite(site: Site): number {
+		if (!(site in this.siteMap)) {
+			this.siteMap[site] = this.sites.length;
+			this.sites.push(site);
+		}
+
+		return this.siteMap[site];
+	}
+
 	insertRle(
-		id: Id,
+		site: Site,
+		clock: Clock,
 		parents: Clock[],
 		position: number,
 		items: AccT,
-	) {
-		if (items.length) {
-			super.push(
-				{ id, parents, position, deleted: false, items },
-				items.length,
-			);
-		}
+	): boolean {
+		if (!items.length) return false;
+		const siteIndex = this.getOrPutSite(site);
+
+		return super.push(
+			{ site: siteIndex, clock, parents, position, deleted: false, items },
+			items.length,
+		);
 	}
 
 	deleteRle(
-		id: Id,
+		site: Site,
+		clock: Clock,
 		parents: Clock[],
 		position: number,
 		deleteCount: number,
-	): void {
-		if (deleteCount > 0) {
-			super.push(
-				{ id, parents, position, deleted: true, items: this.emptyItem },
-				deleteCount,
-			);
-		}
+	): boolean {
+		if (deleteCount <= 0) return false;
+		const siteIndex = this.getOrPutSite(site);
+
+		return super.push(
+			{ site: siteIndex, clock, parents, position, deleted: true, items: this.emptyItem },
+			deleteCount,
+		);
 	}
 
-	idToClock(id: Id): Clock {
-		const { site, clock } = id;
-		const idx = this.items.fields.id.findLastIndex(
-			(id, i) =>
-				site === id.site &&
-				clock >= id.clock &&
-				clock <= id.clock + this.ranges.fields.len[i],
-		);
-		if (idx < 0) {
-			throw new Error(`Id (${site},${clock}) does not exist`);
+	// TODO: optimize
+	protected idToIndex(site: Site, clock: Clock): number {
+		for (let i = this.items.length - 1; i >= 0; i--) {
+			const site2 = this.getSiteRaw(i);
+			const clock2 = this.getClockRaw(i, 0);
+			if (
+				site === site2 &&
+				clock >= clock2 &&
+				clock <= clock2 + this.ranges.fields.len[i]
+			) return i;
 		}
+		throw new Error(`Id (${site},${clock}) does not exist`);
+	}
+
+	idToClock(site: Site, clock: Clock): Clock {
+		const idx = this.idToIndex(site, clock);
 
 		return (
 			this.ranges.fields.start[idx] +
 			clock -
-			this.items.fields.id[idx].clock
+			this.getClockRaw(idx, 0)
 		);
 	}
 }
@@ -169,13 +202,14 @@ function appendOp<T>(
 	const { fields } = items;
 	const prevDeleted = last(fields.deleted);
 	const prevPos = last(fields.position);
-	const prevId = last(fields.id);
+	const prevSite = last(fields.site);
+	const prevClock = last(fields.clock);
 	const prevLen = lastRange.len;
 
 	if (
 		// non-consecutive id?
-		prevId.site !== cur.id.site ||
-		prevId.clock + prevLen !== cur.id.clock ||
+		prevSite !== cur.site ||
+		prevClock + prevLen !== cur.clock ||
 		// non-consecutive parents?
 		cur.parents.length !== 1 ||
 		lastRange.start + prevLen - 1 !== cur.parents[0]

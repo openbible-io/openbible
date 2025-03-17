@@ -1,7 +1,6 @@
 import { advanceFrontier, type OpLog } from "./oplog";
 import { EgWalker, State, type Item } from "./egwalker";
-import type { Clock } from "./util/state-vector";
-import type { Accumulator } from "./oplog-rle";
+import type { Accumulator, Clock } from "./oplog-rle";
 
 export class Branch<T, AccT extends Accumulator<T>> {
 	snapshot: T[] = [];

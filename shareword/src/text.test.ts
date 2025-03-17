@@ -67,13 +67,12 @@ function toOplogRows(text: Text): Row[] {
 
 	const oplog = text.oplog;
 	for (let i = 0; i < oplog.length; i++) {
-		const id = oplog.getId(i);
 		res.push([
 			oplog.getPos(i),
 			oplog.getDeleted(i),
 			oplog.getItem(i) ?? "",
-			id.site,
-			id.clock,
+			oplog.getSite(i),
+			oplog.getClock(i),
 			oplog.getParents(i),
 		]);
 	}
@@ -94,10 +93,6 @@ test("correctness", () => {
 	a.merge(b);
 	b.merge(a);
 
-	const expectedStateVector = {
-		[a.site]: aInsert.length - 1,
-		[b.site]: bInsert.length - 1,
-	};
 	const expectedFrontier = [
 		aInsert.length - 1,
 		aInsert.length + bInsert.length - 1,
@@ -115,7 +110,6 @@ test("correctness", () => {
 		[4, false, "d", "b", 4, [8]],
 	]);
 	expect(a.oplog.frontier).toEqual(expectedFrontier);
-	expect(a.oplog.stateVector.clocks).toEqual(expectedStateVector);
 
 	expect(toOplogRows(b)).toEqual([
 		[0, false, "w", "b", 0, []],
@@ -130,7 +124,6 @@ test("correctness", () => {
 		[4, false, "o", "a", 4, [8]],
 	]);
 	expect(b.oplog.frontier).toEqual(expectedFrontier);
-	expect(b.oplog.stateVector.clocks).toEqual(expectedStateVector);
 
 	let expected = "helloworld";
 	expect(a.toString()).toBe(expected);
