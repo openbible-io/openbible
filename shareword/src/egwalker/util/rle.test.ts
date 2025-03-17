@@ -27,11 +27,11 @@ function testFoo(rle: Rle<Foo, any>) {
 
 test("rle array", () => {
 	testFoo(
-		new Rle<Foo, Foo[]>([], (items, cur) => {
-			if (items.length === 0 || cur.foo === "1")
+		new Rle<Foo, Foo[]>([], (ctx, cur) => {
+			if (cur.foo === "1")
 				return false;
 
-			items[items.length - 1].foo += cur.foo;
+			ctx.items[ctx.items.length - 1].foo += cur.foo;
 			return true;
 		}),
 	);
@@ -41,10 +41,10 @@ test("rle multiarraylist", () => {
 	testFoo(
 		new Rle<Foo, MultiArrayList<Foo>>(
 			new MultiArrayList<Foo>({ foo: "abc" }),
-			(items, cur) => {
-				if (items.length === 0 || cur.foo === "1") return false;
+			(ctx, cur) => {
+				if (cur.foo === "1") return false;
 
-				items.fields.foo[items.length - 1] += cur.foo;
+				ctx.items.fields.foo[ctx.items.length - 1] += cur.foo;
 				return true;
 			},
 		),

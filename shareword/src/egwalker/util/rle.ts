@@ -9,20 +9,24 @@ export interface Container<T> {
 	length: number;
 }
 
-/** A container for run length encoding. */
+/**
+ * A container for run length encoding.
+ *
+ * Allows negative lengths to store an extra bit.
+ */
 export class Rle<T, C extends Container<T> = Array<T>> {
 	ranges = new MultiArrayList<Range>({ start: 0, len: 0 });
 
 	/**
 	 * @param items The container type to use.
 	 * @param append Function that returns true if appends `cur` to `items`
-	*/
+	 */
 	constructor(
 		public items: C,
 		private append: (
-			items: C,
-			cur: T,
-			lastRange?: Range,
+			ctx: Rle<T, C>,
+			item: T,
+			len: number,
 		) => boolean,
 	) {}
 
@@ -30,13 +34,11 @@ export class Rle<T, C extends Container<T> = Array<T>> {
 	 * Pushes `item` of `len`.
 	 *
 	 * @returns If appended to previous item.
-	*/
+	 */
 	push(item: T, len = 1): boolean {
-		if (len <= 0) return false;
+		if (!len) return true;
 
-		const lastRange = this.ranges.at(this.ranges.length - 1);
-
-		if (this.append(this.items, item, lastRange)) {
+		if (this.length && this.append(this, item, len)) {
 			const lens = this.ranges.fields.len;
 			lens[lens.length - 1] += len;
 			return true;
@@ -44,7 +46,11 @@ export class Rle<T, C extends Container<T> = Array<T>> {
 
 		this.items.push(item);
 		this.ranges.push({ start: this.length, len });
-		return false
+		return false;
+	}
+
+	len(idx: number): number {
+		return Math.abs(this.ranges.fields.len[idx]);
 	}
 
 	#rangeIndex(idx: number): number {
@@ -53,7 +59,7 @@ export class Rle<T, C extends Container<T> = Array<T>> {
 			idx,
 			(start, needle, i) => {
 				if (start > needle) return 1;
-				const len = this.ranges.fields.len[i];
+				const len = this.len(i);
 				if (start + len <= needle) return -1;
 				return 0;
 			},
@@ -74,7 +80,10 @@ export class Rle<T, C extends Container<T> = Array<T>> {
 	}
 
 	get length() {
-		const lastRange = this.ranges.at(this.ranges.length - 1);
-		return lastRange ? lastRange.start + lastRange.len : 0;
+		if (!this.ranges.length) return 0;
+		return (
+			this.ranges.fields.start[this.ranges.length - 1] +
+			this.len(this.ranges.length - 1)
+		);
 	}
 }

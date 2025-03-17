@@ -27,9 +27,7 @@ export class MultiArrayList<T extends { [key: string]: any }> {
 	}
 
 	push(item: T) {
-		for (const [k, v] of Object.entries(item)) {
-			this.fields[k].push(v);
-		}
+		for (const [k, v] of Object.entries(item)) this.fields[k].push(v);
 	}
 
 	get length(): number {

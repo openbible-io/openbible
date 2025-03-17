@@ -53,7 +53,7 @@ export class OpLog<T, AccT extends Accumulator<T> = T[]> extends RleOpLog<
 		for (let i = 0; i < items.length; i++) {
 			const opSite = src.getSiteRaw(i);
 			const opClock = fields.clock[i];
-			const opLen = src.ranges.fields.len[i];
+			const opLen = src.len(i);
 			const offset = opClock + opLen - this.#nextClock(opSite);
 			if (offset <= 0) continue;
 
@@ -74,12 +74,11 @@ export class OpLog<T, AccT extends Accumulator<T> = T[]> extends RleOpLog<
 					site: this.getOrPutSite(opSite),
 					clock: src.getClockRaw(i, opOffset),
 					position: src.getPosRaw(i, opOffset, deleted),
-					deleted,
 					// @ts-ignore idc if diff subtype as long as fulfills interface
 					items: src.getItemRaw(i).slice(opOffset),
 					parents,
 				},
-				opLen - opOffset,
+				(opLen - opOffset) * (deleted ? -1 : 1),
 			);
 			this.frontier = advanceFrontier(this.frontier, this.length - 1, parents);
 			this.stateVector[opSite] = opClock + opLen - 1;
@@ -261,7 +260,7 @@ export function debugPrint<T, AccT extends Accumulator<T>>(
 				start: rangeFields.start[i],
 				len: rangeFields.len[i],
 				position: fields.position[i],
-				deleted: fields.deleted[i],
+				deleted: rangeFields.len[i] < 0,
 				item: fields.items[i],
 				site: oplog.sites[fields.site[i]],
 				clock: fields.clock[i],

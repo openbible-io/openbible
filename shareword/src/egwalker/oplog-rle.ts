@@ -1,5 +1,5 @@
 import { MultiArrayList } from "./util/multi-array-list";
-import { Rle, type Range } from "./util/rle";
+import { Rle } from "./util/rle";
 
 /** A collaborating agent */
 export type Site = string;
@@ -13,7 +13,6 @@ type RleOp<AccT> = {
 	site: number;
 	clock: number;
 	position: number;
-	deleted: boolean;
 	items: AccT;
 	parents: number[];
 };
@@ -50,11 +49,10 @@ export class RleOpLog<T, AccT extends Accumulator<T>> extends Rle<
 				site: 0,
 				clock: 0,
 				position: 0,
-				deleted: false,
 				items: emptyItem,
 				parents: [],
 			}),
-			(items, cur, lastRange) => appendOp(mergeFn, items, cur, lastRange),
+			(ctx, item, len) => appendOp(mergeFn, ctx, item, len),
 		);
 	}
 
@@ -91,7 +89,7 @@ export class RleOpLog<T, AccT extends Accumulator<T>> extends Rle<
 	}
 
 	protected getDeletedRaw(idx: number): boolean {
-		return this.items.fields.deleted[idx];
+		return this.ranges.fields.len[idx] < 0;
 	}
 
 	getDeleted(c: Clock): boolean {
@@ -141,7 +139,7 @@ export class RleOpLog<T, AccT extends Accumulator<T>> extends Rle<
 		const siteIndex = this.getOrPutSite(site);
 
 		return super.push(
-			{ site: siteIndex, clock, parents, position, deleted: false, items },
+			{ site: siteIndex, clock, parents, position, items },
 			items.length,
 		);
 	}
@@ -157,8 +155,8 @@ export class RleOpLog<T, AccT extends Accumulator<T>> extends Rle<
 		const siteIndex = this.getOrPutSite(site);
 
 		return super.push(
-			{ site: siteIndex, clock, parents, position, deleted: true, items: this.emptyItem },
-			deleteCount,
+			{ site: siteIndex, clock, parents, position, items: this.emptyItem },
+			-deleteCount,
 		);
 	}
 
@@ -170,7 +168,7 @@ export class RleOpLog<T, AccT extends Accumulator<T>> extends Rle<
 			if (
 				site === site2 &&
 				clock >= clock2 &&
-				clock <= clock2 + this.ranges.fields.len[i]
+				clock <= clock2 + this.len(i)
 			) return i;
 		}
 		throw new Error(`Id (${site},${clock}) does not exist`);
@@ -191,37 +189,39 @@ function last<T>(arr: T[]) {
 	return arr[arr.length - 1];
 }
 
-function appendOp<T>(
-	mergeFn: (acc: T, cur: T) => T,
-	items: MultiArrayList<RleOp<T>>,
-	cur: RleOp<T>,
-	lastRange?: Range,
+function appendOp<AccT>(
+	mergeFn: (acc: AccT, cur: AccT) => AccT,
+	ctx: Rle<RleOp<AccT>, MultiArrayList<RleOp<AccT>>>,
+	item: RleOp<AccT>,
+	len: number,
 ): boolean {
-	if (!lastRange) return false;
+	const { fields } = ctx.items;
+	const prevStart = last(ctx.ranges.fields.start);
+	let prevLen = last(ctx.ranges.fields.len);
+	const prevDeleted = prevLen < 0;
+	prevLen = ctx.len(ctx.ranges.length - 1);
+	const curDeleted = len < 0;
 
-	const { fields } = items;
-	const prevDeleted = last(fields.deleted);
 	const prevPos = last(fields.position);
 	const prevSite = last(fields.site);
 	const prevClock = last(fields.clock);
-	const prevLen = lastRange.len;
 
 	if (
 		// non-consecutive id?
-		prevSite !== cur.site ||
-		prevClock + prevLen !== cur.clock ||
+		prevSite !== item.site ||
+		prevClock + prevLen !== item.clock ||
 		// non-consecutive parents?
-		cur.parents.length !== 1 ||
-		lastRange.start + prevLen - 1 !== cur.parents[0]
+		item.parents.length !== 1 ||
+		prevStart + prevLen - 1 !== item.parents[0]
 	)
 		return false;
 
-	if (prevDeleted && cur.deleted && prevPos === cur.position) return true;
-	if (!prevDeleted && !cur.deleted && prevPos + prevLen === cur.position) {
-		items.fields.items[items.fields.items.length - 1] = mergeFn(
-			items.fields.items[items.fields.items.length - 1],
-			cur.items,
-		);
+	// deletion?
+	if (prevDeleted && curDeleted && prevPos === item.position) return true;
+	// insertion?
+	if (!prevDeleted && !curDeleted && prevPos + prevLen === item.position) {
+		const { items } = ctx.items.fields;
+		items[items.length - 1] = mergeFn(items[items.length - 1], item.items);
 		return true;
 	}
 

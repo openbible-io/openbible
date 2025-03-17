@@ -1,6 +1,6 @@
 import { Branch } from "./egwalker/branch";
 import { OpLog } from "./egwalker/oplog";
-import type { Site } from "./egwalker/util/state-vector";
+import type { Site } from "./egwalker/oplog-rle";
 
 export class Text {
 	site: Site;
