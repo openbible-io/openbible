@@ -20,6 +20,7 @@
 	},
 	"scripts": {
 		"build": "tsc",
+		"download": "bun run --conditions @openbible/source ./build/download.ts text",
 		"clean": "rm -rf dist tsconfig.tsbuildinfo"
 	},
 	"devDependencies": {

@@ -1,10 +1,10 @@
 // Downloads per-chapter mp3 files to `outdir`.
-import { downloadFile, type BookId, type Publication } from "@openbible/core";
-import { dirname, join } from "node:path";
+import { downloadFile, type BookId } from "@openbible/core";
+import { join } from "node:path";
 
 const outdir = "downloads";
 const dateRe = /\d{4}-\d{2}-\d{2}/g;
-// TODO: comput from text
+// TODO: compute from text
 type Book = [book: BookId, chapters: number, verses: number];
 const books: Book[] = [
 	["gen", 50, 1533],
@@ -121,7 +121,7 @@ export const mirrors = {
 	},
 } as const;
 
-async function downloadSpeaker(
+export async function downloadSpeaker(
 	mirror: keyof typeof mirrors,
 	speaker: string,
 	since?: string,
@@ -162,5 +162,3 @@ async function downloadSpeaker(
 		}
 	}
 }
-
-downloadSpeaker("https://openbible.com", "hays");
