@@ -10,7 +10,7 @@ function stringOpLog() {
 
 function expectHel(oplog: ReturnType<typeof stringOpLog>) {
 	expect(oplog.length).toBe(3);
-	expect(oplog.ops.items.fields.items[0]).toBe("hel");
+	expect(oplog.items.fields.items[0]).toBe("hel");
 	expect(oplog.getId(2)).toEqual({ site: "a", clock: 2 });
 	expect(oplog.getPos(2)).toBe(2);
 	expect(oplog.getDeleted(2)).toBe(false);
@@ -24,14 +24,14 @@ function expectHel(oplog: ReturnType<typeof stringOpLog>) {
 test("insert", () => {
 	let oplog = stringOpLog();
 
-	oplog.insertRle("a", 0, "h");
-	oplog.insertRle("a", 1, "e");
-	oplog.insertRle("a", 2, "l");
+	oplog.insert("a", 0, "h");
+	oplog.insert("a", 1, "e");
+	oplog.insert("a", 2, "l");
 
 	expectHel(oplog);
 
 	oplog = stringOpLog();
-	oplog.insertRle("a", 0, "hel");
+	oplog.insert("a", 0, "hel");
 
 	expectHel(oplog);
 });
@@ -39,17 +39,17 @@ test("insert", () => {
 test("delete", () => {
 	let oplog = stringOpLog();
 
-	oplog.insertRle("a", 0, "hel");
+	oplog.insert("a", 0, "hel");
 	expectHel(oplog);
 
-	oplog.deleteRle("b", 0, 1);
-	oplog.deleteRle("b", 0, 1);
-	oplog.deleteRle("b", 0, 1);
+	oplog.delete("b", 0, 1);
+	oplog.delete("b", 0, 1);
+	oplog.delete("b", 0, 1);
 	expect(oplog.getDeleted(4)).toBe(true);
 
 	oplog = stringOpLog();
-	oplog.insertRle("a", 0, "hel");
-	oplog.deleteRle("b", 0, 3);
+	oplog.insert("a", 0, "hel");
+	oplog.delete("b", 0, 3);
 	expect(oplog.getDeleted(4)).toBe(true);
 });
 
@@ -58,9 +58,9 @@ test("parents", () => {
 	const site = "a";
 	let clock = 0;
 
-	a.push({ site, clock }, [], 0, 0, "abc");
+	a.insertRle({ site, clock }, [],  0, "abc");
 	clock += 3;
-	a.push({ site, clock }, [0,1], 0, 0, "def");
+	a.insertRle({ site, clock }, [0,1],  0, "def");
 
 	expect(a.getParents(0)).toEqual([]);
 	expect(a.getParents(1)).toEqual([0]);
@@ -74,8 +74,8 @@ test("merge", () => {
 	const a = stringOpLog();
 	const b = stringOpLog();
 
-	a.insertRle("a", 0, "1");
-	b.insertRle("b", 0, "23");
+	a.insert("a", 0, "1");
+	b.insert("b", 0, "23");
 
 	a.merge(b);
 
