@@ -7,7 +7,7 @@ export class Branch<T, AccT extends Accumulator<T>> {
 	frontier: Clock[] = [];
 
 	checkout(oplog: OpLog<T, AccT>, mergeFrontier: Clock[] = oplog.frontier) {
-		const { head, shared, bOnly } = oplog.diff2(
+		const { head, shared, bOnly } = oplog.diffBetween2(
 			this.frontier,
 			mergeFrontier,
 		);

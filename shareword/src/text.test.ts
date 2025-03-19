@@ -67,7 +67,7 @@ function fuzzer(seed: number) {
 				a.branch.snapshot.join(""),
 				b.branch.snapshot.join(""),
 			);
-			throw e;
+			//throw e;
 		}
 	}
 }
@@ -152,6 +152,7 @@ test("correctness", () => {
 	b.insert(0, "share");
 
 	expect(toOplogRows(a).slice(10)).toEqual([[8, true, "", "a", 5, [4, 9]]]);
+	expect(a.oplog.frontier).toEqual([10]);
 	expect(toOplogRows(b).slice(10)).toEqual([
 		[0, true, "", "b", 5, [4, 9]],
 		[0, true, "", "b", 6, [10]],
@@ -164,6 +165,7 @@ test("correctness", () => {
 		[3, false, "r", "b", 13, [17]],
 		[4, false, "e", "b", 14, [18]],
 	]);
+	expect(b.oplog.frontier).toEqual([19]);
 
 	a.merge(b);
 	b.merge(a);
@@ -181,6 +183,7 @@ test("correctness", () => {
 		[3, false, "r", "b", 13, [18]],
 		[4, false, "e", "b", 14, [19]],
 	]);
+	expect(a.oplog.frontier).toEqual([10, 20]);
 	expect(toOplogRows(b).slice(10)).toEqual([
 		[0, true, "", "b", 5, [4, 9]],
 		[0, true, "", "b", 6, [10]],
@@ -194,6 +197,7 @@ test("correctness", () => {
 		[4, false, "e", "b", 14, [18]],
 		[8, true, "", "a", 5, [4, 9]],
 	]);
+	expect(b.oplog.frontier).toEqual([19, 20]);
 
 	expected = "shareword";
 	expect(a.toString()).toBe(expected);
@@ -206,7 +210,7 @@ test("partial op merge", () => {
 
 	b.insert(0, "vc");
 	a.merge(b);
-	b.merge(a);
+	b.merge(a); // noop
 
 	expect(toOplogRows(a)).toEqual([
 		[0, false, "v", "b", 0, []],
@@ -217,7 +221,7 @@ test("partial op merge", () => {
 	expect(b.oplog.frontier).toEqual([1]);
 
 	a.insert(2, "e");
-	b.insert(2, "z");
+	b.insert(2, "z"); // joined with previous run, only partially in a
 	b.delete(1, 1);
 
 	expect(toOplogRows(a)).toEqual([
@@ -240,7 +244,7 @@ test("partial op merge", () => {
 		[0, false, "v", "b", 0, []],
 		[1, false, "c", "b", 1, [0]],
 		[2, false, "e", "a", 0, [1]],
-		[2, false, "z", "b", 2, [1]],
+		[2, false, "z", "b", 2, [1]], // tricky
 		[1, true, "", "b", 3, [3]],
 	]);
 	expect(toOplogRows(b)).toEqual([
@@ -257,7 +261,7 @@ test("partial op merge", () => {
 	expect(b.branch.snapshot.join("")).toEqual(a.branch.snapshot.join(""));
 });
 
-test("more partial op merges", () => {
+test("frontiers", () => {
 	const a = new Text("a");
 	const b = new Text("b");
 	const c = new Text("c");

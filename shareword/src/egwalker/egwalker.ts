@@ -171,7 +171,7 @@ export class EgWalker<T, AccT extends Accumulator<T>> {
 
 	doOp(oplog: OpLog<T, AccT>, clock: Clock, snapshot?: T[]) {
 		const parents = oplog.getParents(clock);
-		const { aOnly, bOnly } = oplog.diff(this.currentVersion, parents);
+		const { aOnly, bOnly } = oplog.diffBetween(this.currentVersion, parents);
 
 		for (const i of aOnly) this.#retreat(oplog, i);
 		for (const i of bOnly) this.#advance(oplog, i);

@@ -1,3 +1,4 @@
+import ListMap from "./util/list-map";
 import { MultiArrayList } from "./util/multi-array-list";
 import { Rle } from "./util/rle";
 
@@ -14,7 +15,6 @@ type RleOp<AccT> = {
 	clock: number;
 	position: number;
 	items: AccT;
-	parents: number[];
 };
 
 export interface Accumulator<T> extends ArrayLike<T> {
@@ -31,17 +31,15 @@ export class RleOpLog<T, AccT extends Accumulator<T>> extends Rle<
 	RleOp<AccT>,
 	MultiArrayList<RleOp<AccT>>
 > {
-	/** Append-only unique list. */
-	sites: string[] = [];
-	/** For fast pushing. */
-	siteMap: Record<Site, number> = {};
+	sites = new ListMap<Site>();
+	parents: Record<Clock, number[]> = {};
 
 	/**
 	 * @param emptyItem For runs that are deletions.
 	 * @param mergeFn How to merge runs together.
 	 */
 	constructor(
-		private emptyItem: AccT,
+		protected emptyItem: AccT,
 		mergeFn: (acc: AccT, cur: AccT) => AccT,
 	) {
 		super(
@@ -50,7 +48,6 @@ export class RleOpLog<T, AccT extends Accumulator<T>> extends Rle<
 				clock: 0,
 				position: 0,
 				items: emptyItem,
-				parents: [],
 			}),
 			(ctx, item, len) => appendOp(mergeFn, ctx, item, len),
 		);
@@ -58,7 +55,7 @@ export class RleOpLog<T, AccT extends Accumulator<T>> extends Rle<
 
 	protected getSiteRaw(idx: number): Site {
 		const site = this.items.fields.site[idx];
-		return this.sites[site];
+		return this.sites.keys[site];
 	}
 
 	getSite(c: Clock): Site {
@@ -106,26 +103,18 @@ export class RleOpLog<T, AccT extends Accumulator<T>> extends Rle<
 		return this.getItemRaw(idx)[offset];
 	}
 
-	protected getParentsRaw(idx: number, offset: number): Clock[] {
-		const start = this.ranges.fields.start[idx];
-		const parents = this.items.fields.parents[idx];
-		if (offset) return [start + offset - 1];
-
-		return parents;
-	}
-
 	getParents(c: Clock): Clock[] {
-		const { idx, offset } = this.offsetOf(c);
-		return this.getParentsRaw(idx, offset);
+		if (c >= this.length) throw new Error(`${c} out of bounds`);
+		return this.parents[c] ?? [c - 1];
 	}
 
-	protected getOrPutSite(site: Site): number {
-		if (!(site in this.siteMap)) {
-			this.siteMap[site] = this.sites.length;
-			this.sites.push(site);
+	protected insertParents(parents: Clock[]): void {
+		const prevStart = last(this.ranges.fields.start);
+		const prevLen = this.len(this.ranges.length - 1);
+		// non-consecutive parents?
+		if (parents.length !== 1 || prevStart + prevLen - 1 !== parents[0]) {
+			this.parents[this.length] = parents;
 		}
-
-		return this.siteMap[site];
 	}
 
 	insertRle(
@@ -134,12 +123,11 @@ export class RleOpLog<T, AccT extends Accumulator<T>> extends Rle<
 		parents: Clock[],
 		position: number,
 		items: AccT,
-	): boolean {
-		if (!items.length) return false;
-		const siteIndex = this.getOrPutSite(site);
-
-		return super.push(
-			{ site: siteIndex, clock, parents, position, items },
+	): void {
+		if (!items.length) return;
+		this.insertParents(parents);
+		super.push(
+			{ site: this.sites.getOrPut(site), clock, position, items },
 			items.length,
 		);
 	}
@@ -150,12 +138,16 @@ export class RleOpLog<T, AccT extends Accumulator<T>> extends Rle<
 		parents: Clock[],
 		position: number,
 		deleteCount: number,
-	): boolean {
-		if (deleteCount <= 0) return false;
-		const siteIndex = this.getOrPutSite(site);
-
-		return super.push(
-			{ site: siteIndex, clock, parents, position, items: this.emptyItem },
+	): void {
+		if (deleteCount <= 0) return;
+		this.insertParents(parents);
+		super.push(
+			{
+				site: this.sites.getOrPut(site),
+				clock,
+				position,
+				items: this.emptyItem,
+			},
 			-deleteCount,
 		);
 	}
@@ -165,23 +157,10 @@ export class RleOpLog<T, AccT extends Accumulator<T>> extends Rle<
 		for (let i = this.items.length - 1; i >= 0; i--) {
 			const site2 = this.getSiteRaw(i);
 			const clock2 = this.getClockRaw(i, 0);
-			if (
-				site === site2 &&
-				clock >= clock2 &&
-				clock <= clock2 + this.len(i)
-			) return i;
+			if (site === site2 && clock >= clock2 && clock <= clock2 + this.len(i))
+				return i;
 		}
 		throw new Error(`Id (${site},${clock}) does not exist`);
-	}
-
-	idToClock(site: Site, clock: Clock): Clock {
-		const idx = this.idToIndex(site, clock);
-
-		return (
-			this.ranges.fields.start[idx] +
-			clock -
-			this.getClockRaw(idx, 0)
-		);
 	}
 }
 
@@ -196,7 +175,6 @@ function appendOp<AccT>(
 	len: number,
 ): boolean {
 	const { fields } = ctx.items;
-	const prevStart = last(ctx.ranges.fields.start);
 	let prevLen = last(ctx.ranges.fields.len);
 	const prevDeleted = prevLen < 0;
 	prevLen = ctx.len(ctx.ranges.length - 1);
@@ -206,14 +184,8 @@ function appendOp<AccT>(
 	const prevSite = last(fields.site);
 	const prevClock = last(fields.clock);
 
-	if (
-		// non-consecutive id?
-		prevSite !== item.site ||
-		prevClock + prevLen !== item.clock ||
-		// non-consecutive parents?
-		item.parents.length !== 1 ||
-		prevStart + prevLen - 1 !== item.parents[0]
-	)
+	// non-consecutive id?
+	if (prevSite !== item.site || prevClock + prevLen !== item.clock)
 		return false;
 
 	// deletion?

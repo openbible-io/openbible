@@ -1,15 +1,44 @@
-import { RleOpLog, type Accumulator, type Clock, type Site } from "./oplog-rle";
+import { RleOpLog } from "./oplog-rle";
+import type { Accumulator, Clock, Site } from "./oplog-rle";
 import PriorityQueue from "./pq";
+import { MultiArrayList } from "./util/multi-array-list";
+import ListMap from "./util/list-map";
+
+type StateVector = Record<Site, number>;
+
+type PatchParents = Record<number, [site: number, clock: Clock][]>;
+export class Patch<AccT> {
+	ops: MultiArrayList<{
+		site: number;
+		clock: Clock;
+		position: number;
+		items: AccT;
+		len: number;
+		parents: PatchParents;
+	}>;
+	sites: Site[] = [];
+
+	constructor(emptyItem: AccT) {
+		this.ops = new MultiArrayList({
+			site: 0,
+			clock: 0,
+			position: 0,
+			items: emptyItem,
+			len: 0,
+			parents: {},
+		});
+	}
+}
 
 /** An append-only list of immutable operations */
 export class OpLog<T, AccT extends Accumulator<T> = T[]> extends RleOpLog<
 	T,
 	AccT
 > {
-	/** `parents` for next Op */
+	/** Next Op's `parents`. */
 	frontier: Clock[] = [];
 	/** Indices into `this.fields` for each site. */
-	stateVector: Record<Site, number> = {};
+	stateVector: StateVector = {};
 
 	#nextClock(site: Site): Clock {
 		return (this.stateVector[site] ?? -1) + 1;
@@ -31,61 +60,110 @@ export class OpLog<T, AccT extends Accumulator<T> = T[]> extends RleOpLog<
 		this.stateVector[site] = clock + delCount - 1;
 	}
 
-	//idToClock(site: Site, clock: Clock): Clock {
-	//	const res = this.idClocks[site]?.[clock];
-	//	if (!res) {
-	//		debugPrint(this);
-	//		throw new Error(`Id (${site},${clock}) does not exist`);
-	//	}
-	//	return res;
-	//}
+	diff(to: StateVector): Patch<AccT> {
+		const res = new Patch<AccT>(this.emptyItem);
+		const sites = new ListMap<Site>();
 
-	merge(src: OpLog<T, AccT>) {
-		//const missing = Object.entries(src.stateVector.diff(this.stateVector));
-		//if (!missing.length) return;
-		//
-		//let i = missing.reduce((acc, [site, clock]) =>
-		//	Math.max(0, Math.min(acc, src.idToIdx({ site, clock })));
-		// Number.POSITIVE_INFINITY);
 
-		const { items } = src;
-		const { fields } = items;
-		for (let i = 0; i < items.length; i++) {
-			const opSite = src.getSiteRaw(i);
-			const opClock = fields.clock[i];
-			const opLen = src.len(i);
-			const offset = opClock + opLen - this.#nextClock(opSite);
-			if (offset <= 0) continue;
+		// 1. State vector diff
+		const missing: Record<Site, Clock> = {};
+		for (const [site, maxClock] of Object.entries(this.stateVector)) {
+			if (site in to) {
+				if (maxClock > to[site]) missing[site] = to[site] + 1;
+			} else {
+				// missing everything
+				missing[site] = 0;
+			}
+		}
 
-			const opOffset = opLen - offset;
-			const parents = src
-				.getParentsRaw(i, opOffset)
-				.map((srcClock) => {
-					const { idx, offset } = src.offsetOf(srcClock);
-					const site = src.getSiteRaw(idx);
-					const clock = src.getClockRaw(idx, offset);
-					return this.idToClock(site, clock);
-				})
-				.sort((a, b) => a - b);
-			const deleted = src.getDeletedRaw(i);
-
-			this.push(
-				{
-					site: this.getOrPutSite(opSite),
-					clock: src.getClockRaw(i, opOffset),
-					position: src.getPosRaw(i, opOffset, deleted),
-					// @ts-ignore idc if diff subtype as long as fulfills interface
-					items: src.getItemRaw(i).slice(opOffset),
-					parents,
-				},
-				(opLen - opOffset) * (deleted ? -1 : 1),
+		// 2. Scan RLE items
+		for (
+			let i = Object.entries(missing).reduce(
+				(acc, [site, clock]) =>
+					Math.max(0, Math.min(acc, this.idToIndex(site, clock))),
+				Number.POSITIVE_INFINITY,
 			);
-			this.frontier = advanceFrontier(this.frontier, this.length - 1, parents);
-			this.stateVector[opSite] = opClock + opLen - 1;
+			i < this.items.length;
+			i++
+		) {
+			const site = this.getSiteRaw(i);
+			const clock = this.getClockRaw(i, 0);
+			const len = this.len(i);
+			if (!(site in missing) || clock + len <= missing[site]) continue;
+
+			const offset = clock < missing[site] ? missing[site] - clock : 0;
+			const start = this.ranges.fields.start[i];
+			const deleted = this.getDeletedRaw(i);
+			const parents: PatchParents = {};
+			for (let j = offset; j < len; j++) {
+				const thisParents = (j === offset)
+					? this.getParents(start + j) // might not be in other oplog's run
+					: this.parents[start + j];
+				//const thisParents = this.getParents(start + j);
+				if (thisParents) parents[j - offset] = thisParents.map((p) => {
+					const { idx, offset } = this.offsetOf(p);
+					const site = sites.getOrPut(this.getSiteRaw(idx));
+					const clock = this.getClockRaw(idx, offset);
+
+					return [site, clock]
+				});
+			}
+
+			res.ops.push({
+				site: sites.getOrPut(site),
+				clock: this.getClockRaw(i, offset),
+				position: this.getPosRaw(i, offset, deleted),
+				// @ts-ignore idc if diff subtype as long as fulfills interface
+				items: this.getItemRaw(i).slice(offset),
+				len: (len - offset) * (deleted ? -1 : 1),
+				parents,
+			});
+		}
+
+		res.sites = sites.keys;
+		return res;
+	}
+
+	apply(patch: Patch<AccT>): void {
+		const toClock = (site: Site, clock: Clock): Clock => {
+			const idx = this.idToIndex(site, clock);
+			return this.ranges.fields.start[idx] - this.getClockRaw(idx, -clock);
+		};
+
+		const { fields } = patch.ops;
+		for (let i = 0; i < patch.ops.length; i++) {
+			const site = patch.sites[fields.site[i]];
+			const clock = fields.clock[i];
+			const len = Math.abs(fields.len[i]);
+
+			this.push({
+				site: this.sites.getOrPut(site),
+				clock,
+				position: fields.position[i],
+				items: fields.items[i],
+			}, fields.len[i]);
+			for (const [j, parents] of Object.entries(fields.parents[i])) {
+				this.parents[this.length - len + +j] = parents.map(
+					(id) => toClock(patch.sites[id[0]], id[1]),
+				).sort((a, b) => a - b);
+			}
+			for (let j = 0; j < len; j++) {
+				const nextClock = this.length - len + j;
+				this.frontier = advanceFrontier(
+					this.frontier,
+					nextClock,
+					this.getParents(nextClock),
+				);
+			}
+			this.stateVector[site] = clock + len - 1;
 		}
 	}
 
-	diff(a: Clock[], b: Clock[]): { aOnly: Clock[]; bOnly: Clock[] } {
+	merge(src: OpLog<T, AccT>) {
+		this.apply(src.diff(this.stateVector));
+	}
+
+	diffBetween(a: Clock[], b: Clock[]): { aOnly: Clock[]; bOnly: Clock[] } {
 		type DiffFlag = "a" | "b" | "both";
 		const flags: { [clock: Clock]: DiffFlag } = {};
 		const queue = new PriorityQueue<Clock>((a, b) => b - a);
@@ -124,7 +202,7 @@ export class OpLog<T, AccT extends Accumulator<T> = T[]> extends RleOpLog<
 		return { aOnly, bOnly };
 	}
 
-	diff2(
+	diffBetween2(
 		a: Clock[],
 		b: Clock[],
 	): {
@@ -211,9 +289,9 @@ export function advanceFrontier(
 	clock: Clock,
 	parents: Clock[],
 ): Clock[] {
-	const f = frontier.filter((v) => !parents.includes(v));
-	f.push(clock);
-	return f.sort((a, b) => a - b);
+	const res = frontier.filter((c) => !parents.includes(c));
+	res.push(clock);
+	return res.sort((a, b) => a - b);
 }
 
 export function debugPrint<T, AccT extends Accumulator<T>>(
@@ -246,27 +324,25 @@ export function debugPrint<T, AccT extends Accumulator<T>>(
 			start: number;
 			len: number;
 			position: number;
-			deleted: boolean;
 			item: AccT;
 			site: Site;
 			clock: Clock;
-			parents: number[];
 		};
 		const ops: Op[] = [];
 		const { fields } = oplog.items;
 		const rangeFields = oplog.ranges.fields;
 		for (let i = 0; i < oplog.items.length; i++) {
+			const start = rangeFields.start[i];
 			ops.push({
-				start: rangeFields.start[i],
+				start,
 				len: rangeFields.len[i],
 				position: fields.position[i],
-				deleted: rangeFields.len[i] < 0,
 				item: fields.items[i],
-				site: oplog.sites[fields.site[i]],
+				site: oplog.sites.keys[fields.site[i]],
 				clock: fields.clock[i],
-				parents: fields.parents[i],
 			});
 		}
 		console.table(ops);
+		console.log("parents", oplog.parents);
 	}
 }

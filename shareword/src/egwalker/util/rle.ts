@@ -10,7 +10,7 @@ export interface Container<T> {
 }
 
 /**
- * A container for run length encoding.
+ * Run length encoded list.
  *
  * Allows negative lengths to store an extra bit.
  */
