@@ -14,6 +14,10 @@ function fuzzer(seed: number) {
 	const docs = [new Text("a"), new Text("b"), new Text("c")];
 	const randDoc = () => docs[randInt(docs.length)];
 
+	// For adding a test case.
+	const toLogSeed = -1;
+	const toLogI = -1;
+
 	for (let i = 0; i < 100; i++) {
 		for (let d = 0; d < 3; d++) {
 			// 1. Pick a random document
@@ -26,21 +30,29 @@ function fuzzer(seed: number) {
 				const content = randChar();
 				const pos = randInt(len + 1);
 				doc.insert(pos, content);
+				if (seed === toLogSeed && i <= toLogI)
+					console.log(`${doc.site}.insert(${pos}, "${content}")`);
 			} else {
 				const pos = randInt(len);
 				const delLen = Math.max(1, randInt(Math.min(len - pos, 3)));
 				doc.delete(pos, delLen);
+				if (seed === toLogSeed && i <= toLogI)
+					console.log(`${doc.site}.delete(${pos}, ${delLen})`);
 			}
 
 			// doc.check()
 		}
 
-		// 3. merge 2 random docs them
+		// 3. merge 2 random docs
 		const a = randDoc();
 		const b = randDoc();
 
 		if (a === b) continue;
 
+		if (seed === toLogSeed && i <= toLogI) {
+			console.log(`${a.site}.merge(${b.site})`);
+			console.log(`${b.site}.merge(${a.site})`);
+		}
 		a.merge(b);
 		b.merge(a);
 
@@ -48,7 +60,13 @@ function fuzzer(seed: number) {
 		try {
 			expect(a.branch.snapshot.join("")).toBe(b.branch.snapshot.join(""));
 		} catch (e) {
-			console.log("bad", seed, i, a.branch.snapshot, b.branch.snapshot);
+			console.log(
+				"bad",
+				seed,
+				i,
+				a.branch.snapshot.join(""),
+				b.branch.snapshot.join(""),
+			);
 			throw e;
 		}
 	}
@@ -183,69 +201,174 @@ test("correctness", () => {
 });
 
 test("partial op merge", () => {
-	// TODO: simplify
 	const a = new Text("a");
 	const b = new Text("b");
-	const c = new Text("c");
 
-	a.insert(0, "w");
-	a.delete(0, 1);
-	c.insert(0, "s");
-	c.merge(b);
-	b.merge(c);
-
-	a.insert(0, "y");
-	c.insert(1, "j");
-	c.delete(0, 1);
-	a.merge(c);
-	c.merge(a);
-
-	expect(toOplogRows(a)).toEqual([
-		[0, false, "w", "a", 0, []],
-		[0, true, "", "a", 1, [0]],
-		[0, false, "y", "a", 2, [1]],
-		[0, false, "s", "c", 0, []],
-		[1, false, "j", "c", 1, [3]],
-		[0, true, "", "c", 2, [4]],
-	]);
-	expect(toOplogRows(c)).toEqual([
-		[0, false, "s", "c", 0, []],
-		[1, false, "j", "c", 1, [0]],
-		[0, true, "", "c", 2, [1]],
-		[0, false, "w", "a", 0, []],
-		[0, true, "", "a", 1, [3]],
-		[0, false, "y", "a", 2, [4]],
-	]);
-
-	b.insert(0, "w");
-	b.insert(2, "b");
-
+	b.insert(0, "vc");
 	a.merge(b);
 	b.merge(a);
 
 	expect(toOplogRows(a)).toEqual([
-		[0, false, "w", "a", 0, []],
-		[0, true, "", "a", 1, [0]],
-		[0, false, "y", "a", 2, [1]],
-		[0, false, "s", "c", 0, []],
-		[1, false, "j", "c", 1, [3]],
-		[0, true, "", "c", 2, [4]],
-		[0, false, "w", "b", 0, [3]],
-		[2, false, "b", "b", 1, [6]],
+		[0, false, "v", "b", 0, []],
+		[1, false, "c", "b", 1, [0]],
+	]);
+	expect(toOplogRows(b)).toEqual(toOplogRows(a));
+	expect(a.oplog.frontier).toEqual([1]);
+	expect(b.oplog.frontier).toEqual([1]);
+
+	a.insert(2, "e");
+	b.insert(2, "z");
+	b.delete(1, 1);
+
+	expect(toOplogRows(a)).toEqual([
+		[0, false, "v", "b", 0, []],
+		[1, false, "c", "b", 1, [0]],
+		[2, false, "e", "a", 0, [1]],
 	]);
 	expect(toOplogRows(b)).toEqual([
-		[0, false, "s", "c", 0, []],
-		[0, false, "w", "b", 0, [0]],
-		[2, false, "b", "b", 1, [1]],
-		[0, false, "w", "a", 0, []],
-		[0, true, "", "a", 1, [3]],
-		[0, false, "y", "a", 2, [4]],
-		[1, false, "j", "c", 1, [0]],
-		[0, true, "", "c", 2, [6]],
+		[0, false, "v", "b", 0, []],
+		[1, false, "c", "b", 1, [0]],
+		[2, false, "z", "b", 2, [1]],
+		[1, true, "", "b", 3, [2]],
+	]);
+	expect(a.oplog.frontier).toEqual([2]);
+	expect(b.oplog.frontier).toEqual([3]);
+	b.merge(a);
+	a.merge(b);
+
+	expect(toOplogRows(a)).toEqual([
+		[0, false, "v", "b", 0, []],
+		[1, false, "c", "b", 1, [0]],
+		[2, false, "e", "a", 0, [1]],
+		[2, false, "z", "b", 2, [1]],
+		[1, true, "", "b", 3, [3]],
+	]);
+	expect(toOplogRows(b)).toEqual([
+		[0, false, "v", "b", 0, []],
+		[1, false, "c", "b", 1, [0]],
+		[2, false, "z", "b", 2, [1]],
+		[1, true, "", "b", 3, [2]],
+		[2, false, "e", "a", 0, [1]],
+	]);
+	expect(a.oplog.frontier).toEqual([2, 4]);
+	expect(b.oplog.frontier).toEqual([3, 4]);
+
+	expect(a.branch.snapshot.join("")).toEqual("vez");
+	expect(b.branch.snapshot.join("")).toEqual(a.branch.snapshot.join(""));
+});
+
+test("more partial op merges", () => {
+	const a = new Text("a");
+	const b = new Text("b");
+	const c = new Text("c");
+
+	b.insert(0, "cr");
+	b.insert(0, "o");
+	a.merge(b);
+	b.merge(a);
+	expect(a.oplog.frontier).toEqual([2]);
+	expect(b.oplog.frontier).toEqual([2]);
+
+	a.insert(3, "m");
+	a.delete(2, 1);
+	a.insert(3, "w");
+	b.merge(c);
+	c.merge(b);
+	expect(b.oplog.frontier).toEqual([2]);
+	expect(c.oplog.frontier).toEqual([2]);
+
+	a.delete(3, 1);
+	a.insert(0, "df");
+	b.insert(0, "gt");
+	a.delete(0, 1);
+	b.merge(a);
+	a.merge(b);
+	expect(a.oplog.frontier).toEqual([9, 11]);
+	expect(b.oplog.frontier).toEqual([4, 11]);
+
+	c.insert(0, "b");
+	a.delete(2, 1);
+	expect(a.oplog.frontier).toEqual([12]);
+	c.merge(a);
+	a.merge(c);
+	expect(a.oplog.frontier).toEqual([12, 13]);
+	expect(c.oplog.frontier).toEqual([3, 13]);
+	expect(toOplogRows(a)).toEqual([
+		[0, false, "c", "b", 0, []],
+		[1, false, "r", "b", 1, [0]],
+		[0, false, "o", "b", 2, [1]],
+		[3, false, "m", "a", 0, [2]],
+		[2, true, "", "a", 1, [3]],
+		[3, false, "w", "a", 2, [4]],
+		[3, true, "", "a", 3, [5]],
+		[0, false, "d", "a", 4, [6]],
+		[1, false, "f", "a", 5, [7]],
+		[0, true, "", "a", 6, [8]],
+		[0, false, "g", "b", 3, [2]],
+		[1, false, "t", "b", 4, [10]],
+		[2, true, "", "a", 7, [9, 11]],
+		[0, false, "b", "c", 0, [2]],
+	]);
+	expect(toOplogRows(c)).toEqual([
+		[0, false, "c", "b", 0, []],
+		[1, false, "r", "b", 1, [0]],
+		[0, false, "o", "b", 2, [1]],
+		[0, false, "b", "c", 0, [2]],
+		[3, false, "m", "a", 0, [2]],
+		[2, true, "", "a", 1, [4]],
+		[3, false, "w", "a", 2, [5]],
+		[3, true, "", "a", 3, [6]],
+		[0, false, "d", "a", 4, [7]],
+		[1, false, "f", "a", 5, [8]],
+		[0, true, "", "a", 6, [9]],
+		[0, false, "g", "b", 3, [2]],
+		[1, false, "t", "b", 4, [11]],
+		[2, true, "", "a", 7, [10, 12]],
 	]);
 
-	expect(a.branch.snapshot.join("")).toEqual("ywbj");
-	expect(a.branch.snapshot.join("")).toEqual(b.branch.snapshot.join(""));
+	a.delete(2, 2);
+	a.merge(c);
+	c.merge(a);
+	expect(a.oplog.frontier).toEqual([15]);
+	expect(c.oplog.frontier).toEqual([15]);
+	expect(toOplogRows(a)).toEqual([
+		[0, false, "c", "b", 0, []],
+		[1, false, "r", "b", 1, [0]],
+		[0, false, "o", "b", 2, [1]],
+		[3, false, "m", "a", 0, [2]],
+		[2, true, "", "a", 1, [3]],
+		[3, false, "w", "a", 2, [4]],
+		[3, true, "", "a", 3, [5]],
+		[0, false, "d", "a", 4, [6]],
+		[1, false, "f", "a", 5, [7]],
+		[0, true, "", "a", 6, [8]],
+		[0, false, "g", "b", 3, [2]],
+		[1, false, "t", "b", 4, [10]],
+		[2, true, "", "a", 7, [9, 11]],
+		[0, false, "b", "c", 0, [2]],
+		[2, true, "", "a", 8, [12, 13]],
+		[2, true, "", "a", 9, [14]],
+	]);
+	expect(toOplogRows(c)).toEqual([
+		[0, false, "c", "b", 0, []],
+		[1, false, "r", "b", 1, [0]],
+		[0, false, "o", "b", 2, [1]],
+		[0, false, "b", "c", 0, [2]],
+		[3, false, "m", "a", 0, [2]],
+		[2, true, "", "a", 1, [4]],
+		[3, false, "w", "a", 2, [5]],
+		[3, true, "", "a", 3, [6]],
+		[0, false, "d", "a", 4, [7]],
+		[1, false, "f", "a", 5, [8]],
+		[0, true, "", "a", 6, [9]],
+		[0, false, "g", "b", 3, [2]],
+		[1, false, "t", "b", 4, [11]],
+		[2, true, "", "a", 7, [10, 12]],
+		[2, true, "", "a", 8, [3, 13]],
+		[2, true, "", "a", 9, [14]],
+	]);
+
+	expect(a.branch.snapshot.join("")).toEqual(c.branch.snapshot.join(""));
 });
 
 test("convergence with fuzzer", () => {

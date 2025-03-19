@@ -23,11 +23,7 @@ export class Rle<T, C extends Container<T> = Array<T>> {
 	 */
 	constructor(
 		public items: C,
-		private append: (
-			ctx: Rle<T, C>,
-			item: T,
-			len: number,
-		) => boolean,
+		private append: (ctx: Rle<T, C>, item: T, len: number) => boolean,
 	) {}
 
 	/**
@@ -35,18 +31,16 @@ export class Rle<T, C extends Container<T> = Array<T>> {
 	 *
 	 * @returns If appended to previous item.
 	 */
-	push(item: T, len = 1): boolean {
-		if (!len) return true;
+	push(item: T, len = 1): void {
+		if (!len) return;
 
 		if (this.length && this.append(this, item, len)) {
 			const lens = this.ranges.fields.len;
 			lens[lens.length - 1] += len;
-			return true;
+		} else {
+			this.items.push(item);
+			this.ranges.push({ start: this.length, len });
 		}
-
-		this.items.push(item);
-		this.ranges.push({ start: this.length, len });
-		return false;
 	}
 
 	len(idx: number): number {
