@@ -64,28 +64,27 @@ export class OpLog<T, AccT extends Accumulator<T> = T[]> extends RleOpLog<
 		const res = new Patch<AccT>(this.emptyItem);
 		const sites = new ListMap<Site>();
 
-
 		// 1. State vector diff
 		const missing: Record<Site, Clock> = {};
+		// This optimization is good enough because the missing items
+		// are usually continuous.
+		let minI = Number.POSITIVE_INFINITY;
 		for (const [site, maxClock] of Object.entries(this.stateVector)) {
 			if (site in to) {
-				if (maxClock > to[site]) missing[site] = to[site] + 1;
+				if (maxClock > to[site]) {
+					missing[site] = to[site] + 1;
+					minI = Math.min(minI, this.idToIndex(site, to[site] + 1));
+				}
 			} else {
 				// missing everything
 				missing[site] = 0;
+				minI = Math.min(minI, this.idToIndex(site, 0));
 			}
 		}
 
 		// 2. Scan RLE items
-		for (
-			let i = Object.entries(missing).reduce(
-				(acc, [site, clock]) =>
-					Math.max(0, Math.min(acc, this.idToIndex(site, clock))),
-				Number.POSITIVE_INFINITY,
-			);
-			i < this.items.length;
-			i++
-		) {
+		let lastParent = -2;
+		for (let i = minI; i < this.items.length; i++) {
 			const site = this.getSiteRaw(i);
 			const clock = this.getClockRaw(i, 0);
 			const len = this.len(i);
@@ -96,17 +95,20 @@ export class OpLog<T, AccT extends Accumulator<T> = T[]> extends RleOpLog<
 			const deleted = this.getDeletedRaw(i);
 			const parents: PatchParents = {};
 			for (let j = offset; j < len; j++) {
-				const thisParents = (j === offset)
-					? this.getParents(start + j) // might not be in other oplog's run
-					: this.parents[start + j];
-				//const thisParents = this.getParents(start + j);
-				if (thisParents) parents[j - offset] = thisParents.map((p) => {
-					const { idx, offset } = this.offsetOf(p);
-					const site = sites.getOrPut(this.getSiteRaw(idx));
-					const clock = this.getClockRaw(idx, offset);
+				const thisParents =
+					j === offset && lastParent + 1 !== i + j
+						? this.getParents(start + j) // might not be in other oplog's run
+						: this.parents[start + j];
+				if (thisParents) {
+					parents[j - offset] = thisParents.map((p) => {
+						const { idx, offset } = this.offsetOf(p);
+						const site = sites.getOrPut(this.getSiteRaw(idx));
+						const clock = this.getClockRaw(idx, offset);
 
-					return [site, clock]
-				});
+						return [site, clock];
+					});
+					lastParent = i + j;
+				}
 			}
 
 			res.ops.push({
@@ -136,16 +138,19 @@ export class OpLog<T, AccT extends Accumulator<T> = T[]> extends RleOpLog<
 			const clock = fields.clock[i];
 			const len = Math.abs(fields.len[i]);
 
-			this.push({
-				site: this.sites.getOrPut(site),
-				clock,
-				position: fields.position[i],
-				items: fields.items[i],
-			}, fields.len[i]);
+			this.push(
+				{
+					site: this.sites.getOrPut(site),
+					clock,
+					position: fields.position[i],
+					items: fields.items[i],
+				},
+				fields.len[i],
+			);
 			for (const [j, parents] of Object.entries(fields.parents[i])) {
-				this.parents[this.length - len + +j] = parents.map(
-					(id) => toClock(patch.sites[id[0]], id[1]),
-				).sort((a, b) => a - b);
+				this.parents[this.length - len + +j] = parents
+					.map((id) => toClock(patch.sites[id[0]], id[1]))
+					.sort((a, b) => a - b);
 			}
 			for (let j = 0; j < len; j++) {
 				const nextClock = this.length - len + j;

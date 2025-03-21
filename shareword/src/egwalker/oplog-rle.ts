@@ -152,7 +152,7 @@ export class RleOpLog<T, AccT extends Accumulator<T>> extends Rle<
 		);
 	}
 
-	// TODO: optimize
+	// TODO: worth optimizing? usually looking for items towards end
 	protected idToIndex(site: Site, clock: Clock): number {
 		for (let i = this.items.length - 1; i >= 0; i--) {
 			const site2 = this.getSiteRaw(i);
