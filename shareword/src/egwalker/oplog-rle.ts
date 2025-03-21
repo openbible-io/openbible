@@ -1,3 +1,4 @@
+import binarySearch from "./util/bsearch";
 import ListMap from "./util/list-map";
 import { MultiArrayList } from "./util/multi-array-list";
 import { Rle } from "./util/rle";
@@ -109,7 +110,7 @@ export class RleOpLog<T, AccT extends Accumulator<T>> extends Rle<
 	}
 
 	protected insertParents(parents: Clock[]): void {
-		const prevStart = last(this.ranges.fields.start);
+		const prevStart = this.ranges.fields.start.at(-1) ?? -2;
 		const prevLen = this.len(this.ranges.length - 1);
 		// non-consecutive parents?
 		if (parents.length !== 1 || prevStart + prevLen - 1 !== parents[0]) {
@@ -151,21 +152,6 @@ export class RleOpLog<T, AccT extends Accumulator<T>> extends Rle<
 			-deleteCount,
 		);
 	}
-
-	// TODO: worth optimizing? usually looking for items towards end
-	protected idToIndex(site: Site, clock: Clock): number {
-		for (let i = this.items.length - 1; i >= 0; i--) {
-			const site2 = this.getSiteRaw(i);
-			const clock2 = this.getClockRaw(i, 0);
-			if (site === site2 && clock >= clock2 && clock <= clock2 + this.len(i))
-				return i;
-		}
-		throw new Error(`Id (${site},${clock}) does not exist`);
-	}
-}
-
-function last<T>(arr: T[]) {
-	return arr[arr.length - 1];
 }
 
 function appendOp<AccT>(
@@ -175,14 +161,18 @@ function appendOp<AccT>(
 	len: number,
 ): boolean {
 	const { fields } = ctx.items;
-	let prevLen = last(ctx.ranges.fields.len);
+	// biome-ignore lint/style/noNonNullAssertion: only called after first push
+	let prevLen = ctx.ranges.fields.len.at(-1)!;
 	const prevDeleted = prevLen < 0;
 	prevLen = ctx.len(ctx.ranges.length - 1);
 	const curDeleted = len < 0;
 
-	const prevPos = last(fields.position);
-	const prevSite = last(fields.site);
-	const prevClock = last(fields.clock);
+	// biome-ignore lint/style/noNonNullAssertion: only called after first push
+	const prevPos = fields.position.at(-1)!;
+	// biome-ignore lint/style/noNonNullAssertion: only called after first push
+	const prevSite = fields.site.at(-1)!;
+	// biome-ignore lint/style/noNonNullAssertion: only called after first push
+	const prevClock = fields.clock.at(-1)!;
 
 	// non-consecutive id?
 	if (prevSite !== item.site || prevClock + prevLen !== item.clock)

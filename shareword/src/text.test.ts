@@ -19,6 +19,7 @@ function fuzzer(seed: number) {
 	const toLogI = -1;
 
 	for (let i = 0; i < 100; i++) {
+		//console.log(seed, i);
 		for (let d = 0; d < 3; d++) {
 			// 1. Pick a random document
 			const doc = randDoc();
@@ -29,15 +30,15 @@ function fuzzer(seed: number) {
 			if (len === 0 || randBool(insertWeight)) {
 				const content = randChar();
 				const pos = randInt(len + 1);
-				doc.insert(pos, content);
 				if (seed === toLogSeed && i <= toLogI)
 					console.log(`${doc.site}.insert(${pos}, "${content}")`);
+				doc.insert(pos, content);
 			} else {
 				const pos = randInt(len);
 				const delLen = Math.max(1, randInt(Math.min(len - pos, 3)));
-				doc.delete(pos, delLen);
 				if (seed === toLogSeed && i <= toLogI)
 					console.log(`${doc.site}.delete(${pos}, ${delLen})`);
+				doc.delete(pos, delLen);
 			}
 
 			// doc.check()
@@ -49,11 +50,11 @@ function fuzzer(seed: number) {
 
 		if (a === b) continue;
 
-		if (seed === toLogSeed && i <= toLogI) {
+		if (seed === toLogSeed && i <= toLogI)
 			console.log(`${a.site}.merge(${b.site})`);
-			console.log(`${b.site}.merge(${a.site})`);
-		}
 		a.merge(b);
+		if (seed === toLogSeed && i <= toLogI)
+			console.log(`${b.site}.merge(${a.site})`);
 		b.merge(a);
 
 		// 4. expect them to be the same
@@ -376,5 +377,7 @@ test("frontiers", () => {
 });
 
 test("convergence with fuzzer", () => {
-	for (let i = 0; i < 100; i++) fuzzer(i);
+	for (let i = 0; i < 100; i++) {
+		fuzzer(i);
+	}
 });
