@@ -203,6 +203,8 @@ test("correctness", () => {
 	expected = "shareword";
 	expect(a.toString()).toBe(expected);
 	expect(b.toString()).toBe(expected);
+
+	debugPrint(a.oplog);
 });
 
 test("partial op merge", () => {

@@ -51,7 +51,7 @@ export class OpLog<T, AccT extends Accumulator<T> = T[]> extends RleOpLog<
 		return 0;
 	}
 
-	#advanceClock2(site: Site): void {
+	#advanceClock(site: Site): void {
 		this.siteIdxs[site] ??= [];
 		const idxs = this.siteIdxs[site]; 
 		if (idxs.at(-1) !== this.items.length - 1) {
@@ -67,7 +67,7 @@ export class OpLog<T, AccT extends Accumulator<T> = T[]> extends RleOpLog<
 			pos,
 			items,
 		);
-		this.#advanceClock2(site);
+		this.#advanceClock(site);
 		this.frontier = [this.length - 1];
 	}
 
@@ -79,11 +79,11 @@ export class OpLog<T, AccT extends Accumulator<T> = T[]> extends RleOpLog<
 			pos,
 			delCount,
 		);
-		this.#advanceClock2(site);
+		this.#advanceClock(site);
 		this.frontier = [this.length - 1];
 	}
 
-	idToIndex(site: Site, clock: Clock): number {
+	#idToIndex(site: Site, clock: Clock): number {
 		const idx = binarySearch(
 			this.siteIdxs[site],
 			clock,
@@ -124,12 +124,12 @@ export class OpLog<T, AccT extends Accumulator<T> = T[]> extends RleOpLog<
 			if (site in to) {
 				if (maxClock > to[site]) {
 					missing[site] = to[site] + 1;
-					minI = Math.min(minI, this.idToIndex(site, missing[site]));
+					minI = Math.min(minI, this.#idToIndex(site, missing[site]));
 				}
 			} else {
 				// missing everything
 				missing[site] = 0;
-				minI = Math.min(minI, this.idToIndex(site, missing[site]));
+				minI = Math.min(minI, this.#idToIndex(site, missing[site]));
 			}
 		}
 
@@ -179,7 +179,7 @@ export class OpLog<T, AccT extends Accumulator<T> = T[]> extends RleOpLog<
 
 	apply(patch: Patch<AccT>): void {
 		const toClock = (site: Site, clock: Clock): Clock => {
-			const idx = this.idToIndex(site, clock);
+			const idx = this.#idToIndex(site, clock);
 			return this.ranges.fields.start[idx] - this.getClockRaw(idx, -clock);
 		};
 
@@ -198,7 +198,7 @@ export class OpLog<T, AccT extends Accumulator<T> = T[]> extends RleOpLog<
 				},
 				fields.len[i],
 			);
-			this.#advanceClock2(site);
+			this.#advanceClock(site);
 			for (const [j, parents] of Object.entries(fields.parents[i])) {
 				this.parents[this.length - len + +j] = parents
 					.map((id) => toClock(patch.sites[id[0]], id[1]))
