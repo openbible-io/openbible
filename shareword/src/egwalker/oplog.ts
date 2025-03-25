@@ -346,8 +346,7 @@ function cmpClocks(a: Clock[], b: Clock[]): number {
 		if (delta) return delta;
 	}
 
-	if (a.length < b.length) return -1;
-	return 0;
+	return a.length < b.length ? -1 : 0;
 }
 
 export function advanceFrontier(

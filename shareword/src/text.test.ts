@@ -23,7 +23,7 @@ function fuzzer(seed: number) {
 		for (let d = 0; d < 3; d++) {
 			// 1. Pick a random document
 			const doc = randDoc();
-			const len = doc.branch.snapshot.length;
+			const len = doc.branch.length;
 			const insertWeight = len < 100 ? 0.65 : 0.35;
 
 			// 2. Make a random change to that document
@@ -59,14 +59,14 @@ function fuzzer(seed: number) {
 
 		// 4. expect them to be the same
 		try {
-			expect(a.branch.snapshot.join("")).toBe(b.branch.snapshot.join(""));
+			expect(a.toString()).toBe(b.toString());
 		} catch (e) {
 			console.log(
 				"bad",
 				seed,
 				i,
-				a.branch.snapshot.join(""),
-				b.branch.snapshot.join(""),
+				a.toString(),
+				b.toString(),
 			);
 			//throw e;
 		}
@@ -260,8 +260,8 @@ test("partial op merge", () => {
 	expect(a.oplog.frontier).toEqual([2, 4]);
 	expect(b.oplog.frontier).toEqual([3, 4]);
 
-	expect(a.branch.snapshot.join("")).toEqual("vez");
-	expect(b.branch.snapshot.join("")).toEqual(a.branch.snapshot.join(""));
+	expect(a.toString()).toEqual("vez");
+	expect(b.toString()).toEqual(a.toString());
 });
 
 test("frontiers", () => {
@@ -375,7 +375,7 @@ test("frontiers", () => {
 		[2, true, "", "a", 9, [14]],
 	]);
 
-	expect(a.branch.snapshot.join("")).toEqual(c.branch.snapshot.join(""));
+	expect(a.toString()).toEqual(c.toString());
 });
 
 test("convergence with fuzzer", () => {

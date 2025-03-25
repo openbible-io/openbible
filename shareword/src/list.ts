@@ -1,41 +1,56 @@
 import { Branch } from "./egwalker/branch";
 import { OpLog } from "./egwalker/oplog";
-import type { Site } from "./egwalker/oplog-rle";
+import type { Accumulator, Site } from "./egwalker/oplog-rle";
 
-export class List<T> {
+export class GenericList<T, AccT extends Accumulator<T>> {
 	site: Site;
-	oplog: OpLog<T>;
-	branch = new Branch<T, T[]>();
+	oplog: OpLog<T, AccT>;
+	branch = new Branch<T, AccT>();
 
-	constructor(site: Site, emptyElement: T[]) {
+	constructor(
+		site: Site,
+		emptyItem: AccT,
+		mergeFn: (acc: AccT, cur: AccT) => AccT,
+	) {
 		this.site = site;
-		this.oplog = new OpLog<T>(
-			emptyElement,
-			(acc, cur) => {
-				acc.push(...cur);
-				return acc;
-			},
-		);
+		this.oplog = new OpLog(emptyItem, mergeFn);
 	}
 
-	insert(pos: number, ...items: T[]) {
+	append(pos: number, items: AccT): void {
+		if (items.length <= 0) return;
+
 		this.oplog.insert(this.site, pos, items);
-		this.branch.snapshot.splice(pos, 0, ...items);
+		this.branch.insert(pos, items);
 		this.branch.frontier = this.oplog.frontier.slice();
 	}
 
 	delete(pos: number, delLen = 1) {
+		if (delLen <= 0) return;
+
 		this.oplog.delete(this.site, pos, delLen);
-		this.branch.snapshot.splice(pos, delLen);
+		this.branch.delete(pos, delLen);
 		this.branch.frontier = this.oplog.frontier.slice();
 	}
 
 	items() {
-		return this.branch.snapshot;
+		return this.branch.data;
 	}
 
-	merge(other: List<T>) {
+	merge(other: GenericList<T, AccT>) {
 		this.oplog.merge(other.oplog);
 		this.branch.checkout(this.oplog);
+	}
+}
+
+export class List<T> extends GenericList<T, T[]> {
+	constructor(site: Site) {
+		super(site, [], (acc, cur) => {
+			acc.push(...cur);
+			return acc;
+		});
+	}
+
+	insert(pos: number, ...items: T[]) {
+		this.append(pos, items);
 	}
 }

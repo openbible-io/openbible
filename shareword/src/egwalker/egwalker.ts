@@ -20,6 +20,12 @@ export type Item = {
 	state: State;
 };
 
+export interface Snapshot<T> {
+	insert(pos: number, items: Accumulator<T>): void;
+	delete(pos: number, delCount: number): void;
+	get length(): number;
+}
+
 /**
  * A CRDT document implemented as an Event Graph Walker.
  * - https://arxiv.org/pdf/2409.14252
@@ -44,7 +50,7 @@ export class EgWalker<T, AccT extends Accumulator<T>> {
 		this.#target(oplog, clock).state += 1;
 	}
 
-	#apply(oplog: OpLog<T, AccT>, clock: Clock, snapshot?: T[]) {
+	#apply(oplog: OpLog<T, AccT>, clock: Clock, snapshot?: Snapshot<T>) {
 		const pos = oplog.getPos(clock);
 
 		if (oplog.getDeleted(clock)) {
@@ -53,7 +59,7 @@ export class EgWalker<T, AccT extends Accumulator<T>> {
 
 			if (!item.deleted) {
 				item.deleted = true;
-				snapshot?.splice(endPos, 1);
+				snapshot?.delete(endPos, 1);
 			}
 			item.state = State.Deleted;
 
@@ -92,7 +98,7 @@ export class EgWalker<T, AccT extends Accumulator<T>> {
 		idx: number,
 		endPos: number,
 		content: T,
-		snapshot?: T[],
+		snapshot?: Snapshot<T>,
 	) {
 		let scanIdx = idx;
 		let scanEndPos = endPos;
@@ -136,7 +142,7 @@ export class EgWalker<T, AccT extends Accumulator<T>> {
 		}
 
 		this.items.splice(idx, 0, newItem);
-		snapshot?.splice(endPos, 0, content);
+		snapshot?.insert(endPos, [content]);
 	}
 
 	#indexOfLocalClock(clock: Clock) {
@@ -169,7 +175,7 @@ export class EgWalker<T, AccT extends Accumulator<T>> {
 		return { idx, endPos };
 	}
 
-	doOp(oplog: OpLog<T, AccT>, clock: Clock, snapshot?: T[]) {
+	doOp(oplog: OpLog<T, AccT>, clock: Clock, snapshot?: Snapshot<T>) {
 		const parents = oplog.getParents(clock);
 		const { aOnly, bOnly } = oplog.diffBetween(this.currentVersion, parents);
 

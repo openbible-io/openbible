@@ -1,4 +1,3 @@
-import binarySearch from "./util/bsearch";
 import ListMap from "./util/list-map";
 import { MultiArrayList } from "./util/multi-array-list";
 import { Rle } from "./util/rle";
@@ -20,6 +19,7 @@ type RleOp<AccT> = {
 
 export interface Accumulator<T> extends ArrayLike<T> {
 	slice(start?: number, end?: number): Accumulator<T>;
+	[Symbol.iterator](): Iterator<T>;
 }
 
 /**

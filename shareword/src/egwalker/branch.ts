@@ -1,9 +1,26 @@
 import { advanceFrontier, type OpLog } from "./oplog";
-import { EgWalker, State, type Item } from "./egwalker";
+import { EgWalker, State, type Item, type Snapshot } from "./egwalker";
 import type { Accumulator, Clock } from "./oplog-rle";
+//import BTree from "./util/btree";
 
-export class Branch<T, AccT extends Accumulator<T>> {
-	snapshot: T[] = [];
+class ListSnapshot<T> implements Snapshot<T> {
+	//snapshot = new BTree<Clock, T>((a, b) => a - b);
+	data: T[] = [];
+
+	insert(pos: number, items: Accumulator<T>) {
+		this.data.splice(pos, 0, ...items);
+	}
+
+	delete(pos: number, delCount: number) {
+		this.data.splice(pos, delCount);
+	}
+
+	get length() {
+		return this.data.length;
+	}
+}
+
+export class Branch<T, AccT extends Accumulator<T>> extends ListSnapshot<T> {
 	frontier: Clock[] = [];
 
 	checkout(oplog: OpLog<T, AccT>, mergeFrontier: Clock[] = oplog.frontier) {
@@ -31,7 +48,7 @@ export class Branch<T, AccT extends Accumulator<T>> {
 
 		for (const c of shared) doc.doOp(oplog, c);
 		for (const c of bOnly) {
-			doc.doOp(oplog, c, this.snapshot);
+			doc.doOp(oplog, c, this);
 			this.frontier = advanceFrontier(this.frontier, c, oplog.getParents(c));
 		}
 	}

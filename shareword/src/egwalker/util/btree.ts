@@ -154,8 +154,8 @@ class Node<K, V> {
 	}
 
 	mergeSibling(rhs: Node<K, V>, _: number) {
-		this.keys.push.apply(this.keys, rhs.keys);
-		this.values.push.apply(this.values, rhs.values);
+		this.keys.push(...rhs.keys);
+		this.values.push(...rhs.values);
 	}
 }
 
@@ -287,8 +287,8 @@ class NodeInternal<K, V> extends Node<K, V> {
 	override mergeSibling(rhs: NodeInternal<K, V>, maxNodeSize: number) {
 		const prevLen = this.keys.length;
 
-		this.keys.push.apply(this.keys, rhs.keys);
-		this.children.push.apply(this.children, rhs.children);
+		this.keys.push(...rhs.keys);
+		this.children.push(...rhs.children);
 		this.tryMerge(prevLen - 1, maxNodeSize);
 	}
 }
