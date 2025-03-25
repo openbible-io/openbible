@@ -18,7 +18,7 @@ type RleOp<AccT> = {
 };
 
 export interface Accumulator<T> extends ArrayLike<T> {
-	slice(start?: number, end?: number): Accumulator<T>;
+	slice(start?: number, end?: number): this;
 	[Symbol.iterator](): Iterator<T>;
 }
 
@@ -40,8 +40,8 @@ export class RleOpLog<T, AccT extends Accumulator<T>> extends Rle<
 	 * @param mergeFn How to merge runs together.
 	 */
 	constructor(
-		protected emptyItem: AccT,
-		mergeFn: (acc: AccT, cur: AccT) => AccT,
+		public emptyItem: AccT,
+		public mergeFn: (acc: AccT, cur: AccT) => AccT,
 	) {
 		super(
 			new MultiArrayList<RleOp<AccT>>({

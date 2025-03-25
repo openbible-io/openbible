@@ -166,7 +166,6 @@ export class OpLog<T, AccT extends Accumulator<T> = T[]> extends RleOpLog<
 				site: sites.getOrPut(site),
 				clock: this.getClockRaw(i, offset),
 				position: this.getPosRaw(i, offset, deleted),
-				// @ts-ignore idc if diff subtype as long as fulfills interface
 				items: this.getItemRaw(i).slice(offset),
 				len: (len - offset) * (deleted ? -1 : 1),
 				parents,
@@ -253,7 +252,7 @@ export class OpLog<T, AccT extends Accumulator<T> = T[]> extends RleOpLog<
 		const aOnly: Clock[] = [];
 		const bOnly: Clock[] = [];
 
-		while (queue.size() > numShared) {
+		while (queue.length > numShared) {
 			// biome-ignore lint/style/noNonNullAssertion: size check above
 			const clock = queue.pop()!;
 			const flag = flags[clock];
@@ -313,7 +312,7 @@ export class OpLog<T, AccT extends Accumulator<T> = T[]> extends RleOpLog<
 				if (peek.inA) inA = true;
 			}
 
-			if (queue.isEmpty()) {
+			if (!queue.length) {
 				head = next.clocks.reverse();
 				break;
 			}

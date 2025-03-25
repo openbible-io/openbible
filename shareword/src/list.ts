@@ -32,8 +32,13 @@ export class GenericList<T, AccT extends Accumulator<T>> {
 		this.branch.frontier = this.oplog.frontier.slice();
 	}
 
-	items() {
-		return this.branch.data;
+	items(): AccT {
+		let res = this.oplog.emptyItem.slice();
+		for (const item of this.branch.items()) {
+			// @ts-ignore idk and idc
+			res = this.oplog.mergeFn(res, [item]);
+		}
+		return res;
 	}
 
 	merge(other: GenericList<T, AccT>) {

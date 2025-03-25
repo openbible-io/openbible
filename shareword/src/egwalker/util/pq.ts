@@ -1,3 +1,4 @@
+// TODO: make btree performance competitive and use it to save ~300B
 export default class PriorityQueue<T> {
 	items: Array<T>;
 	comparator: (a: T, b: T) => number;
@@ -25,7 +26,7 @@ export default class PriorityQueue<T> {
 		const targetItem = this.items[targetIdx];
 		let index = targetIdx;
 		while (true) {
-			let lesserChildIdx = (index * 2) | 1;
+			let lesserChildIdx = (index << 1) | 1;
 			if (!(lesserChildIdx < this.length)) break;
 
 			const nextChildIdx = lesserChildIdx + 1;
@@ -55,7 +56,7 @@ export default class PriorityQueue<T> {
 	}
 
 	// assert(self.length > index);
-	removeIdx(index: number): T {
+	private removeIdx(index: number): T {
 		const last = this.items[this.length - 1];
 		const item = this.items[index];
 		this.items[index] = last;
@@ -81,13 +82,5 @@ export default class PriorityQueue<T> {
 
 	peek(): T | undefined {
 		return this.length ? this.items[0] : undefined;
-	}
-
-	size(): number {
-		return this.length;
-	}
-
-	isEmpty(): boolean {
-		return this.length === 0;
 	}
 }

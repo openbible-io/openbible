@@ -24,6 +24,7 @@ export interface Snapshot<T> {
 	insert(pos: number, items: Accumulator<T>): void;
 	delete(pos: number, delCount: number): void;
 	get length(): number;
+	items(): Generator<T>;
 }
 
 /**
@@ -37,23 +38,25 @@ export class EgWalker<T, AccT extends Accumulator<T>> {
 	delTargets: { [clock: Clock]: Clock } = {};
 	targets: { [clock: Clock]: Item } = {};
 
-	#target(oplog: OpLog<T, AccT>, clock: Clock): Item {
-		const target = oplog.getDeleted(clock) ? this.delTargets[clock] : clock;
+	constructor(public oplog: OpLog<T, AccT>) {}
+
+	#target(clock: Clock): Item {
+		const target = this.oplog.getDeleted(clock) ? this.delTargets[clock] : clock;
 		return this.targets[target];
 	}
 
-	#retreat(oplog: OpLog<T, AccT>, clock: Clock) {
-		this.#target(oplog, clock).state -= 1;
+	#retreat(clock: Clock) {
+		this.#target(clock).state -= 1;
 	}
 
-	#advance(oplog: OpLog<T, AccT>, clock: Clock) {
-		this.#target(oplog, clock).state += 1;
+	#advance(clock: Clock) {
+		this.#target(clock).state += 1;
 	}
 
-	#apply(oplog: OpLog<T, AccT>, clock: Clock, snapshot?: Snapshot<T>) {
-		const pos = oplog.getPos(clock);
+	#apply(clock: Clock, snapshot?: Snapshot<T>) {
+		const pos = this.oplog.getPos(clock);
 
-		if (oplog.getDeleted(clock)) {
+		if (this.oplog.getDeleted(clock)) {
 			const { idx, endPos } = this.#findPos(pos, true);
 			const item = this.items[idx];
 
@@ -65,7 +68,7 @@ export class EgWalker<T, AccT extends Accumulator<T>> {
 
 			this.delTargets[clock] = item.clock;
 		} else {
-			const content = oplog.getItem(clock);
+			const content = this.oplog.getItem(clock);
 			const { idx, endPos } = this.#findPos(pos, false);
 			const originLeft = idx === 0 ? -1 : this.items[idx - 1].clock;
 
@@ -87,13 +90,12 @@ export class EgWalker<T, AccT extends Accumulator<T>> {
 			};
 			this.targets[clock] = item;
 
-			this.#integrate(oplog, item, idx, endPos, content, snapshot);
+			this.#integrate(item, idx, endPos, content, snapshot);
 		}
 	}
 
 	/** FugueMax */
 	#integrate(
-		oplog: OpLog<T, AccT>,
 		newItem: Item,
 		idx: number,
 		endPos: number,
@@ -121,8 +123,8 @@ export class EgWalker<T, AccT extends Accumulator<T>> {
 					? this.items.length
 					: this.#indexOfLocalClock(other.originRight);
 
-			const newSite = oplog.getSite(newItem.clock);
-			const otherSite = oplog.getSite(other.clock);
+			const newSite = this.oplog.getSite(newItem.clock);
+			const otherSite = this.oplog.getSite(other.clock);
 
 			if (
 				oleft < left ||
@@ -175,14 +177,17 @@ export class EgWalker<T, AccT extends Accumulator<T>> {
 		return { idx, endPos };
 	}
 
-	doOp(oplog: OpLog<T, AccT>, clock: Clock, snapshot?: Snapshot<T>) {
-		const parents = oplog.getParents(clock);
-		const { aOnly, bOnly } = oplog.diffBetween(this.currentVersion, parents);
+	applyOp(clock: Clock, snapshot?: Snapshot<T>) {
+		const parents = this.oplog.getParents(clock);
+		const { aOnly, bOnly } = this.oplog.diffBetween(
+			this.currentVersion,
+			parents,
+		);
 
-		for (const i of aOnly) this.#retreat(oplog, i);
-		for (const i of bOnly) this.#advance(oplog, i);
+		for (const i of aOnly) this.#retreat(i);
+		for (const i of bOnly) this.#advance(i);
 
-		this.#apply(oplog, clock, snapshot);
+		this.#apply(clock, snapshot);
 		this.currentVersion = [clock];
 	}
 }

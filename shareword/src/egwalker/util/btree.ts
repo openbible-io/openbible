@@ -19,13 +19,22 @@ export default class BTree<K, V> {
 		return this.root?.max();
 	}
 
+	popMax(): K | undefined {
+		const node = this.root?.maxNode();
+		if (!node) return;
+
+		const res = node.keys[node.keys.length - 1];
+		this.#deleteIdx(node, node.keys.length - 1);
+		return res;
+	}
+
 	get(key: K): V | undefined {
 		return this.root?.get(key, this);
 	}
 
-	set(key: K, value: V): boolean {
+	set(key: K, value: V, overwrite = false): boolean {
 		this.root ??= new Node<K, V>();
-		const split = this.root.set(key, value, this);
+		const split = this.root.set(key, value, overwrite, this);
 		if (split) this.root = new NodeInternal<K, V>([this.root, split]);
 		return true;
 	}
@@ -35,12 +44,21 @@ export default class BTree<K, V> {
 			yield* this.root.items(low, high, this);
 	}
 
+	*values(low = this.min(), high = this.max()): Generator<V> {
+		for (const { node, i } of this.nodes(low, high)) {
+			yield node.values[i];
+		}
+	}
+
+	#deleteIdx(node: Node<K, V>, i: number) {
+		node.delete(i);
+		this.length--;
+		this.cleanup();
+	}
+
 	delete(key: K): boolean {
 		for (const { node, i } of this.nodes(key, key)) {
-			node.keys.splice(i, 1);
-			node.values.splice(i, 1);
-			this.length--;
-			this.cleanup();
+			this.#deleteIdx(node, i);
 			return true;
 		}
 		return false;
@@ -85,34 +103,48 @@ class Node<K, V> {
 		return this.keys[this.keys.length - 1];
 	}
 
+	maxNode(): Node<K, V> {
+		return this;
+	}
+
 	protected indexOf(
 		key: K,
 		failXor: number,
 		comparator: (a: K, b: K) => number,
 	): number {
-		return binarySearch(this.keys, key, comparator, failXor);
+		let res = binarySearch(this.keys, key, comparator, failXor);
+		while (res > 0 && !comparator(this.keys[res], this.keys[res - 1])) res--;
+		return res;
 	}
 
 	get(key: K, tree: BTree<K, V>): V | undefined {
 		return this.values[this.indexOf(key, -1, tree.comparator)];
 	}
 
-	set(key: K, value: V, tree: BTree<K, V>): undefined | Node<K, V> {
+	set(
+		key: K,
+		value: V,
+		overwrite: boolean,
+		tree: BTree<K, V>,
+	): undefined | Node<K, V> {
 		let i = this.indexOf(key, -1, tree.comparator);
-		if (i < 0) {
-			i = ~i;
-			tree.length++;
+		const shouldSplice = i < 0 || !overwrite;
+		if (i < 0) i = ~i;
 
-			this.insert(i, key, value);
+		if (shouldSplice) {
+			this.keys.splice(i, 0, key);
+			this.values.splice(i, 0, value);
+			tree.length++;
 			if (this.keys.length >= tree.maxNodeSize) return this.splitRight();
+		} else {
+			this.keys[i] = key;
+			this.values[i] = value;
 		}
-		this.keys[i] = key;
-		this.values[i] = value;
 	}
 
-	private insert(i: number, key: K, value: V): void {
-		this.keys.splice(i, 0, key);
-		this.values.splice(i, 0, value);
+	delete(i: number) {
+		this.keys.splice(i, 1);
+		this.values.splice(i, 1);
 	}
 
 	takeRight(rhs: Node<K, V>): void {
@@ -171,6 +203,10 @@ class NodeInternal<K, V> extends Node<K, V> {
 		return this.children[0].min();
 	}
 
+	override maxNode(): Node<K, V> {
+		return this.children[this.children.length - 1].maxNode();
+	}
+
 	override get(key: K, tree: BTree<K, V>): V | undefined {
 		const i = this.indexOf(key, 0, tree.comparator);
 		return i < this.children.length
@@ -181,6 +217,7 @@ class NodeInternal<K, V> extends Node<K, V> {
 	override set(
 		key: K,
 		value: V,
+		overwrite: boolean,
 		tree: BTree<K, V>,
 	): undefined | NodeInternal<K, V> {
 		const i = Math.min(
@@ -208,7 +245,7 @@ class NodeInternal<K, V> extends Node<K, V> {
 			}
 		}
 
-		const result = child.set(key, value, tree);
+		const result = child.set(key, value, overwrite, tree);
 		this.keys[i] = child.max();
 		if (!result) return;
 
@@ -254,7 +291,7 @@ class NodeInternal<K, V> extends Node<K, V> {
 		for (let i = iLow; i <= iHigh; i++)
 			yield* this.children[i].items(low, high, tree);
 
-		// cleanup
+		// cleanup in case of deletions
 		const half = tree.maxNodeSize >> 1;
 		if (iLow > 0) iLow--;
 		for (let i = iHigh; i >= iLow; i--) {

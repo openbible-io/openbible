@@ -205,6 +205,7 @@ test("correctness", () => {
 	expect(b.toString()).toBe(expected);
 
 	debugPrint(a.oplog);
+	console.log(a.branch);
 });
 
 test("partial op merge", () => {

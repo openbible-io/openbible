@@ -10,7 +10,7 @@ export class Text extends GenericList<string, string> {
 		this.append(pos, text);
 	}
 
-	toString() {
-		return this.branch.data.join("");
+	toString(): string {
+		return this.items();
 	}
 }

@@ -2,8 +2,8 @@ import { test, expect } from "bun:test";
 import { List } from "./list";
 
 test("correctness", () => {
-	const d1 = new List<number>("a", []);
-	const d2 = new List<number>("b", []);
+	const d1 = new List<number>("a");
+	const d2 = new List<number>("b");
 
 	d1.insert(0, 10);
 	d1.insert(1, 20);
