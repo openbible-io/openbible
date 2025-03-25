@@ -33,12 +33,10 @@ export default class PriorityQueue<T> {
 				nextChildIdx < this.length &&
 				this.comparator(this.items[nextChildIdx], this.items[lesserChildIdx]) <
 					0
-			) {
+			)
 				lesserChildIdx = nextChildIdx;
-			}
 
-			if (this.comparator(targetItem, this.items[lesserChildIdx]) < 0)
-				break;
+			if (this.comparator(targetItem, this.items[lesserChildIdx]) < 0) break;
 
 			this.items[index] = this.items[lesserChildIdx];
 			index = lesserChildIdx;
@@ -70,24 +68,19 @@ export default class PriorityQueue<T> {
 		} else {
 			const parentIdx = (index - 1) >> 1;
 			const parent = this.items[parentIdx];
-			if (this.comparator(last, parent) > 0) {
-				this.siftDown(index);
-			} else {
-				this.siftUp(index);
-			}
+			if (this.comparator(last, parent) > 0) this.siftDown(index);
+			else this.siftUp(index);
 		}
 
 		return item;
 	}
 
 	pop(): T | undefined {
-		if (this.length === 0) return undefined;
-		return this.removeIdx(0);
+		return this.length ? this.removeIdx(0) : undefined;
 	}
 
 	peek(): T | undefined {
-		if (this.length === 0) return undefined;
-		return this.items[0];
+		return this.length ? this.items[0] : undefined;
 	}
 
 	size(): number {

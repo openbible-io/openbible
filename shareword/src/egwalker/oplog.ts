@@ -1,6 +1,6 @@
 import { RleOpLog } from "./oplog-rle";
 import type { Accumulator, Clock, Site } from "./oplog-rle";
-import PriorityQueue from "./pq";
+import PriorityQueue from "./util/pq";
 import { MultiArrayList } from "./util/multi-array-list";
 import ListMap from "./util/list-map";
 import binarySearch from "./util/bsearch";
@@ -343,7 +343,7 @@ function cmpClocks(a: Clock[], b: Clock[]): number {
 		if (b.length <= i) return 1;
 
 		const delta = a[i] - b[i];
-		if (delta !== 0) return delta;
+		if (delta) return delta;
 	}
 
 	if (a.length < b.length) return -1;
