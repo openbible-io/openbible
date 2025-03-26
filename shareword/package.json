@@ -6,9 +6,9 @@
 	"exports": {
 		".": {
 			"import": {
-				"types": "./dist/index.d.ts",
+				"types": "./src/index.ts",
 				"@openbible/source": "./src/index.ts",
-				"default": "./dist/index.js"
+				"default": "./src/index.ts"
 			}
 		},
 		"./package.json": "package.json"

@@ -2,18 +2,20 @@ import { Branch } from "./egwalker/branch";
 import { OpLog } from "./egwalker/oplog";
 import type { Accumulator, Site } from "./egwalker/oplog-rle";
 
-export class GenericList<T, AccT extends Accumulator<T>> {
+export class GenericList<T, AccT extends Accumulator<T>> extends EventTarget {
 	site: Site;
 	oplog: OpLog<T, AccT>;
-	branch = new Branch<T, AccT>();
+	branch: Branch<T, AccT>;
 
 	constructor(
 		site: Site,
 		emptyItem: AccT,
 		mergeFn: (acc: AccT, cur: AccT) => AccT,
 	) {
+		super();
 		this.site = site;
 		this.oplog = new OpLog(emptyItem, mergeFn);
+		this.branch = new Branch();
 	}
 
 	append(pos: number, items: AccT): void {
@@ -43,16 +45,21 @@ export class GenericList<T, AccT extends Accumulator<T>> {
 
 	merge(other: GenericList<T, AccT>) {
 		this.oplog.merge(other.oplog);
-		this.branch.checkout(this.oplog);
+		this.branch.checkout(this.oplog, this.oplog.frontier);
+		this.dispatchEvent(new CustomEvent("merge"));
 	}
 }
 
 export class List<T> extends GenericList<T, T[]> {
 	constructor(site: Site) {
-		super(site, [], (acc, cur) => {
-			acc.push(...cur);
-			return acc;
-		});
+		super(
+			site,
+			[],
+			(acc, cur) => {
+				acc.push(...cur);
+				return acc;
+			},
+		);
 	}
 
 	insert(pos: number, ...items: T[]) {

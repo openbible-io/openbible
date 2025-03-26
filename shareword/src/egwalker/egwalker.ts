@@ -1,5 +1,6 @@
 import type { OpLog } from "./oplog";
 import type { Accumulator, Clock } from "./oplog-rle";
+import type { Snapshot } from "./snapshot";
 
 export enum State {
 	NotInserted = -1,
@@ -19,13 +20,6 @@ export type Item = {
 	deleted: boolean;
 	state: State;
 };
-
-export interface Snapshot<T> {
-	insert(pos: number, items: Accumulator<T>): void;
-	delete(pos: number, delCount: number): void;
-	get length(): number;
-	items(): Generator<T>;
-}
 
 /**
  * A CRDT document implemented as an Event Graph Walker.

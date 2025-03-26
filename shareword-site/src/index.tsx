@@ -24,13 +24,17 @@ import.meta.hot.accept();
 
 const user1 = "bob";
 const user2 = "alice";
-const doc1 = new Text(user1);
-const doc2 = new Text(user2);
+let doc1 = new Text(user1);
+let doc2 = new Text(user2);
 doc1.insert(0, `hello im ${user1}`);
 doc2.insert(0, `hello im ${user2}`);
 console.log(doc1.toString().length, doc2.toString().length)
-window.doc1 = doc1;
-window.doc2 = doc2;
+if (typeof window !== "undefined") {
+	// @ts-ignore
+	window.doc1 = doc1;
+	// @ts-ignore
+	window.doc2 = doc2;
+}
 
 function App() {
 	return (
@@ -49,8 +53,8 @@ function App() {
 				<button
 					type="reset"
 					onClick={() => {
-						doc1.reset();
-						doc2.reset();
+						doc1 = new Text(doc1.site);
+						doc2 = new Text(doc2.site);
 					}}
 				>
 					Reset
