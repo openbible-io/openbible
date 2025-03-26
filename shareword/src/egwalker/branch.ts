@@ -2,6 +2,7 @@ import { advanceFrontier, type OpLog } from "./oplog";
 import { EgWalker, State, type Item, type Snapshot } from "./egwalker";
 import type { Accumulator, Clock } from "./oplog-rle";
 
+// Simple but slow once `data` grows.
 class ListSnapshot<T> implements Snapshot<T> {
 	data: T[] = [];
 
@@ -23,10 +24,12 @@ class ListSnapshot<T> implements Snapshot<T> {
 }
 
 //import BTree from "./util/btree";
-//class BTreeSnapshot<T> implements Snapshot<T> {
+//class BTreeSnapshot<T, AccT extends Accumulator<T>> implements Snapshot<T> {
 //	snapshot = new BTree<Clock, T>((a, b) => a - b);
 //
-//	insert(pos: number, items: Accumulator<T>) {
+//	constructor(private mergeFn: (acc: AccT, cur: AccT) => AccT) {}
+//
+//	insert(pos: number, items: T) {
 //		for (let i = 0; i < items.length; i++) {
 //			console.log("insert", pos + i, items[i]);
 //			this.snapshot.set(pos + i, items[i]);

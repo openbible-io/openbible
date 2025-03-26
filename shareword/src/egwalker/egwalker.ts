@@ -53,6 +53,32 @@ export class EgWalker<T, AccT extends Accumulator<T>> {
 		this.#target(clock).state += 1;
 	}
 
+	#findPos(
+		targetPos: number,
+		skipDeleted: boolean,
+	): { idx: number; endPos: number } {
+		let curPos = 0;
+		let endPos = 0;
+		let idx = 0;
+
+		for (; curPos < targetPos; idx++) {
+			if (idx >= this.items.length) throw new Error("Past end of items list");
+
+			const item = this.items[idx];
+			if (item.state === State.Inserted) curPos++;
+			if (!item.deleted) endPos++;
+		}
+
+		if (skipDeleted) {
+			while (this.items[idx].state !== State.Inserted) {
+				if (!this.items[idx].deleted) endPos++;
+				idx++;
+			}
+		}
+
+		return { idx, endPos };
+	}
+
 	#apply(clock: Clock, snapshot?: Snapshot<T>) {
 		const pos = this.oplog.getPos(clock);
 
@@ -70,7 +96,7 @@ export class EgWalker<T, AccT extends Accumulator<T>> {
 		} else {
 			const content = this.oplog.getItem(clock);
 			const { idx, endPos } = this.#findPos(pos, false);
-			const originLeft = idx === 0 ? -1 : this.items[idx - 1].clock;
+			const originLeft = idx ? this.items[idx - 1].clock : -1;
 
 			let originRight = -1;
 			for (let i = idx; i < this.items.length; i++) {
@@ -89,9 +115,12 @@ export class EgWalker<T, AccT extends Accumulator<T>> {
 				state: State.Inserted,
 			};
 			this.targets[clock] = item;
-
 			this.#integrate(item, idx, endPos, content, snapshot);
 		}
+	}
+
+	#indexOfLocalClock(clock: Clock) {
+		return this.items.findIndex((item) => item.clock === clock);
 	}
 
 	/** FugueMax */
@@ -145,36 +174,6 @@ export class EgWalker<T, AccT extends Accumulator<T>> {
 
 		this.items.splice(idx, 0, newItem);
 		snapshot?.insert(endPos, [content]);
-	}
-
-	#indexOfLocalClock(clock: Clock) {
-		return this.items.findIndex((item) => item.clock === clock);
-	}
-
-	#findPos(
-		targetPos: number,
-		skipDeleted: boolean,
-	): { idx: number; endPos: number } {
-		let curPos = 0;
-		let endPos = 0;
-		let idx = 0;
-
-		for (; curPos < targetPos; idx++) {
-			if (idx >= this.items.length) throw new Error("Past end of items list");
-
-			const item = this.items[idx];
-			if (item.state === State.Inserted) curPos++;
-			if (!item.deleted) endPos++;
-		}
-
-		if (skipDeleted) {
-			while (this.items[idx].state !== State.Inserted) {
-				if (!this.items[idx].deleted) endPos++;
-				idx++;
-			}
-		}
-
-		return { idx, endPos };
 	}
 
 	applyOp(clock: Clock, snapshot?: Snapshot<T>) {

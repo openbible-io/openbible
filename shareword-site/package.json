@@ -1,0 +1,10 @@
+{
+	"name": "@openbible/shareword-site",
+	"devDependencies": {
+		"@openbible/shareword": "workspace:*"
+	},
+	"scripts": {
+		"start": "bun --conditions @openbible/source ./index.html"
+	},
+	"type": "module"
+}

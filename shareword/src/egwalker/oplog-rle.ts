@@ -126,6 +126,7 @@ export class RleOpLog<T, AccT extends Accumulator<T>> extends Rle<
 		items: AccT,
 	): void {
 		if (!items.length) return;
+
 		this.insertParents(parents);
 		super.push(
 			{ site: this.sites.getOrPut(site), clock, position, items },

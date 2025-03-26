@@ -1,20 +1,13 @@
 {
 	"name": "@openbible/shareword",
+	"type": "module",
 	"main": "./dist/index.js",
-	"devDependencies": {
-		"@openbible/dev-server": "workspace:*",
-		"commander": "^13.1.0",
-		"diamond-types-node": "^1.0.2",
-		"rope.js": "^0.1.0",
-		"mitata": "^1.0.34",
-		"preact": "^10.26.2",
-		"yjs": "^13.6.23"
-	},
+	"types": "./dist/index.d.ts",
 	"exports": {
 		".": {
 			"import": {
 				"types": "./dist/index.d.ts",
-				"@openbible/source": "src/index.ts",
+				"@openbible/source": "./src/index.ts",
 				"default": "./dist/index.js"
 			}
 		},
@@ -24,11 +17,16 @@
 		"build": "tsc",
 		"bench": "bun run ./bench/cli.ts run",
 		"generate": "bun run --conditions @openbible/source ./bench/corpus/generate.ts",
-		"clean": "rm -rf ./dist tsconfig.tsbuildinfo",
-		"start": "dev-server ./site/index.html"
+		"clean": "rm -rf ./dist tsconfig.tsbuildinfo"
 	},
-	"type": "module",
-	"types": "./dist/index.d.ts",
+	"devDependencies": {
+		"commander": "^13.1.0",
+		"diamond-types-node": "^1.0.2",
+		"rope.js": "^0.1.0",
+		"mitata": "^1.0.34",
+		"preact": "^10.26.4",
+		"yjs": "^13.6.24"
+	},
 	"dependencies": {
 		"cbor-x": "^1.6.0"
 	}

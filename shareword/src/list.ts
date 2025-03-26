@@ -56,6 +56,7 @@ export class List<T> extends GenericList<T, T[]> {
 	}
 
 	insert(pos: number, ...items: T[]) {
+		// Transform T to AccT
 		this.append(pos, items);
 	}
 }

@@ -51,10 +51,6 @@ export default class PriorityQueue<T> {
 		this.siftUp(this.length - 1);
 	}
 
-	append(items: Iterable<T>): void {
-		for (const item of items) this.push(item);
-	}
-
 	// assert(self.length > index);
 	private removeIdx(index: number): T {
 		const last = this.items[this.length - 1];

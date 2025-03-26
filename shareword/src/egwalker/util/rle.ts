@@ -75,6 +75,7 @@ export class Rle<T, C extends Container<T> = Array<T>> {
 
 	get length() {
 		if (!this.ranges.length) return 0;
+
 		return (
 			this.ranges.fields.start[this.ranges.length - 1] +
 			this.len(this.ranges.length - 1)

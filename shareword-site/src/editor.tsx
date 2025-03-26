@@ -1,5 +1,5 @@
-import { useEffect, useRef } from "preact/hooks";
-import type { Doc } from "../src";
+import { useRef } from "preact/hooks";
+import type { Text as Doc } from "../../src/text";
 
 function claz(...names: (string | undefined | null)[]): string {
 	return names.filter(Boolean).join(" ");
@@ -9,14 +9,14 @@ export default function Editor(props: { class?: string; doc: Doc }) {
 	const { doc } = props;
 	const ref = useRef<HTMLDivElement | null>(null);
 
-	useEffect(() => {
-		// TODO: proper diff + apply
-		function onChange2() {
-			if (ref.current) ref.current.innerText = doc.getContent();
-		}
-		doc.addEventListener("change", onChange2);
-		return () => doc.removeEventListener("change", onChange2);
-	}, [doc]);
+	//useEffect(() => {
+	//	// TODO: proper diff + apply
+	//	function onChange2() {
+	//		if (ref.current) ref.current.innerText = doc.toString();
+	//	}
+	//	doc.addEventListener("change", onChange2);
+	//	return () => doc.removeEventListener("change", onChange2);
+	//}, [doc]);
 
 	function onInput(ev: InputEvent) {
 		console.log(ev.inputType);
@@ -60,7 +60,7 @@ export default function Editor(props: { class?: string; doc: Doc }) {
 			onBeforeInput={onBeforeInput}
 			onInput={onInput}
 		>
-			{doc.getContent()}
+			{doc.toString()}
 		</div>
 	);
 }
