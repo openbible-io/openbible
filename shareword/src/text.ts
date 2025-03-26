@@ -7,8 +7,8 @@ export class Text extends GenericList<string, string> {
 		super(site, "", (acc, cur) => acc + cur, snapshot);
 	}
 
-	insert(pos: number, text: string) {
-		this.append(pos, text);
+	insert(pos: number, text: string, updateSnapshot = true) {
+		this.append(pos, text, updateSnapshot);
 	}
 
 	toString(): string {

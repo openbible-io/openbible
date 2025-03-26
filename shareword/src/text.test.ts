@@ -14,7 +14,7 @@ function fuzzer(seed: number) {
 	const docs = [new Text("a"), new Text("b"), new Text("c")];
 	const randDoc = () => docs[randInt(docs.length)];
 
-	// For adding a test case.
+	// For debugging a test case.
 	const toLogSeed = -1;
 	const toLogI = -1;
 

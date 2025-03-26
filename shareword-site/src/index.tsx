@@ -28,7 +28,6 @@ let doc1 = new Text(user1);
 let doc2 = new Text(user2);
 doc1.insert(0, `hello im ${user1}`);
 doc2.insert(0, `hello im ${user2}`);
-console.log(doc1.toString().length, doc2.toString().length)
 if (typeof window !== "undefined") {
 	// @ts-ignore
 	window.doc1 = doc1;

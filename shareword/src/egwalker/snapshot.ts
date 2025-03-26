@@ -8,7 +8,7 @@ export interface Snapshot<T> {
 	items(): Generator<T>;
 }
 
-// Simple and slow once `data` grows.
+// Simple, but slow once `data` grows. The default.
 export class ListSnapshot<T> implements Snapshot<T> {
 	data: T[] = [];
 
@@ -26,6 +26,27 @@ export class ListSnapshot<T> implements Snapshot<T> {
 
 	*items() {
 		for (const d of this.data) yield d;
+	}
+}
+
+// Should be best for browsers.
+export class HtmlSnapshot implements Snapshot<string> {
+	constructor(public element: CharacterData) {}
+
+	insert(pos: number, items: string) {
+		this.element.insertData(pos, items);
+	}
+
+	delete(pos: number, delCount: number) {
+		this.element.replaceData(pos, delCount, "");
+	}
+
+	get length() {
+		return this.element.length;
+	}
+
+	*items() {
+		yield this.element.data;
 	}
 }
 
