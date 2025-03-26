@@ -23,7 +23,7 @@ function fuzzer(seed: number) {
 		for (let d = 0; d < 3; d++) {
 			// 1. Pick a random document
 			const doc = randDoc();
-			const len = doc.branch.length;
+			const len = doc.snapshot.length;
 			const insertWeight = len < 100 ? 0.65 : 0.35;
 
 			// 2. Make a random change to that document

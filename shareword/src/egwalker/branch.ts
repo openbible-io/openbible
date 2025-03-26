@@ -1,12 +1,16 @@
 import { advanceFrontier, type OpLog } from "./oplog";
 import { EgWalker, State, type Item } from "./egwalker";
 import type { Accumulator, Clock } from "./oplog-rle";
-import { ListSnapshot } from "./snapshot";
+import type { Snapshot } from "./snapshot";
 
-export class Branch<T, AccT extends Accumulator<T>> extends ListSnapshot<T> {
+export class Branch<T, AccT extends Accumulator<T>> {
 	frontier: Clock[] = [];
 
-	checkout(oplog: OpLog<T, AccT>, mergeFrontier: Clock[] = oplog.frontier) {
+	checkout(
+		oplog: OpLog<T, AccT>,
+		mergeFrontier: Clock[],
+		snapshot?: Snapshot<T>,
+	) {
 		const { head, shared, bOnly } = oplog.diffBetween2(
 			this.frontier,
 			mergeFrontier,
@@ -31,7 +35,7 @@ export class Branch<T, AccT extends Accumulator<T>> extends ListSnapshot<T> {
 
 		for (const c of shared) doc.applyOp(c);
 		for (const c of bOnly) {
-			doc.applyOp(c, this);
+			doc.applyOp(c, snapshot);
 			this.frontier = advanceFrontier(this.frontier, c, oplog.getParents(c));
 		}
 	}

@@ -1,6 +1,7 @@
 import { Branch } from "./egwalker/branch";
 import { OpLog } from "./egwalker/oplog";
 import type { Accumulator, Site } from "./egwalker/oplog-rle";
+import { ListSnapshot, type Snapshot } from "./egwalker/snapshot";
 
 export class GenericList<T, AccT extends Accumulator<T>> extends EventTarget {
 	site: Site;
@@ -11,6 +12,7 @@ export class GenericList<T, AccT extends Accumulator<T>> extends EventTarget {
 		site: Site,
 		emptyItem: AccT,
 		mergeFn: (acc: AccT, cur: AccT) => AccT,
+		public snapshot: Snapshot<T>,
 	) {
 		super();
 		this.site = site;
@@ -22,7 +24,7 @@ export class GenericList<T, AccT extends Accumulator<T>> extends EventTarget {
 		if (items.length <= 0) return;
 
 		this.oplog.insert(this.site, pos, items);
-		this.branch.insert(pos, items);
+		this.snapshot.insert(pos, items);
 		this.branch.frontier = this.oplog.frontier.slice();
 	}
 
@@ -30,13 +32,13 @@ export class GenericList<T, AccT extends Accumulator<T>> extends EventTarget {
 		if (delLen <= 0) return;
 
 		this.oplog.delete(this.site, pos, delLen);
-		this.branch.delete(pos, delLen);
+		this.snapshot.delete(pos, delLen);
 		this.branch.frontier = this.oplog.frontier.slice();
 	}
 
 	items(): AccT {
 		let res = this.oplog.emptyItem.slice();
-		for (const item of this.branch.items()) {
+		for (const item of this.snapshot.items()) {
 			// @ts-ignore idk and idc
 			res = this.oplog.mergeFn(res, [item]);
 		}
@@ -45,7 +47,7 @@ export class GenericList<T, AccT extends Accumulator<T>> extends EventTarget {
 
 	merge(other: GenericList<T, AccT>) {
 		this.oplog.merge(other.oplog);
-		this.branch.checkout(this.oplog, this.oplog.frontier);
+		this.branch.checkout(this.oplog, this.oplog.frontier, this.snapshot);
 		this.dispatchEvent(new CustomEvent("merge"));
 	}
 }
@@ -59,6 +61,7 @@ export class List<T> extends GenericList<T, T[]> {
 				acc.push(...cur);
 				return acc;
 			},
+			new ListSnapshot(),
 		);
 	}
 
