@@ -31,9 +31,19 @@ export class ListSnapshot<T> implements Snapshot<T> {
 
 // Should be best for browsers.
 export class HtmlSnapshot implements Snapshot<string> {
-	constructor(public element: CharacterData) {}
+	constructor(public element: CharacterData) {
+		this.ensureTrailingNewline();
+	}
+
+	/** Fixes browser bug of inserting paragraph at end. */
+	ensureTrailingNewline() {
+		if (this.element.data[this.element.length - 1] !== "\n") {
+			this.element.appendData("\n");
+		}
+	}
 
 	insert(pos: number, items: string) {
+		this.ensureTrailingNewline();
 		this.element.insertData(pos, items);
 	}
 

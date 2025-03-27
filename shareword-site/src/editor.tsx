@@ -49,8 +49,7 @@ export default function Editor(props: { class?: string; doc: Doc }) {
 						range.startOffset,
 						range.endOffset - range.startOffset,
 					);
-					console.log("insertParagraph", range.startOffset, range.endOffset);
-					doc.insert(range.startOffset, "\n\n");
+					doc.insert(range.startOffset, "\n");
 
 					document.getSelection()?.modify("move", "forward", "character");
 				}
