@@ -1,6 +1,7 @@
 import type { OpLog } from "./oplog";
 import type { Accumulator, Clock } from "./oplog-rle";
 import type { Snapshot } from "./snapshot";
+import PriorityQueue from "./util/pq";
 
 export enum State {
 	NotInserted = -1,
@@ -23,9 +24,10 @@ export type Item = {
 
 /**
  * A CRDT document implemented as an Event Graph Walker.
+ *
  * - https://arxiv.org/pdf/2409.14252
  */
-export class EgWalker<T, AccT extends Accumulator<T>> {
+export class Crdt<T, AccT extends Accumulator<T>> {
 	items: Item[] = [];
 	currentVersion: Clock[] = [];
 
@@ -35,7 +37,9 @@ export class EgWalker<T, AccT extends Accumulator<T>> {
 	constructor(public oplog: OpLog<T, AccT>) {}
 
 	#target(clock: Clock): Item {
-		const target = this.oplog.getDeleted(clock) ? this.delTargets[clock] : clock;
+		const target = this.oplog.getDeleted(clock)
+			? this.delTargets[clock]
+			: clock;
 		return this.targets[target];
 	}
 
@@ -170,12 +174,48 @@ export class EgWalker<T, AccT extends Accumulator<T>> {
 		snapshot?.insert(endPos, [content]);
 	}
 
+	#diff(a: Clock[], b: Clock[]): { aOnly: Clock[]; bOnly: Clock[] } {
+		type DiffFlag = "a" | "b" | "both";
+		const flags: { [clock: Clock]: DiffFlag } = {};
+		const queue = new PriorityQueue<Clock>((a, b) => b - a);
+		let numShared = 0;
+
+		function enq(v: Clock, flag: DiffFlag) {
+			const oldFlag = flags[v];
+			if (oldFlag == null) {
+				queue.push(v);
+				flags[v] = flag;
+				if (flag === "both") numShared++;
+			} else if (flag !== oldFlag && oldFlag !== "both") {
+				flags[v] = "both";
+				numShared++;
+			}
+		}
+
+		for (const aa of a) enq(aa, "a");
+		for (const bb of b) enq(bb, "b");
+
+		const aOnly: Clock[] = [];
+		const bOnly: Clock[] = [];
+
+		while (queue.length > numShared) {
+			// biome-ignore lint/style/noNonNullAssertion: size check above
+			const clock = queue.pop()!;
+			const flag = flags[clock];
+
+			if (flag === "a") aOnly.push(clock);
+			else if (flag === "b") bOnly.push(clock);
+			else numShared--;
+
+			for (const p of this.oplog.getParents(clock)) enq(p, flag);
+		}
+
+		return { aOnly, bOnly };
+	}
+
 	applyOp(clock: Clock, snapshot?: Snapshot<T>) {
 		const parents = this.oplog.getParents(clock);
-		const { aOnly, bOnly } = this.oplog.diffBetween(
-			this.currentVersion,
-			parents,
-		);
+		const { aOnly, bOnly } = this.#diff(this.currentVersion, parents);
 
 		for (const i of aOnly) this.#retreat(i);
 		for (const i of bOnly) this.#advance(i);

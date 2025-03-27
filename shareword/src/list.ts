@@ -17,7 +17,7 @@ export class GenericList<T, AccT extends Accumulator<T>> extends EventTarget {
 		super();
 		this.site = site;
 		this.oplog = new OpLog(emptyItem, mergeFn);
-		this.branch = new Branch();
+		this.branch = new Branch(this.oplog);
 	}
 
 	append(pos: number, items: AccT, updateSnapshot = true): void {
@@ -47,7 +47,7 @@ export class GenericList<T, AccT extends Accumulator<T>> extends EventTarget {
 
 	merge(other: GenericList<T, AccT>) {
 		this.oplog.merge(other.oplog);
-		this.branch.checkout(this.oplog, this.oplog.frontier, this.snapshot);
+		this.branch.checkout(this.oplog.frontier, this.snapshot);
 		this.dispatchEvent(new CustomEvent("merge"));
 	}
 }
