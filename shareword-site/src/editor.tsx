@@ -2,10 +2,7 @@ import { useEffect, useMemo } from "preact/hooks";
 import type { Text as Doc } from "@openbible/shareword";
 import { HtmlSnapshot } from "../../shareword/src/egwalker/snapshot";
 import { createRef } from "preact";
-
-function claz(...names: (string | undefined | null)[]): string {
-	return names.filter(Boolean).join(" ");
-}
+import { claz } from "./claz";
 
 export default function Editor(props: { class?: string; doc: Doc }) {
 	const { doc } = props;
@@ -69,7 +66,7 @@ export default function Editor(props: { class?: string; doc: Doc }) {
 	return (
 		<div
 			contenteditable
-			class={claz(props.class, "p-1 border-sky-500 border whitespace-pre-wrap")}
+			class={claz(props.class, "p-1 border-sky-500 border whitespace-pre-wrap overflow-auto")}
 			spellcheck={false}
 			onBeforeInput={onBeforeInput}
 			ref={ref}

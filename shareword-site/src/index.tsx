@@ -1,7 +1,9 @@
 import { render } from "preact";
-import { useEffect, useState } from "preact/hooks"
-import { Text, type Site } from "@openbible/shareword";
+import { useState } from "preact/hooks";
+import { Text as Doc, type Site } from "@openbible/shareword";
 import Editor from "./editor";
+import EditorDebug from "./editor-debug";
+import Button from "./button";
 
 // @ts-ignore
 import.meta.hot.accept();
@@ -23,12 +25,9 @@ import.meta.hot.accept();
 //	console.log(acc);
 //}
 
-const user1 = "bob";
-const user2 = "alice";
-
 function initText(site: Site) {
-	const res = new Text(site);
-	res.insert(0, `hello im ${site}`);
+	const res = new Doc(site);
+	res.insert(0, `hello, im ${site}\n`);
 	// @ts-ignore
 	if (typeof window !== "undefined") window[site] = res;
 
@@ -36,35 +35,31 @@ function initText(site: Site) {
 }
 
 function App() {
-	const [doc1, setDoc1] = useState(initText(user1));
-	const [doc2, setDoc2] = useState(initText(user2));
+	const [doc1, setDoc1] = useState(initText("bob"));
+	const [doc2, setDoc2] = useState(initText("alice"));
 
 	return (
 		<>
-			<div class="flex h-[80vh]">
-				<Editor class="w-1/2 h-full" doc={doc1} />
-				<Editor class="w-1/2 h-full" doc={doc2} />
-			</div>
-			<div class="flex flex-col">
-				<button type="button" onClick={() => doc1.merge(doc2)}>
-					{"<-"}
-				</button>
-				<button type="button" onClick={() => doc2.merge(doc1)}>
-					{"->"}
-				</button>
-				<button
+			<Editor doc={doc1} />
+			<div class="flex flex-col justify-center gap-1">
+				<Button onClick={() => doc1.merge(doc2)}>←</Button>
+				<Button onClick={() => doc2.merge(doc1)}>→</Button>
+				<Button
 					type="reset"
 					onClick={() => {
-						setDoc1(new Text(doc1.site));
-						setDoc2(new Text(doc2.site));
+						setDoc1(new Doc(doc1.site));
+						setDoc2(new Doc(doc2.site));
 					}}
 				>
 					Reset
-				</button>
+				</Button>
 			</div>
+			<Editor doc={doc2} />
+			<EditorDebug doc={doc1} />
+			<div />
+			<EditorDebug doc={doc2} />
 		</>
 	);
 }
 
-const root = document.getElementById("root");
-if (root) render(<App />, root);
+render(<App />, document.body);
