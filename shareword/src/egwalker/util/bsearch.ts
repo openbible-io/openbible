@@ -9,7 +9,7 @@
  *  Otherwise returns `-index - 1`, where `index` is where `needle` would be
  *  found.
  */
-export default function binarySearch<A, B>(
+export function binarySearch<A, B>(
 	haystack: ArrayLike<A>,
 	needle: B,
 	comparator: (a: A, b: B, index: number, haystack: ArrayLike<A>) => number,

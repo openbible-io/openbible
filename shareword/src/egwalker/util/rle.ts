@@ -1,55 +1,53 @@
-import binarySearch from "./bsearch";
-import { MultiArrayList } from "./multi-array-list";
+import { assert } from "./assert";
+import { binarySearch } from "./bsearch";
 
 export type Range = { start: number; len: number };
 
 export interface Container<T> {
 	at(i: number): T | undefined;
 	push(item: T): void;
-	length: number;
+	slice(start?: number, end?: number): this;
 }
 
-/**
- * Run length encoded list.
- *
- * Allows negative lengths to store an extra bit.
- */
+/** Run length encoded list. */
 export class Rle<T, C extends Container<T> = Array<T>> {
-	ranges = new MultiArrayList<Range>({ start: 0, len: 0 });
+	startIdxs: number[] = [];
+	length = 0;
 
 	/**
-	 * @param items The container type to use.
-	 * @param append Function that returns true if appends `cur` to `items`
+	 * @param items The container type to push `T`s to.
+	 * @param appendItem Function that returns true if it appends `item` to `ctx`.
+	 * @param sliceItem Slices an item for range functions.
 	 */
 	constructor(
 		public items: C,
-		private append: (ctx: Rle<T, C>, item: T, len: number) => boolean,
+		private appendItem: (ctx: Rle<T, C>, item: T, len: number) => boolean,
+		private sliceItem: (item: T, start?: number, end?: number) => T,
 	) {}
 
-	/**
-	 * Pushes `item` of `len`.
-	 *
-	 * @returns If appended to previous item.
-	 */
-	push(item: T, len = 1): void {
-		if (!len) return;
+	get lengthCompressed() {
+		return this.startIdxs.length;
+	}
 
-		if (this.length && this.append(this, item, len)) {
-			const lens = this.ranges.fields.len;
-			lens[lens.length - 1] += len;
-		} else {
+	/** Pushes `item` of `len` */
+	push(item: T, len = 1): void {
+		if (!this.length || !this.appendItem(this, item, len)) {
 			this.items.push(item);
-			this.ranges.push({ start: this.length, len });
+			this.startIdxs.push(this.length);
 		}
+		this.length += len;
 	}
 
 	len(idx: number): number {
-		return Math.abs(this.ranges.fields.len[idx]);
+		if (idx > this.lengthCompressed) return 0;
+		return (this.startIdxs[idx + 1] ?? this.length) - this.startIdxs[idx];
 	}
 
 	#rangeIndex(idx: number): number {
+		if (!idx && this.length) return idx;
+
 		return binarySearch(
-			this.ranges.fields.start,
+			this.startIdxs,
 			idx,
 			(start, needle, i) => {
 				if (start > needle) return 1;
@@ -63,22 +61,59 @@ export class Rle<T, C extends Container<T> = Array<T>> {
 
 	offsetOf(i: number): { idx: number; offset: number } {
 		const idx = this.#rangeIndex(i);
-		if (idx >= this.ranges.length) throw new Error(`${i} out of bounds`);
-		const start = this.ranges.fields.start[idx];
-		const offset = i - start;
-		return { idx, offset };
+		return {
+			idx,
+			offset: i - this.startIdxs[idx],
+		};
 	}
 
 	at(i: number): T | undefined {
-		return this.items.at(this.#rangeIndex(i));
+		const { idx, offset } = this.offsetOf(i);
+		const item = this.items.at(idx);
+		if (item === undefined) return;
+		return this.sliceItem(item, offset, offset + 1);
 	}
 
-	get length() {
-		if (!this.ranges.length) return 0;
+	*runs(
+		start = 0,
+		end = this.length,
+		startOff = this.offsetOf(start),
+	): Generator<{ idx: number; len: number; item: T }> {
+		assert(end >= start, "backwards slice");
 
-		return (
-			this.ranges.fields.start[this.ranges.length - 1] +
-			this.len(this.ranges.length - 1)
-		);
+		let visited = 0;
+
+		for (
+			let i = startOff.idx;
+			visited < end - start;
+			i++
+		) {
+			let item = this.items.at(i);
+			assert(item !== undefined, `index ${i} out of bounds`);
+
+			let len = this.len(i);
+			if (visited >= end - start) {
+				const offset = visited + len - end;
+				item = this.sliceItem(item, 0, offset);
+				len -= offset;
+			}
+			if (i === startOff.idx) {
+				item = this.sliceItem(item, startOff.offset);
+				len -= startOff.offset;
+			}
+			yield { idx: i, len, item };
+			visited += len;
+		}
+	}
+
+	slice(start = 0, end = this.length): Rle<T, C> {
+		const res = new Rle<T, C>(this.items, this.appendItem, this.sliceItem);
+		// Wish I could `.slice()` this.items, but then cannot slice first/last
+		// items without introducting a problematic `.set(k,v)` that doesn't
+		// exist on Array and String.
+		res.items = res.items.slice(0, 0);
+		for (const { item } of this.runs(start, end)) res.push(item);
+
+		return res;
 	}
 }

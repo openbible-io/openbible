@@ -2,10 +2,8 @@
  * A map that also stores its keys as a list for fast lookup.
  *
  * Good for small maps.
- *
- * biome-ignore lint/suspicious/noExplicitAny: generic
  */
-export default class ListMap<K extends keyof any> {
+export class ListMap<K extends keyof any> {
 	keys: K[] = [];
 	map = {} as Record<K, number>;
 

@@ -20,7 +20,8 @@
 		"rules": {
 			"recommended": true,
 			"suspicious": {
-				"noAssignInExpressions": "off"
+				"noAssignInExpressions": "off",
+				"noExplicitAny": "off"
 			},
 			"style": {
 				"noParameterAssign": "off"
