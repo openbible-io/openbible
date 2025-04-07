@@ -100,8 +100,7 @@ export class Branch<T, AccT extends Accumulator<T>> {
 
 		const placeholderLength = Math.max(...this.frontier) + 1;
 		const placeholderOffset = this.oplog.length; // @seph: is this correct?
-		let i: number;
-		for (i = 0; i < placeholderLength; i++) {
+		for (let i = 0; i < placeholderLength; i++) {
 			const item: Item = {
 				clock: i + placeholderOffset,
 				state: State.Inserted,
@@ -113,13 +112,13 @@ export class Branch<T, AccT extends Accumulator<T>> {
 			doc.targets[item.clock] = item;
 		}
 
-		for (i of shared) doc.applyOp(i);
-		for (i of bOnly) {
-			doc.applyOp(i, snapshot);
+		for (const c of shared) doc.applyOp(c);
+		for (const c of bOnly) {
+			doc.applyOp(c, snapshot);
 			this.frontier = advanceFrontier(
 				this.frontier,
-				this.oplog.getParents(i),
-				i,
+				c,
+				this.oplog.getParents(c),
 			);
 		}
 	}

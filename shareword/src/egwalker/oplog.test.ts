@@ -1,124 +1,86 @@
 import { test, expect } from "bun:test";
-import { debugPrint, OpLog } from "./oplog";
-import type { Accumulator, Clock, OpData, Site } from "./op";
+import { OpLog } from "./oplog";
 
-function stringOpLog(site: Site = "a") {
-	return new OpLog<string, string>(site);
-}
-
-type OpRow<T, AccT extends Accumulator<T>> = [
-	id: string,
-	data: OpData<T, AccT>,
-	parents: Clock[],
-];
-function toRows(
-	oplog: ReturnType<typeof stringOpLog>,
-): OpRow<string, string>[] {
-	const res: OpRow<string, string>[] = [];
-	for (let i = 0; i < oplog.length; i++) {
-		const op = oplog.at(i);
-		res.push([`${op.site}${op.siteClock}`, op.data, op.parents]);
-	}
-	return res;
+function stringOpLog() {
+	return new OpLog<string, string>(
+		"",
+		(acc, others) => acc + others,
+	);
 }
 
 function expectHel(oplog: ReturnType<typeof stringOpLog>) {
-	expect(toRows(oplog)).toEqual([
-		["a0", "h", []],
-		["a1", "e", [0]],
-		["a2", "l", [1]],
-	]);
+	expect(oplog.length).toBe(3);
+	expect(oplog.items.fields.items[0]).toBe("hel");
+	expect(oplog.getSite(2)).toEqual("a");
+	expect(oplog.getClock(2)).toEqual(2);
+	expect(oplog.getPos(2)).toBe(2);
+	expect(oplog.getDeleted(2)).toBe(false);
+	expect(oplog.getItem(2)).toBe("l");
+	expect(oplog.getParents(0)).toEqual([]);
+	expect(oplog.getParents(1)).toEqual([0]);
+	expect(oplog.getParents(2)).toEqual([1]);
+	expect(() => oplog.getParents(3)).toThrowError();
 }
 
-test("basic insert", () => {
+test("insert", () => {
 	let oplog = stringOpLog();
 
-	oplog.insert("h");
-	oplog.insert("e");
-	oplog.insert("l");
+	oplog.insert("a", 0, "h");
+	oplog.insert("a", 1, "e");
+	oplog.insert("a", 2, "l");
+
 	expectHel(oplog);
 
 	oplog = stringOpLog();
-	oplog.insert("hel");
+	oplog.insert("a", 0, "hel");
+
 	expectHel(oplog);
 });
 
-function expectDelete(oplog: ReturnType<typeof stringOpLog>) {
-	expect(toRows(oplog)).toEqual([
-		["b0", -1, []],
-		["b1", -1, [0]],
-		["b2", -1, [1]],
-	]);
-}
-
 test("delete", () => {
-	let oplog = stringOpLog("b");
+	let oplog = stringOpLog();
 
-	oplog.delete(1);
-	oplog.delete(1);
-	oplog.delete(1);
-	expectDelete(oplog);
+	oplog.insert("a", 0, "hel");
+	expectHel(oplog);
 
-	oplog = stringOpLog("b");
-	oplog.delete(3);
-	expectDelete(oplog);
+	oplog.delete("b", 0, 1);
+	oplog.delete("b", 0, 1);
+	oplog.delete("b", 0, 1);
+	expect(oplog.getDeleted(4)).toBe(true);
+
+	oplog = stringOpLog();
+	oplog.insert("a", 0, "hel");
+	oplog.delete("b", 0, 3);
+	expect(oplog.getDeleted(4)).toBe(true);
 });
 
-test("forwards insertion rle", () => {
+test("parents", () => {
 	const a = stringOpLog();
+	const site = "a";
+	let clock = 0;
 
-	a.insert("1");
-	a.insert("2");
-	expect(a.lengthCompressed).toBe(1);
+	a.insertRle(site, clock, [],  0, "abc");
+	clock += 3;
+	a.insertRle(site, clock, [0,1],  0, "def");
+
+	expect(a.getParents(0)).toEqual([]);
+	expect(a.getParents(1)).toEqual([0]);
+	expect(a.getParents(2)).toEqual([1]);
+	expect(a.getParents(3)).toEqual([0,1]);
+	expect(a.getParents(4)).toEqual([3]);
+	expect(a.getParents(5)).toEqual([4]);
 });
 
-test("backwards insertion rle", () => {
+test("merge", () => {
 	const a = stringOpLog();
+	const b = stringOpLog();
 
-	a.insert("2"); // id = a0
-	a.seek(0);
-	a.insert("1"); // id = a1
-	expect(a.siteLogs.a?.lengthCompressed).toBe(3); // not communative
-	a.site = "b"
-	a.insert("asdf");
-	a.site = "a"
-	a.insert("fdsa");
+	a.insert("a", 0, "1");
+	b.insert("b", 0, "23");
 
-	console.dir(a, { depth: null })
-	debugPrint(a, true);
-	debugPrint(a);
+	a.merge(b);
+
+	expect(a.getParents(0)).toEqual([]);
+	expect(a.getParents(1)).toEqual([]);
+	expect(a.getParents(2)).toEqual([1]);
 });
-
-test("forwards deletion rle", () => {
-	const a = stringOpLog();
-
-	a.delete();
-	a.delete();
-	a.delete();
-	expect(a.lengthCompressed).toBe(1);
-});
-
-test("backwards deletion rle", () => {
-	const a = stringOpLog();
-
-	a.delete(); // pos 0
-	a.seek(1);
-	a.delete(); // pos 1
-	a.seek(2);
-	a.delete(); // pos 2
-	expect(a.lengthCompressed).toBe(1);
-});
-
-//test("simple merge", () => {
-//	const a = stringOpLog();
-//	const b = stringOpLog();
-//
-//	a.insert("a", 0, "1");
-//	b.insert("b", 0, "23");
-//
-//	a.merge(b);
-//
-//	expect(a.getParents(0)).toEqual([]);
-//	expect(a.getParents(1)).toEqual([]);
-//	expect(a.getParents(2)).toEqual([1]);
-//});

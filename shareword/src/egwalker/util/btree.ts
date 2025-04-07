@@ -1,4 +1,4 @@
-import { binarySearch } from "./bsearch";
+import binarySearch from "./bsearch";
 
 type NodeGenerator<K, V> = Generator<{ node: Node<K, V>; i: number }>;
 

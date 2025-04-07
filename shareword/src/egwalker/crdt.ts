@@ -37,7 +37,7 @@ export class Crdt<T, AccT extends Accumulator<T>> {
 	constructor(public oplog: OpLog<T, AccT>) {}
 
 	#target(clock: Clock): Item {
-		const target = typeof this.oplog.getOpData(clock) === "number"
+		const target = this.oplog.getDeleted(clock)
 			? this.delTargets[clock]
 			: clock;
 		return this.targets[target];
@@ -79,9 +79,8 @@ export class Crdt<T, AccT extends Accumulator<T>> {
 
 	#apply(clock: Clock, snapshot?: Snapshot<T>) {
 		const pos = this.oplog.getPos(clock);
-		const op = this.oplog.getOpData(clock);
 
-		if (typeof op === "number") {
+		if (this.oplog.getDeleted(clock)) {
 			const { idx, endPos } = this.#findPos(pos, true);
 			const item = this.items[idx];
 
@@ -215,13 +214,11 @@ export class Crdt<T, AccT extends Accumulator<T>> {
 	}
 
 	applyOp(clock: Clock, snapshot?: Snapshot<T>) {
-		console.log("applyOp", clock)
 		const parents = this.oplog.getParents(clock);
 		const { aOnly, bOnly } = this.#diff(this.currentVersion, parents);
 
-		let i: number;
-		for (i of aOnly) this.#retreat(i);
-		for (i of bOnly) this.#advance(i);
+		for (const i of aOnly) this.#retreat(i);
+		for (const i of bOnly) this.#advance(i);
 
 		this.#apply(clock, snapshot);
 		this.currentVersion = [clock];

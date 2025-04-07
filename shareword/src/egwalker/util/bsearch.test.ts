@@ -1,5 +1,5 @@
 import { test, expect } from "bun:test";
-import { binarySearch } from "./bsearch";
+import binarySearch from "./bsearch";
 
 test("small haystack", () => {
 	const a = [1, 1, 3, 5, 5];
