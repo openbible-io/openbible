@@ -1,6 +1,4 @@
-import ListMap from "./util/list-map";
-import { MultiArrayList } from "./util/multi-array-list";
-import { Rle } from "./util/rle";
+import { MultiArrayList, ListMap, Rle } from "./util";
 
 /** A collaborating agent */
 export type Site = string;

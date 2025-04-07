@@ -1,8 +1,6 @@
 import { RleOpLog } from "./oplog-rle";
 import type { Accumulator, Clock, Site } from "./oplog-rle";
-import { MultiArrayList } from "./util/multi-array-list";
-import ListMap from "./util/list-map";
-import binarySearch from "./util/bsearch";
+import { MultiArrayList, ListMap, binarySearch } from "./util";
 
 /** Max stored `clock` for each site. */
 type StateVector = Record<Site, number>;

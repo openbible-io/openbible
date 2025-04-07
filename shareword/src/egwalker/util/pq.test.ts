@@ -1,5 +1,5 @@
 import { test, expect } from "bun:test";
-import PriorityQueue from "./pq";
+import { PriorityQueue } from "./pq";
 
 const nComp = (a: number, b: number) => a - b;
 

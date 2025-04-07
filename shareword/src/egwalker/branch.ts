@@ -2,7 +2,7 @@ import { advanceFrontier, type OpLog } from "./oplog";
 import { Crdt, State, type Item } from "./crdt";
 import type { Accumulator, Clock } from "./oplog-rle";
 import type { Snapshot } from "./snapshot";
-import PriorityQueue from "./util/pq";
+import { PriorityQueue } from "./util/pq";
 
 function cmpClocks(a: Clock[], b: Clock[]): number {
 	for (let i = 0; i < a.length; i++) {

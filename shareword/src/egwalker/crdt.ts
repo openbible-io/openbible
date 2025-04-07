@@ -1,7 +1,7 @@
 import type { OpLog } from "./oplog";
 import type { Accumulator, Clock } from "./oplog-rle";
 import type { Snapshot } from "./snapshot";
-import PriorityQueue from "./util/pq";
+import { PriorityQueue } from "./util/pq";
 
 export enum State {
 	NotInserted = -1,

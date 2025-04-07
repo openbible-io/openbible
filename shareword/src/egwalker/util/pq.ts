@@ -1,5 +1,4 @@
-// TODO: make btree performance competitive and use it to save ~300B
-export default class PriorityQueue<T> {
+export class PriorityQueue<T> {
 	items: Array<T>;
 	comparator: (a: T, b: T) => number;
 	length = 0;

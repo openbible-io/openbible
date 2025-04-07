@@ -1,4 +1,4 @@
-import binarySearch from "./bsearch";
+import { binarySearch } from "./bsearch";
 import { MultiArrayList } from "./multi-array-list";
 
 export type Range = { start: number; len: number };

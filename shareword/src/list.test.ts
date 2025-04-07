@@ -5,10 +5,10 @@ test("correctness", () => {
 	const d1 = new List<number>("a");
 	const d2 = new List<number>("b");
 
-	d1.insert(0, 10);
-	d1.insert(1, 20);
-	d2.insert(0, 30);
-	d2.insert(1, 40);
+	d1.insert(0, true, 10);
+	d1.insert(1, true, 20);
+	d2.insert(0, true, 30);
+	d2.insert(1, true, 40);
 
 	d1.merge(d2);
 	d2.merge(d1);
