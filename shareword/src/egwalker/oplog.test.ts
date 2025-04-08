@@ -1,11 +1,8 @@
 import { test, expect } from "bun:test";
-import { debugPrint, OpLog } from "./oplog";
+import { OpLog } from "./oplog";
 
 function stringOpLog() {
-	return new OpLog<string, string>(
-		"",
-		(acc, others) => acc + others,
-	);
+	return new OpLog<string, string>((acc, others) => acc + others);
 }
 
 function expectHel(oplog: ReturnType<typeof stringOpLog>) {

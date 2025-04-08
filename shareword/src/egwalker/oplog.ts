@@ -91,7 +91,7 @@ export class OpLog<T, AccT extends Accumulator<T> = T[]> extends RleOpLog<
 	}
 
 	merge(src: OpLog<T, AccT>) {
-		new Patch(this.emptyItem, src, this.stateVector()).apply(this);
+		new Patch(src, this.stateVector()).apply(this);
 	}
 }
 

@@ -39,7 +39,6 @@ export class RleOpLog<T, AccT extends Accumulator<T>> extends Rle<
 	 * @param mergeFn How to merge runs together.
 	 */
 	constructor(
-		public emptyItem: AccT,
 		public mergeFn: (acc: AccT, cur: AccT) => AccT,
 	) {
 		super(
@@ -47,7 +46,7 @@ export class RleOpLog<T, AccT extends Accumulator<T>> extends Rle<
 				site: 0,
 				clock: 0,
 				position: 0,
-				data: emptyItem,
+				data: 0,
 			}),
 			(ctx, item, len) => {
 				const { fields } = ctx.items;

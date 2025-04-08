@@ -1,4 +1,4 @@
-import { advanceFrontier, debugPrint, type OpLog } from "./oplog";
+import { advanceFrontier, type OpLog } from "./oplog";
 import { Crdt, State, type Item } from "./crdt";
 import type { Accumulator, Clock } from "./oplog-rle";
 import type { Snapshot } from "./snapshot";

@@ -1,7 +1,7 @@
 - add seek op, remove pos
-	- remove emptyItem
+	- [x] remove emptyItem
 - [x] replace mergeFn with concat
-- remove Rle range len
+- [x] remove Rle range len
 
 - crdt only uses AccT
 - minimize oplog repeated site,siteClock

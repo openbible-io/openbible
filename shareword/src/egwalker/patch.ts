@@ -16,12 +16,12 @@ export class Patch<T, AccT extends Accumulator<T>> {
 	}>;
 	sites: Site[] = [];
 
-	constructor(emptyItem: AccT, oplog: OpLog<T, AccT>, to: StateVector) {
+	constructor(oplog: OpLog<T, AccT>, to: StateVector) {
 		this.ops = new MultiArrayList({
 			site: 0,
 			clock: 0,
 			position: 0,
-			data: emptyItem,
+			data: 0,
 			parents: {},
 		});
 		const sites = new ListMap<Site>();

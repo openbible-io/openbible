@@ -10,13 +10,13 @@ export class GenericList<T, AccT extends Accumulator<T>> extends EventTarget {
 
 	constructor(
 		site: Site,
-		emptyItem: AccT,
+		private emptyItem: AccT,
 		mergeFn: (acc: AccT, cur: AccT) => AccT,
 		public snapshot: Snapshot<T>,
 	) {
 		super();
 		this.site = site;
-		this.oplog = new OpLog(emptyItem, mergeFn);
+		this.oplog = new OpLog(mergeFn);
 		this.branch = new Branch(this.oplog);
 	}
 
@@ -37,7 +37,7 @@ export class GenericList<T, AccT extends Accumulator<T>> extends EventTarget {
 	}
 
 	items(): AccT {
-		let res = this.oplog.emptyItem.slice();
+		let res = this.emptyItem.slice();
 		for (const item of this.snapshot.items()) {
 			// @ts-ignore idk and idc
 			res = this.oplog.mergeFn(res, [item]);
