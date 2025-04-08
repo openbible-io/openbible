@@ -1,4 +1,4 @@
-import type { Site } from "./egwalker/oplog-rle";
+import type { Site } from "./egwalker/op";
 import { ListSnapshot } from "./egwalker/snapshot";
 import { GenericList } from "./list";
 

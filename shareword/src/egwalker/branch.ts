@@ -1,19 +1,8 @@
 import { advanceFrontier, type OpLog } from "./oplog";
 import { Crdt, State, type Item } from "./crdt";
-import type { Accumulator, Clock } from "./oplog-rle";
 import type { Snapshot } from "./snapshot";
 import { PriorityQueue } from "./util/pq";
-
-function cmpClocks(a: Clock[], b: Clock[]): number {
-	for (let i = 0; i < a.length; i++) {
-		if (b.length <= i) return 1;
-
-		const delta = a[i] - b[i];
-		if (delta) return delta;
-	}
-
-	return a.length < b.length ? -1 : 0;
-}
+import type { Accumulator, Clock } from "./op";
 
 export class Branch<T, AccT extends Accumulator<T>> {
 	frontier: Clock[] = [];
@@ -78,7 +67,7 @@ export class Branch<T, AccT extends Accumulator<T>> {
 				if (inA) shared.push(lc);
 				else bOnly.push(lc);
 
-				enq(this.oplog.getParents(lc), inA);
+				enq(this.oplog.parentsAt(lc), inA);
 			}
 		}
 
@@ -100,11 +89,12 @@ export class Branch<T, AccT extends Accumulator<T>> {
 		const doc = new Crdt(this.oplog);
 		doc.currentVersion = head;
 
-		const placeholderLength = Math.max(...this.frontier) + 1;
-		const placeholderOffset = this.oplog.length; // @seph: is this correct?
+		const placeholderLength = this.frontier[this.frontier.length - 1] + 1;
+		const placeholderOffset = this.oplog.ops.length; // @seph: is this correct?
 		for (let i = 0; i < placeholderLength; i++) {
 			const item: Item = {
 				clock: i + placeholderOffset,
+				site: "",
 				state: State.Inserted,
 				deleted: false,
 				originLeft: -1,
@@ -120,8 +110,19 @@ export class Branch<T, AccT extends Accumulator<T>> {
 			this.frontier = advanceFrontier(
 				this.frontier,
 				c,
-				this.oplog.getParents(c),
+				this.oplog.parentsAt(c),
 			);
 		}
 	}
+}
+
+function cmpClocks(a: Clock[], b: Clock[]): number {
+	for (let i = 0; i < a.length; i++) {
+		if (b.length <= i) return 1;
+
+		const delta = a[i] - b[i];
+		if (delta) return delta;
+	}
+
+	return a.length < b.length ? -1 : 0;
 }

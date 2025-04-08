@@ -1,6 +1,6 @@
 import { Branch } from "./egwalker/branch";
 import { OpLog } from "./egwalker/oplog";
-import type { Accumulator, Site } from "./egwalker/oplog-rle";
+import type { Accumulator, Site } from "./egwalker/op";
 import { ListSnapshot, type Snapshot } from "./egwalker/snapshot";
 
 export class GenericList<T, AccT extends Accumulator<T>> extends EventTarget {

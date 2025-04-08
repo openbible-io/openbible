@@ -1,10 +1,12 @@
-- add seek op, remove pos
+- replace position with seek op (hard)
 	- [x] remove emptyItem
 - [x] replace mergeFn with concat
 - [x] remove Rle range len
 
 - crdt only uses AccT
 - minimize oplog repeated site,siteClock
+	- fast idToIndex?
+- backward + forward deletion runs
 - btree crdt items
 - [x] generate + apply patches from state vectors
 - patch binary encoding

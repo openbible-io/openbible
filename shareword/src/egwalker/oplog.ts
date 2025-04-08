@@ -1,97 +1,197 @@
-import type { OpData } from "./op";
-import { RleOpLog } from "./oplog-rle";
-import type { Accumulator, Clock, Site } from "./oplog-rle";
+import {
+	opLength,
+	opSlice,
+	OpType,
+	opType,
+	type Accumulator,
+	type Clock,
+	type Op,
+	type OpData,
+	type OpRun,
+	type Site,
+} from "./op";
 import { Patch, type StateVector } from "./patch";
-import { binarySearch } from "./util";
+import { assertBounds, MultiArrayList, Rle } from "./util";
+
+type RleOp<T, AccT extends Accumulator<T>> = {
+	site: Site; // TODO: number
+	siteClock: number;
+	position: number;
+	data: OpData<T, AccT>;
+};
 
 /** An append-only list of immutable operations */
-export class OpLog<T, AccT extends Accumulator<T> = T[]> extends RleOpLog<
-	T,
-	AccT
-> {
+export class OpLog<T, AccT extends Accumulator<T> = T[]> {
+	ops: Rle<RleOp<T, AccT>, MultiArrayList<RleOp<T, AccT>>>;
+	/** For items whose parents do not immediately precede it. */
+	parents: Record<Clock, number[]> = {};
 	/** Next Op's `parents`. */
 	frontier: Clock[] = [];
-	/** Indices into `this.items`. */
-	siteIdxs: Record<Site, number[]> = {};
+	stateVector: StateVector = {};
 
-	#nextClock(site: Site): Clock {
-		const idxs = this.siteIdxs[site];
-		if (idxs?.length) {
-			const last = idxs[idxs.length - 1];
-			return this.items.fields.clock[last] + this.len(last);
-		}
-		return 0;
-	}
+	/** @param mergeFn How to merge runs together. */
+	constructor(public mergeFn: (acc: AccT, cur: AccT) => AccT) {
+		this.ops = new Rle(
+			new MultiArrayList<RleOp<T, AccT>>({
+				site: "",
+				siteClock: 0,
+				position: 0,
+				data: 0,
+			}),
+			(ctx, item, len) => {
+				const { fields } = ctx.items;
+				const prevIdx = ctx.starts.length - 1;
+				const prevLen = ctx.len(prevIdx);
+				const prevDeleted = opType(fields.data[prevIdx]) === OpType.Deletion;
+				const curDeleted = opType(item.data) === OpType.Deletion;
 
-	advanceClock(site: Site): void {
-		this.siteIdxs[site] ??= [];
-		const idxs = this.siteIdxs[site]; 
-		if (idxs.at(-1) !== this.items.length - 1) {
-			idxs.push(this.items.length - 1);
-		}
-	}
+				const prevPos = fields.position[prevIdx];
+				const prevSite = fields.site[prevIdx];
+				const prevClock = fields.siteClock[prevIdx];
 
-	insert(site: Site, pos: number, items: AccT) {
-		this.insertRle(
-			site,
-			this.#nextClock(site),
-			this.frontier,
-			pos,
-			items,
-		);
-		this.advanceClock(site);
-		this.frontier = [this.length - 1];
-	}
+				// non-consecutive id?
+				if (prevSite !== item.site || prevClock + prevLen !== item.siteClock)
+					return false;
 
-	delete(site: Site, pos: number, delCount = 1) {
-		this.deleteRle(
-			site,
-			this.#nextClock(site),
-			this.frontier,
-			pos,
-			delCount,
-		);
-		this.advanceClock(site);
-		this.frontier = [this.length - 1];
-	}
+				// deletion?
+				if (prevDeleted && curDeleted && prevPos === item.position) {
+					(fields.data[prevIdx] as number) -= len;
+					return true;
+				}
+				// insertion?
+				if (
+					!prevDeleted &&
+					!curDeleted &&
+					prevPos + prevLen === item.position
+				) {
+					fields.data[prevIdx] = mergeFn(
+						fields.data[prevIdx] as AccT,
+						item.data as AccT,
+					);
+					return true;
+				}
 
-	idToIndex(site: Site, clock: Clock): number {
-		const idx = binarySearch(
-			this.siteIdxs[site],
-			clock,
-			(idx, needle) => {
-				const start = this.items.fields.clock[idx];
-				if (start > needle) return 1;
-				const len = this.len(idx);
-				if (start + len <= needle) return -1;
-				return 0;
+				return false;
 			},
-			0,
+			(item, start, end) => ({
+				site: item.site,
+				siteClock: item.siteClock + (start ?? 0),
+				position:
+					item.position +
+					(opType(item.data) === OpType.Insertion ? (start ?? 0) : 0),
+				data: opSlice(item.data, start, end),
+			}),
 		);
-		const res = this.siteIdxs[site][idx];
-		const start = this.items.fields.clock[res];
-		const end = start + this.len(res);
-		if (site !== this.getSiteRaw(res) || clock < start || clock > end) {
-			debugPrint(this);
-			console.log(this.getSiteRaw(res), this.siteIdxs, idx, res, start, end);
-			throw new Error(`Id (${site},${clock}) does not exist`);
-		}
-
-		return res;
 	}
 
-	stateVector(): StateVector {
-		const res: StateVector = {};
-		for (const [site, idxs] of Object.entries(this.siteIdxs)) {
-			// biome-ignore lint/style/noNonNullAssertion: idxs.length > 0
-			const idx = idxs.at(-1)!;
-			res[site] = this.items.fields.clock[idx] + this.len(idx) - 1;
+	parentsAt(clock: Clock): Clock[] {
+		assertBounds(clock, this.ops.length);
+		return this.parents[clock] ?? [clock - 1];
+	}
+
+	itemAt(clock: Clock): Op<T> & { clock: number } {
+		const op = this.ops.at(clock);
+		const parents = this.parentsAt(clock);
+		let data: T | number = op.data as number;
+		switch (opType(op.data)) {
+			case OpType.Insertion:
+				data = (op.data as AccT)[0];
+				break;
+			case OpType.Deletion:
+				data = -1;
+				break;
 		}
-		return res;
+		return {
+			clock,
+			site: op.site,
+			siteClock: op.siteClock,
+			position: op.position,
+			data,
+			parents,
+		};
+	}
+
+	at(idx: number): OpRun<T, AccT> & { start: number; length: number } {
+		const op = this.ops.items.at(idx);
+		const start = this.ops.starts[idx];
+		const data = op.data;
+		return {
+			start,
+			length: opLength(data),
+			site: op.site,
+			siteClock: op.siteClock,
+			position: op.position,
+			data,
+			parents: this.parentsAt(start),
+		};
+	}
+
+	#nextSiteClock(site: Site): Clock {
+		return this.stateVector[site] ?? 0;
+	}
+
+	/** @returns If inserted a new item. */
+	#insertParents(clock: Clock, parents: Clock[]): boolean {
+		if (parents.length === 1 && parents[0] === clock - 1) return false;
+		this.parents[clock] = parents;
+		return true;
+	}
+
+	push(run: OpRun<T, AccT>): void {
+		const { parents, ...rest } = run;
+		const len = opLength(run.data);
+		// Adding a new run at every merge point greatly simplifies diffing,
+		// merging, and integrating. These other operations all optimize on this
+		// fact.
+		const forceNewRun = this.#insertParents(this.ops.length, parents);
+		this.ops.push(rest, len, forceNewRun);
+		this.frontier = advanceFrontier(
+			this.frontier,
+			this.ops.length - 1,
+			parents,
+		);
+		this.stateVector[rest.site] = run.siteClock + len;
+	}
+
+	insert(site: Site, position: number, items: AccT) {
+		this.push({
+			site,
+			siteClock: this.#nextSiteClock(site),
+			data: items,
+			position,
+			parents: this.frontier,
+		});
+	}
+
+	delete(site: Site, position: number, delCount = 1) {
+		this.push({
+			site,
+			siteClock: this.#nextSiteClock(site),
+			data: -delCount,
+			position,
+			parents: this.frontier,
+		});
+	}
+
+	/** For patch to remap ids. */
+	idToClock(site: Site, siteClock: Clock): Clock {
+		for (let i = this.ops.items.length - 1; i >= 0; i--) {
+			const op = this.at(i);
+			const offset = siteClock - op.siteClock;
+			if (
+				op.site === site &&
+				offset >= 0 &&
+				op.siteClock + op.length > siteClock
+			) {
+				return this.ops.starts[i] + offset;
+			}
+		}
+		debugPrint(this);
+		throw new Error(`Id (${site},${siteClock}) does not exist`);
 	}
 
 	merge(src: OpLog<T, AccT>) {
-		new Patch(src, this.stateVector()).apply(this);
+		new Patch(src, this.stateVector).apply(this);
 	}
 }
 
@@ -105,59 +205,76 @@ export function advanceFrontier(
 	return res.sort((a, b) => a - b);
 }
 
+type DebugRow<T, AccT extends Accumulator<T>> = {
+	start: number;
+	id: string;
+	position: number;
+	data: OpData<T, AccT>;
+	parents: number[];
+};
+export function debugRows<T, AccT extends Accumulator<T>>(
+	oplog: OpLog<T, AccT>,
+): DebugRow<T, AccT>[] {
+	const res: DebugRow<T, AccT>[] = [];
+	for (let i = 0; i < oplog.ops.items.length; i++) {
+		const run = oplog.at(i);
+		res.push({
+			start: run.start,
+			id: `${run.site}${run.siteClock}`,
+			position: run.position,
+			data: run.data,
+			parents: run.parents,
+		});
+	}
+	return res;
+}
+
+type DebugRow2<T, AccT extends Accumulator<T>> = [
+	id: string,
+	position: number,
+	data: OpData<T, AccT>,
+	parents: number[],
+];
+export function debugRows2<T, AccT extends Accumulator<T>>(
+	oplog: OpLog<T, AccT>,
+): DebugRow2<T, AccT>[] {
+	const res: DebugRow2<T, AccT>[] = [];
+	for (let i = 0; i < oplog.ops.items.length; i++) {
+		const run = oplog.at(i);
+		res.push([
+			`${run.site}${run.siteClock}`,
+			run.position,
+			run.data,
+			run.parents,
+		]);
+	}
+	return res;
+}
+
 export function debugPrint<T, AccT extends Accumulator<T>>(
 	oplog: OpLog<T, AccT>,
-	full = false,
+	full = false, // TODO: remove
 ) {
 	if (full) {
 		type Op = {
+			id: string;
 			position: number;
-			deleted: boolean;
-			item: T | string;
-			site: Site;
-			clock: Clock;
+			data: T | number;
 			parents: Clock[];
 		};
 		const ops: Op[] = [];
-		for (let i = 0; i < oplog.length; i++) {
+		for (let i = 0; i < oplog.ops.length; i++) {
+			const item = oplog.itemAt(i);
 			ops.push({
-				position: oplog.getPos(i),
-				deleted: oplog.getDeleted(i),
-				item: oplog.getItem(i) ?? "",
-				site: oplog.getSite(i),
-				clock: oplog.getClock(i),
-				parents: oplog.getParents(i),
+				id: `${item.site}${item.siteClock}`,
+				position: item.position,
+				data: item.data,
+				parents: oplog.parentsAt(i),
 			});
 		}
 		console.table(ops);
 	} else {
-		type Op = {
-			start: number;
-			position: number;
-			data: OpData<T, AccT>;
-			site: Site;
-			clock: Clock;
-			parents: Record<number, number[]>;
-		};
-		const ops: Op[] = [];
-		const { fields } = oplog.items;
-		for (let i = 0; i < oplog.items.length; i++) {
-			const start = oplog.starts[i];
-			const parents: Record<number, number[]> = {};
-			const len = oplog.len(i);
-			for (let j = 0; j < len; j++) {
-				const opParents = oplog.parents[start + j];
-				if (opParents) parents[start + j] = opParents;
-			}
-			ops.push({
-				start,
-				position: fields.position[i],
-				data: fields.data[i],
-				site: oplog.sites.keys[fields.site[i]],
-				clock: fields.clock[i],
-				parents,
-			});
-		}
-		console.table(ops);
+		const rows = debugRows(oplog);
+		console.table(rows);
 	}
 }

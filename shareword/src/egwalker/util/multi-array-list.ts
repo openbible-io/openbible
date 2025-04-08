@@ -12,7 +12,7 @@ export class MultiArrayList<T extends { [key: string]: any }> {
 	/** For getting length */
 	#lastField: keyof T = "";
 
-	constructor(private shape: T) {
+	constructor(shape: T) {
 		// @ts-ignore Every key is about to be assigned.
 		this.fields = {};
 		for (const k of Object.keys(shape)) {
@@ -39,7 +39,8 @@ export class MultiArrayList<T extends { [key: string]: any }> {
 	}
 
 	slice(start?: number, end?: number): MultiArrayList<T> {
-		const res = new MultiArrayList<T>(this.shape);
+		const shape: T = {} as T;
+		const res = new MultiArrayList<T>(shape);
 		for (const f in res.fields) {
 			res.fields[f] = this.fields[f].slice(start, end);
 		}

@@ -1,4 +1,4 @@
-import type { Accumulator } from "./oplog-rle";
+import type { Accumulator } from "./op";
 
 /** A type which diffs apply to. */
 export interface Snapshot<T> {

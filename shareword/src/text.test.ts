@@ -1,8 +1,8 @@
 import { test, expect } from "bun:test";
 import { Text } from "./text";
-import { debugPrint } from "./egwalker/oplog";
+import { debugPrint, debugRows2 } from "./egwalker/oplog";
 import { mulberry32 } from "../bench/harness";
-import type { Accumulator, OpData } from "./egwalker/op";
+import { Patch } from "./egwalker/patch";
 
 function fuzzer(seed: number) {
 	const random = mulberry32(seed);
@@ -68,28 +68,6 @@ function fuzzer(seed: number) {
 	}
 }
 
-type Row<T, AccT extends Accumulator<T>> = [
-	id: string,
-	pos: number,
-	item: OpData<T, AccT>,
-	parents: number[],
-];
-function toOplogRows(text: Text): Row<string, string>[] {
-	const res: Row<string, string>[] = [];
-
-	const oplog = text.oplog;
-	for (let i = 0; i < oplog.length; i++) {
-		res.push([
-			`${oplog.getSite(i)}${oplog.getClock(i)}`,
-			oplog.getPos(i),
-			oplog.getData(i),
-			oplog.getParents(i),
-		]);
-	}
-
-	return res;
-}
-
 test("correctness", () => {
 	const a = new Text("a");
 	const b = new Text("b");
@@ -100,38 +78,22 @@ test("correctness", () => {
 	a.insert(0, aInsert);
 	b.insert(0, bInsert);
 
-	a.merge(b);
-	b.merge(a);
-
 	const expectedFrontier = [
 		aInsert.length - 1,
 		aInsert.length + bInsert.length - 1,
 	];
-	expect(toOplogRows(a)).toEqual([
-		["a0", 0, "h", []],
-		["a1", 1, "e", [0]],
-		["a2", 2, "l", [1]],
-		["a3", 3, "l", [2]],
-		["a4", 4, "o", [3]],
-		["b0", 0, "w", []],
-		["b1", 1, "o", [5]],
-		["b2", 2, "r", [6]],
-		["b3", 3, "l", [7]],
-		["b4", 4, "d", [8]],
+	a.merge(b);
+	expect(debugRows2(a.oplog)).toEqual([
+		["a0", 0, "hello", []],
+		["b0", 0, "world", []],
 	]);
+	expect(a.oplog.stateVector).toEqual({ a: 5, b: 5 });
 	expect(a.oplog.frontier).toEqual(expectedFrontier);
 
-	expect(toOplogRows(b)).toEqual([
-		["b0", 0, "w", []],
-		["b1", 1, "o", [0]],
-		["b2", 2, "r", [1]],
-		["b3", 3, "l", [2]],
-		["b4", 4, "d", [3]],
-		["a0", 0, "h", []],
-		["a1", 1, "e", [5]],
-		["a2", 2, "l", [6]],
-		["a3", 3, "l", [7]],
-		["a4", 4, "o", [8]],
+	b.merge(a);
+	expect(debugRows2(b.oplog)).toEqual([
+		["b0", 0, "world", []],
+		["a0", 0, "hello", []],
 	]);
 	expect(b.oplog.frontier).toEqual(expectedFrontier);
 
@@ -143,50 +105,39 @@ test("correctness", () => {
 	b.delete(0, "hello".length);
 	b.insert(0, "share");
 
-	expect(toOplogRows(a).slice(10)).toEqual([["a5", 8, -1, [4, 9]]]);
+	expect(debugRows2(a.oplog)).toEqual([
+		["a0", 0, "hello", []],
+		["b0", 0, "world", []],
+		["a5", 8, -1, [4, 9]],
+	]);
 	expect(a.oplog.frontier).toEqual([10]);
-	expect(toOplogRows(b).slice(10)).toEqual([
-		["b5", 0, -1, [4, 9]],
-		["b6", 0, -1, [10]],
-		["b7", 0, -1, [11]],
-		["b8", 0, -1, [12]],
-		["b9", 0, -1, [13]],
-		["b10", 0, "s", [14]],
-		["b11", 1, "h", [15]],
-		["b12", 2, "a", [16]],
-		["b13", 3, "r", [17]],
-		["b14", 4, "e", [18]],
+	expect(debugRows2(b.oplog)).toEqual([
+		["b0", 0, "world", []],
+		["a0", 0, "hello", []],
+		["b5", 0, -5, [4, 9]],
+		["b10", 0, "share", [14]],
 	]);
 	expect(b.oplog.frontier).toEqual([19]);
 
-	a.merge(b);
-	b.merge(a);
+	expect(a.toString()).toBe("helloword");
+	expect(b.toString()).toBe("shareworld");
 
-	expect(toOplogRows(a).slice(10)).toEqual([
+	a.merge(b);
+	expect(debugRows2(a.oplog)).toEqual([
+		["a0", 0, "hello", []],
+		["b0", 0, "world", []],
 		["a5", 8, -1, [4, 9]],
-		["b5", 0, -1, [4, 9]],
-		["b6", 0, -1, [11]],
-		["b7", 0, -1, [12]],
-		["b8", 0, -1, [13]],
-		["b9", 0, -1, [14]],
-		["b10", 0, "s", [15]],
-		["b11", 1, "h", [16]],
-		["b12", 2, "a", [17]],
-		["b13", 3, "r", [18]],
-		["b14", 4, "e", [19]],
+		["b5", 0, -5, [4, 9]],
+		["b10", 0, "share", [15]],
 	]);
 	expect(a.oplog.frontier).toEqual([10, 20]);
-	expect(toOplogRows(b).slice(10)).toEqual([
-		["b5", 0, -1, [4, 9]],
-		["b6", 0, -1, [10]],
-		["b7", 0, -1, [11]],
-		["b8", 0, -1, [12]],
-		["b9", 0, -1, [13]],
-		["b10", 0, "s", [14]],
-		["b11", 1, "h", [15]],
-		["b12", 2, "a", [16]],
-		["b13", 3, "r", [17]],
-		["b14", 4, "e", [18]],
+
+	b.merge(a);
+	expect(debugRows2(b.oplog)).toEqual([
+		["b0", 0, "world", []],
+		["a0", 0, "hello", []],
+		["b5", 0, -5, [4, 9]],
+		["b10", 0, "share", [14]],
 		["a5", 8, -1, [4, 9]],
 	]);
 	expect(b.oplog.frontier).toEqual([19, 20]);
@@ -201,53 +152,46 @@ test("partial op merge", () => {
 	const b = new Text("b");
 
 	b.insert(0, "vc");
-	a.merge(b);
-	b.merge(a); // noop
 
-	expect(toOplogRows(a)).toEqual([
-		["b0", 0, "v", []],
-		["b1", 1, "c", [0]],
-	]);
-	expect(toOplogRows(b)).toEqual(toOplogRows(a));
+	a.merge(b);
+	expect(debugRows2(a.oplog)).toEqual([["b0", 0, "vc", []]]);
 	expect(a.oplog.frontier).toEqual([1]);
+
+	b.merge(a); // noop
+	expect(debugRows2(b.oplog)).toEqual(debugRows2(a.oplog));
 	expect(b.oplog.frontier).toEqual([1]);
 
 	a.insert(2, "e");
 	b.insert(2, "z"); // joined with previous run, only partially in a
 	b.delete(1, 1);
 
-	expect(toOplogRows(a)).toEqual([
-		["b0", 0, "v", []],
-		["b1", 1, "c", [0]],
+	expect(debugRows2(a.oplog)).toEqual([
+		["b0", 0, "vc", []],
 		["a0", 2, "e", [1]],
 	]);
-	expect(toOplogRows(b)).toEqual([
-		["b0", 0, "v", []],
-		["b1", 1, "c", [0]],
-		["b2", 2, "z", [1]],
+	expect(debugRows2(b.oplog)).toEqual([
+		["b0", 0, "vcz", []],
 		["b3", 1, -1, [2]],
 	]);
 	expect(a.oplog.frontier).toEqual([2]);
 	expect(b.oplog.frontier).toEqual([3]);
-	b.merge(a);
-	a.merge(b);
 
-	expect(toOplogRows(a)).toEqual([
-		["b0", 0, "v", []],
-		["b1", 1, "c", [0]],
+	b.merge(a);
+	expect(debugRows2(b.oplog)).toEqual([
+		["b0", 0, "vcz", []],
+		["b3", 1, -1, [2]],
+		["a0", 2, "e", [1]],
+	]);
+	expect(b.oplog.frontier).toEqual([3, 4]);
+
+	a.merge(b);
+	expect(debugRows2(a.oplog)).toEqual([
+		["b0", 0, "vc", []],
 		["a0", 2, "e", [1]],
 		["b2", 2, "z", [1]], // tricky
 		["b3", 1, -1, [3]],
 	]);
-	expect(toOplogRows(b)).toEqual([
-		["b0", 0, "v", []],
-		["b1", 1, "c", [0]],
-		["b2", 2, "z", [1]],
-		["b3", 1, -1, [2]],
-		["a0", 2, "e", [1]],
-	]);
 	expect(a.oplog.frontier).toEqual([2, 4]);
-	expect(b.oplog.frontier).toEqual([3, 4]);
 
 	expect(a.toString()).toEqual("vez");
 	expect(b.toString()).toEqual(a.toString());
@@ -289,37 +233,31 @@ test("frontiers", () => {
 	a.merge(c);
 	expect(a.oplog.frontier).toEqual([12, 13]);
 	expect(c.oplog.frontier).toEqual([3, 13]);
-	expect(toOplogRows(a)).toEqual([
-		["b0" ,0, "c",  []],
-		["b1" ,1, "r",  [0]],
-		["b2" ,0, "o",  [1]],
-		["a0" ,3, "m",  [2]],
-		["a1" ,2, -1,   [3]],
-		["a2" ,3, "w",  [4]],
-		["a3" ,3, -1,   [5]],
-		["a4" ,0, "d",  [6]],
-		["a5" ,1, "f",  [7]],
-		["a6" ,0, -1,   [8]],
-		["b3" ,0, "g",  [2]],
-		["b4" ,1, "t",  [10]],
-		["a7" ,2, -1,   [9, 11]],
-		["c0" ,0, "b",  [2]],
+	expect(debugRows2(a.oplog)).toEqual([
+		["b0", 0, "cr", []],
+		["b2", 0, "o", [1]],
+		["a0", 3, "m", [2]],
+		["a1", 2, -1, [3]],
+		["a2", 3, "w", [4]],
+		["a3", 3, -1, [5]],
+		["a4", 0, "df", [6]],
+		["a6", 0, -1, [8]],
+		["b3", 0, "gt", [2]],
+		["a7", 2, -1, [9, 11]],
+		["c0", 0, "b", [2]],
 	]);
-	expect(toOplogRows(c)).toEqual([
-		["b0" ,0, "c",  []],
-		["b1" ,1, "r",  [0]],
-		["b2" ,0, "o",  [1]],
-		["c0" ,0, "b",  [2]],
-		["a0" ,3, "m",  [2]],
-		["a1" ,2, -1,   [4]],
-		["a2" ,3, "w",  [5]],
-		["a3" ,3, -1,   [6]],
-		["a4" ,0, "d",  [7]],
-		["a5" ,1, "f",  [8]],
-		["a6" ,0, -1,   [9]],
-		["b3" ,0, "g",  [2]],
-		["b4" ,1, "t",  [11]],
-		["a7" ,2, -1,   [10, 12]],
+	expect(debugRows2(c.oplog)).toEqual([
+		["b0", 0, "cr", []],
+		["b2", 0, "o", [1]],
+		["c0", 0, "b", [2]],
+		["a0", 3, "m", [2]],
+		["a1", 2, -1, [4]],
+		["a2", 3, "w", [5]],
+		["a3", 3, -1, [6]],
+		["a4", 0, "df", [7]],
+		["a6", 0, -1, [9]],
+		["b3", 0, "gt", [2]],
+		["a7", 2, -1, [10, 12]],
 	]);
 
 	a.delete(2, 2);
@@ -327,41 +265,33 @@ test("frontiers", () => {
 	c.merge(a);
 	expect(a.oplog.frontier).toEqual([15]);
 	expect(c.oplog.frontier).toEqual([15]);
-	expect(toOplogRows(a)).toEqual([
-		["b0", 0, "c", []],
-		["b1", 1, "r", [0]],
+	expect(debugRows2(a.oplog)).toEqual([
+		["b0", 0, "cr", []],
 		["b2", 0, "o", [1]],
 		["a0", 3, "m", [2]],
-		["a1", 2, -1,  [3]],
+		["a1", 2, -1, [3]],
 		["a2", 3, "w", [4]],
-		["a3", 3, -1,  [5]],
-		["a4", 0, "d", [6]],
-		["a5", 1, "f", [7]],
-		["a6", 0, -1,  [8]],
-		["b3", 0, "g", [2]],
-		["b4", 1, "t", [10]],
-		["a7", 2, -1,  [9, 11]],
+		["a3", 3, -1, [5]],
+		["a4", 0, "df", [6]],
+		["a6", 0, -1, [8]],
+		["b3", 0, "gt", [2]],
+		["a7", 2, -1, [9, 11]],
 		["c0", 0, "b", [2]],
-		["a8", 2, -1,  [12, 13]],
-		["a9", 2, -1,  [14]],
+		["a8", 2, -2, [12, 13]],
 	]);
-	expect(toOplogRows(c)).toEqual([
-		["b0", 0, "c", []],
-		["b1", 1, "r", [0]],
+	expect(debugRows2(c.oplog)).toEqual([
+		["b0", 0, "cr", []],
 		["b2", 0, "o", [1]],
 		["c0", 0, "b", [2]],
 		["a0", 3, "m", [2]],
-		["a1", 2, -1,  [4]],
+		["a1", 2, -1, [4]],
 		["a2", 3, "w", [5]],
-		["a3", 3, -1,  [6]],
-		["a4", 0, "d", [7]],
-		["a5", 1, "f", [8]],
-		["a6", 0, -1,  [9]],
-		["b3", 0, "g", [2]],
-		["b4", 1, "t", [11]],
-		["a7", 2, -1,  [10, 12]],
-		["a8", 2, -1,  [3, 13]],
-		["a9", 2, -1,  [14]],
+		["a3", 3, -1, [6]],
+		["a4", 0, "df", [7]],
+		["a6", 0, -1, [9]],
+		["b3", 0, "gt", [2]],
+		["a7", 2, -1, [10, 12]],
+		["a8", 2, -2, [3, 13]],
 	]);
 
 	expect(a.toString()).toEqual(c.toString());

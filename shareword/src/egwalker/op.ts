@@ -26,11 +26,12 @@ export enum OpType {
 
 /** A full operation and metadata to resolve it conflict-free. */
 export interface Op<T> extends OpId {
+	position: number; // TODO: remove
 	data: T | number;
 	parents: Clock[];
 }
 
-/** Accumulator for runs of Op<T> */
+/** Accumulator for runs of Op<T>. May NOT == number. */
 export interface Accumulator<T> extends ArrayLike<T> {
 	slice(start?: number, end?: number): this;
 	/** For snapshot Array.slice(pos, 0, ...items) */
@@ -39,6 +40,7 @@ export interface Accumulator<T> extends ArrayLike<T> {
 
 /** A run of Op<T>. */
 export interface OpRun<T, AccT extends Accumulator<T>> extends OpId {
+	position: number; // TODO: remove
 	/** Insertion UTF-16 | deleteCount (negative) | seekPos (positive) */
 	data: AccT | number;
 	parents: Clock[];

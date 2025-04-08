@@ -1,6 +1,8 @@
+import { opType, OpType } from "./op";
 import type { OpLog } from "./oplog";
-import type { Accumulator, Clock } from "./oplog-rle";
+import type { Accumulator, Clock, Op, Site } from "./op";
 import type { Snapshot } from "./snapshot";
+import { assert } from "./util";
 import { PriorityQueue } from "./util/pq";
 
 export enum State {
@@ -14,6 +16,8 @@ export enum State {
 
 export type Item = {
 	clock: Clock;
+	/** For tie breaking */
+	site: Site;
 	/** -1 = start of doc */
 	originLeft: Clock | -1;
 	/** -1 = end of doc */
@@ -36,19 +40,20 @@ export class Crdt<T, AccT extends Accumulator<T>> {
 
 	constructor(public oplog: OpLog<T, AccT>) {}
 
-	#target(clock: Clock): Item {
-		const target = this.oplog.getDeleted(clock)
-			? this.delTargets[clock]
-			: clock;
+	#target(op: Op<T> & { clock: number }): Item {
+		const target =
+			opType(op.data) === OpType.Deletion
+				? this.delTargets[op.clock]
+				: op.clock;
 		return this.targets[target];
 	}
 
-	#retreat(clock: Clock) {
-		this.#target(clock).state -= 1;
+	#retreat(op: Op<T> & { clock: number }) {
+		this.#target(op).state -= 1;
 	}
 
-	#advance(clock: Clock) {
-		this.#target(clock).state += 1;
+	#advance(op: Op<T> & { clock: number }) {
+		this.#target(op).state += 1;
 	}
 
 	#findPos(
@@ -77,47 +82,52 @@ export class Crdt<T, AccT extends Accumulator<T>> {
 		return { idx, endPos };
 	}
 
-	#apply(clock: Clock, snapshot?: Snapshot<T>) {
-		const pos = this.oplog.getPos(clock);
+	#apply(op: Op<T> & { clock: number }, snapshot?: Snapshot<T>) {
+		switch (opType(op.data)) {
+			case OpType.Deletion: {
+				const { idx, endPos } = this.#findPos(op.position, true);
+				const item = this.items[idx];
 
-		if (this.oplog.getDeleted(clock)) {
-			const { idx, endPos } = this.#findPos(pos, true);
-			const item = this.items[idx];
-
-			if (!item.deleted) {
-				item.deleted = true;
-				snapshot?.delete(endPos, 1);
-			}
-			item.state = State.Deleted;
-
-			this.delTargets[clock] = item.clock;
-		} else {
-			const content = this.oplog.getItem(clock);
-			const { idx, endPos } = this.#findPos(pos, false);
-			const originLeft = idx ? this.items[idx - 1].clock : -1;
-
-			let originRight = -1;
-			for (let i = idx; i < this.items.length; i++) {
-				const item2 = this.items[i];
-				if (item2.state !== State.NotInserted) {
-					originRight = item2.clock;
-					break;
+				if (!item.deleted) {
+					item.deleted = true;
+					snapshot?.delete(endPos, 1);
 				}
-			}
+				item.state = State.Deleted;
 
-			const item: Item = {
-				clock,
-				originLeft,
-				originRight,
-				deleted: false,
-				state: State.Inserted,
-			};
-			this.targets[clock] = item;
-			this.#integrate(item, idx, endPos, content, snapshot);
+				this.delTargets[op.clock] = item.clock;
+				break;
+			}
+			case OpType.Insertion: {
+				const { idx, endPos } = this.#findPos(op.position, false);
+				const originLeft = idx ? this.items[idx - 1].clock : -1;
+
+				let originRight = -1;
+				for (let i = idx; i < this.items.length; i++) {
+					const item2 = this.items[i];
+					if (item2.state !== State.NotInserted) {
+						originRight = item2.clock;
+						break;
+					}
+				}
+
+				const item: Item = {
+					clock: op.clock,
+					site: op.site,
+					originLeft,
+					originRight,
+					deleted: false,
+					state: State.Inserted,
+				};
+				this.targets[op.clock] = item;
+				this.#integrate(item, idx, endPos, op.data as T, snapshot);
+				break;
+			}
+			default:
+				assert(false, `invalid op ${op.data}`);
 		}
 	}
 
-	#indexOfLocalClock(clock: Clock) {
+	#indexOfLocalClock(clock: Clock): number {
 		return this.items.findIndex((item) => item.clock === clock);
 	}
 
@@ -150,12 +160,9 @@ export class Crdt<T, AccT extends Accumulator<T>> {
 					? this.items.length
 					: this.#indexOfLocalClock(other.originRight);
 
-			const newSite = this.oplog.getSite(newItem.clock);
-			const otherSite = this.oplog.getSite(other.clock);
-
 			if (
 				oleft < left ||
-				(oleft === left && oright === right && newSite < otherSite)
+				(oleft === left && oright === right && newItem.site < other.site)
 			) {
 				break;
 			}
@@ -207,20 +214,20 @@ export class Crdt<T, AccT extends Accumulator<T>> {
 			else if (flag === "b") bOnly.push(clock);
 			else numShared--;
 
-			for (const p of this.oplog.getParents(clock)) enq(p, flag);
+			for (const p of this.oplog.parentsAt(clock)) enq(p, flag);
 		}
 
 		return { aOnly, bOnly };
 	}
 
 	applyOp(clock: Clock, snapshot?: Snapshot<T>) {
-		const parents = this.oplog.getParents(clock);
-		const { aOnly, bOnly } = this.#diff(this.currentVersion, parents);
+		const op = this.oplog.itemAt(clock);
+		const { aOnly, bOnly } = this.#diff(this.currentVersion, op.parents);
 
-		for (const i of aOnly) this.#retreat(i);
-		for (const i of bOnly) this.#advance(i);
+		for (const i of aOnly) this.#retreat(this.oplog.itemAt(i));
+		for (const i of bOnly) this.#advance(this.oplog.itemAt(i));
 
-		this.#apply(clock, snapshot);
+		this.#apply(this.oplog.itemAt(clock), snapshot);
 		this.currentVersion = [clock];
 	}
 }

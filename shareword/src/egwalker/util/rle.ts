@@ -30,10 +30,10 @@ export class Rle<T, C extends Container<T> = Array<T>> {
 	 *
 	 * @returns If appended to previous item.
 	 */
-	push(item: T, len = 1): void {
+	push(item: T, len = 1, forceNewRun = !this.length): void {
 		if (!len) return;
 
-		if (!this.length || !this.append(this, item, len)) {
+		if (forceNewRun || !this.append(this, item, len)) {
 			this.items.push(item);
 			this.starts.push(this.length);
 		}
