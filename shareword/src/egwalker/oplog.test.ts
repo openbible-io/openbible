@@ -1,5 +1,5 @@
 import { test, expect } from "bun:test";
-import { OpLog } from "./oplog";
+import { debugPrint, OpLog } from "./oplog";
 
 function stringOpLog() {
 	return new OpLog<string, string>(
@@ -10,7 +10,6 @@ function stringOpLog() {
 
 function expectHel(oplog: ReturnType<typeof stringOpLog>) {
 	expect(oplog.length).toBe(3);
-	expect(oplog.items.fields.items[0]).toBe("hel");
 	expect(oplog.getSite(2)).toEqual("a");
 	expect(oplog.getClock(2)).toEqual(2);
 	expect(oplog.getPos(2)).toBe(2);

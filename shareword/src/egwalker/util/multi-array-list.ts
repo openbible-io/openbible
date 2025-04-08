@@ -1,14 +1,18 @@
-// JS engines perform better with homogenous typed arrays.
-// This converts an Array of Structs to Struct of Arrays.
-// Name inspired by Zig.
+import { assertBounds } from "./assert";
 
-// biome-ignore lint/suspicious/noExplicitAny: Interface design.
+/**
+ * Converts an Array of Structs to a Struct of Arrays.
+ *
+ * This allows some JS engine optimizations for small integers and
+ * easier serialization/deserialization to TypedArrays.
+ */
 export class MultiArrayList<T extends { [key: string]: any }> {
+	/** In order passed to constructor. */
 	fields: { [k in keyof T]: T[k][] };
-	/** For fast length. */
+	/** For getting length */
 	#lastField: keyof T = "";
 
-	constructor(shape: T) {
+	constructor(private shape: T) {
 		// @ts-ignore Every key is about to be assigned.
 		this.fields = {};
 		for (const k of Object.keys(shape)) {
@@ -17,8 +21,12 @@ export class MultiArrayList<T extends { [key: string]: any }> {
 		}
 	}
 
-	at(idx: number): T | undefined {
-		if (idx < 0 || idx >= this.length) return;
+	get length(): number {
+		return this.fields[this.#lastField].length;
+	}
+
+	at(idx: number): T {
+		assertBounds(idx, this.length);
 
 		const res: Partial<T> = {};
 		for (const k of Object.keys(this.fields))
@@ -30,7 +38,11 @@ export class MultiArrayList<T extends { [key: string]: any }> {
 		for (const [k, v] of Object.entries(item)) this.fields[k].push(v);
 	}
 
-	get length(): number {
-		return this.fields[this.#lastField].length;
+	slice(start?: number, end?: number): MultiArrayList<T> {
+		const res = new MultiArrayList<T>(this.shape);
+		for (const f in res.fields) {
+			res.fields[f] = this.fields[f].slice(start, end);
+		}
+		return res;
 	}
 }

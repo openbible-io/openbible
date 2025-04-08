@@ -1,21 +1,19 @@
+import { assert, assertBounds } from "./assert";
 import { binarySearch } from "./bsearch";
-import { MultiArrayList } from "./multi-array-list";
 
 export type Range = { start: number; len: number };
 
 export interface Container<T> {
 	at(i: number): T | undefined;
 	push(item: T): void;
+	slice(start?: number, end?: number): this;
 	length: number;
 }
 
-/**
- * Run length encoded list.
- *
- * Allows negative lengths to store an extra bit.
- */
+/** Run length encoded list. */
 export class Rle<T, C extends Container<T> = Array<T>> {
-	ranges = new MultiArrayList<Range>({ start: 0, len: 0 });
+	starts: number[] = [];
+	length = 0;
 
 	/**
 	 * @param items The container type to use.
@@ -24,6 +22,7 @@ export class Rle<T, C extends Container<T> = Array<T>> {
 	constructor(
 		public items: C,
 		private append: (ctx: Rle<T, C>, item: T, len: number) => boolean,
+		private sliceFn: (item: T, start?: number, end?: number) => T,
 	) {}
 
 	/**
@@ -34,23 +33,23 @@ export class Rle<T, C extends Container<T> = Array<T>> {
 	push(item: T, len = 1): void {
 		if (!len) return;
 
-		if (this.length && this.append(this, item, len)) {
-			const lens = this.ranges.fields.len;
-			lens[lens.length - 1] += len;
-		} else {
+		if (!this.length || !this.append(this, item, len)) {
 			this.items.push(item);
-			this.ranges.push({ start: this.length, len });
+			this.starts.push(this.length);
 		}
+		this.length += len;
 	}
 
 	len(idx: number): number {
-		return Math.abs(this.ranges.fields.len[idx]);
+		assertBounds(idx, this.starts.length);
+		const nextIdx = this.starts[idx + 1] ?? this.length;
+		return nextIdx - this.starts[idx];
 	}
 
-	#rangeIndex(idx: number): number {
-		return binarySearch(
-			this.ranges.fields.start,
-			idx,
+	offsetOf(i: number): { idx: number; offset: number } {
+		const idx = binarySearch(
+			this.starts,
+			i,
 			(start, needle, i) => {
 				if (start > needle) return 1;
 				const len = this.len(i);
@@ -59,26 +58,15 @@ export class Rle<T, C extends Container<T> = Array<T>> {
 			},
 			0,
 		);
+		assertBounds(idx, this.starts.length);
+
+		return { idx, offset: i - this.starts[idx] };
 	}
 
-	offsetOf(i: number): { idx: number; offset: number } {
-		const idx = this.#rangeIndex(i);
-		if (idx >= this.ranges.length) throw new Error(`${i} out of bounds`);
-		const start = this.ranges.fields.start[idx];
-		const offset = i - start;
-		return { idx, offset };
-	}
-
-	at(i: number): T | undefined {
-		return this.items.at(this.#rangeIndex(i));
-	}
-
-	get length() {
-		if (!this.ranges.length) return 0;
-
-		return (
-			this.ranges.fields.start[this.ranges.length - 1] +
-			this.len(this.ranges.length - 1)
-		);
+	at(i: number): T {
+		const { idx, offset } = this.offsetOf(i);
+		const res = this.items.at(idx);
+		assert(res !== undefined, `undefined was inserted into RLE at ${idx}`);
+		return this.sliceFn(res, offset, offset + 1);
 	}
 }

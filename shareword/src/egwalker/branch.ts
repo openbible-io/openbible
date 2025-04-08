@@ -1,4 +1,4 @@
-import { advanceFrontier, type OpLog } from "./oplog";
+import { advanceFrontier, debugPrint, type OpLog } from "./oplog";
 import { Crdt, State, type Item } from "./crdt";
 import type { Accumulator, Clock } from "./oplog-rle";
 import type { Snapshot } from "./snapshot";
@@ -94,6 +94,8 @@ export class Branch<T, AccT extends Accumulator<T>> {
 			this.frontier,
 			mergeFrontier,
 		);
+		//debugPrint(this.oplog);
+		//console.log("checkout", this.frontier, mergeFrontier, head, shared, bOnly);
 
 		const doc = new Crdt(this.oplog);
 		doc.currentVersion = head;

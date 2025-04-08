@@ -3,7 +3,6 @@ import { Rle } from "./rle";
 import { MultiArrayList } from "./multi-array-list";
 
 type Foo = { foo: string };
-// biome-ignore lint/suspicious/noExplicitAny: <explanation>
 function testFoo(rle: Rle<Foo, any>) {
 	rle.push({ foo: "a" });
 	rle.push({ foo: "b" });
@@ -11,33 +10,34 @@ function testFoo(rle: Rle<Foo, any>) {
 	rle.push({ foo: "1" });
 	rle.push({ foo: "2" });
 
-	expect(rle.ranges.length).toBe(2);
-	expect(rle.ranges.at(0)).toEqual({ start: 0, len: 3 });
-	expect(rle.ranges.at(1)).toEqual({ start: 3, len: 2 });
+	expect(rle.items.length).toBe(2);
 
 	expect(rle.offsetOf(1)).toEqual({ idx: 0, offset: 1 });
 	expect(rle.offsetOf(4)).toEqual({ idx: 1, offset: 1 });
-	expect(rle.at(0)).toEqual({ foo: "abc" });
-	expect(rle.at(1)).toEqual({ foo: "abc" });
-	expect(rle.at(2)).toEqual({ foo: "abc" });
-	expect(rle.at(3)).toEqual({ foo: "12" });
-	expect(rle.at(4)).toEqual({ foo: "12" });
-	expect(rle.at(5)).toBeUndefined();
+	expect(rle.at(0)).toEqual({ foo: "a" });
+	expect(rle.at(1)).toEqual({ foo: "b" });
+	expect(rle.at(2)).toEqual({ foo: "c" });
+	expect(rle.at(3)).toEqual({ foo: "1" });
+	expect(rle.at(4)).toEqual({ foo: "2" });
+	expect(() => rle.at(5)).toThrow();
 }
 
-test("rle array", () => {
+test("simple array", () => {
 	testFoo(
-		new Rle<Foo, Foo[]>([], (ctx, cur) => {
-			if (cur.foo === "1")
-				return false;
+		new Rle<Foo, Foo[]>(
+			[],
+			(ctx, cur) => {
+				if (cur.foo === "1") return false;
 
-			ctx.items[ctx.items.length - 1].foo += cur.foo;
-			return true;
-		}),
+				ctx.items[ctx.items.length - 1].foo += cur.foo;
+				return true;
+			},
+			(foo, start, end) => ({ foo: foo.foo.slice(start, end) }),
+		),
 	);
 });
 
-test("rle multiarraylist", () => {
+test("multiarraylist", () => {
 	testFoo(
 		new Rle<Foo, MultiArrayList<Foo>>(
 			new MultiArrayList<Foo>({ foo: "abc" }),
@@ -47,6 +47,7 @@ test("rle multiarraylist", () => {
 				ctx.items.fields.foo[ctx.items.length - 1] += cur.foo;
 				return true;
 			},
+			(foo, start, end) => ({ foo: foo.foo.slice(start, end) }),
 		),
 	);
 });

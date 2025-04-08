@@ -1,3 +1,4 @@
+import { opLength, opSlice, type OpData } from "./op";
 import { RleOpLog } from "./oplog-rle";
 import type { Accumulator, Clock, Site } from "./oplog-rle";
 import { MultiArrayList, ListMap, binarySearch } from "./util";
@@ -6,13 +7,12 @@ import { MultiArrayList, ListMap, binarySearch } from "./util";
 type StateVector = Record<Site, number>;
 
 type PatchParents = Record<number, [site: number, clock: Clock][]>;
-export class Patch<AccT> {
+export class Patch<T, AccT extends Accumulator<T>> {
 	ops: MultiArrayList<{
 		site: number;
 		clock: Clock;
 		position: number;
-		items: AccT;
-		len: number;
+		data: OpData<T, AccT>;
 		parents: PatchParents;
 	}>;
 	sites: Site[] = [];
@@ -22,8 +22,7 @@ export class Patch<AccT> {
 			site: 0,
 			clock: 0,
 			position: 0,
-			items: emptyItem,
-			len: 0,
+			data: emptyItem,
 			parents: {},
 		});
 	}
@@ -105,8 +104,8 @@ export class OpLog<T, AccT extends Accumulator<T> = T[]> extends RleOpLog<
 		return res;
 	}
 
-	diff(to: StateVector): Patch<AccT> {
-		const res = new Patch<AccT>(this.emptyItem);
+	diff(to: StateVector): Patch<T, AccT> {
+		const res = new Patch<T, AccT>(this.emptyItem);
 		const sites = new ListMap<Site>();
 
 		// 1. State vector diff
@@ -139,7 +138,7 @@ export class OpLog<T, AccT extends Accumulator<T> = T[]> extends RleOpLog<
 			if (!(site in missing) || clock + len <= missing[site]) continue;
 
 			const offset = clock < missing[site] ? missing[site] - clock : 0;
-			const start = this.ranges.fields.start[i];
+			const start = this.starts[i];
 			const deleted = this.getDeletedRaw(i);
 			const parents: PatchParents = {};
 			for (let j = offset; j < len; j++) {
@@ -163,8 +162,7 @@ export class OpLog<T, AccT extends Accumulator<T> = T[]> extends RleOpLog<
 				site: sites.getOrPut(site),
 				clock: this.getClockRaw(i, offset),
 				position: this.getPosRaw(i, offset, deleted),
-				items: this.getItemRaw(i).slice(offset),
-				len: (len - offset) * (deleted ? -1 : 1),
+				data: opSlice(this.getItemRaw(i), offset),
 				parents,
 			});
 		}
@@ -173,26 +171,27 @@ export class OpLog<T, AccT extends Accumulator<T> = T[]> extends RleOpLog<
 		return res;
 	}
 
-	apply(patch: Patch<AccT>): void {
+	apply(patch: Patch<T, AccT>): void {
 		const toClock = (site: Site, clock: Clock): Clock => {
 			const idx = this.#idToIndex(site, clock);
-			return this.ranges.fields.start[idx] - this.getClockRaw(idx, -clock);
+			return this.starts[idx] - this.getClockRaw(idx, -clock);
 		};
 
 		const { fields } = patch.ops;
 		for (let i = 0; i < patch.ops.length; i++) {
 			const site = patch.sites[fields.site[i]];
 			const clock = fields.clock[i];
-			const len = Math.abs(fields.len[i]);
+			const data = fields.data[i];
+			const len = opLength(data);
 
 			this.push(
 				{
 					site: this.sites.getOrPut(site),
 					clock,
 					position: fields.position[i],
-					items: fields.items[i],
+					data
 				},
-				fields.len[i],
+				len
 			);
 			this.#advanceClock(site);
 			for (const [j, parents] of Object.entries(fields.parents[i])) {
@@ -264,29 +263,26 @@ export function debugPrint<T, AccT extends Accumulator<T>>(
 	} else {
 		type Op = {
 			start: number;
-			len: number;
 			position: number;
-			item: AccT;
+			data: OpData<T, AccT>;
 			site: Site;
 			clock: Clock;
 			parents: Record<number, number[]>;
 		};
 		const ops: Op[] = [];
 		const { fields } = oplog.items;
-		const rangeFields = oplog.ranges.fields;
 		for (let i = 0; i < oplog.items.length; i++) {
-			const start = rangeFields.start[i];
+			const start = oplog.starts[i];
 			const parents: Record<number, number[]> = {};
-			const len = rangeFields.len[i];
+			const len = oplog.len(i);
 			for (let j = 0; j < len; j++) {
 				const opParents = oplog.parents[start + j];
 				if (opParents) parents[start + j] = opParents;
 			}
 			ops.push({
 				start,
-				len,
 				position: fields.position[i],
-				item: fields.items[i],
+				data: fields.data[i],
 				site: oplog.sites.keys[fields.site[i]],
 				clock: fields.clock[i],
 				parents,

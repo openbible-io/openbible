@@ -1,5 +1,13 @@
-- btree crdtdoc w/ rle items
-	- parentless runs skip crdt
-- generate + apply patches from state vectors
-	- binary encoding
+- add seek op, remove pos
+	- remove emptyItem
+- [x] replace mergeFn with concat
+- remove Rle range len
 
+- crdt only uses AccT
+- minimize oplog repeated site,siteClock
+- btree crdt items
+- [x] generate + apply patches from state vectors
+- patch binary encoding
+
+- add LWW type
+- composable types

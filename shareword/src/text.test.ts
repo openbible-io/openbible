@@ -2,6 +2,7 @@ import { test, expect } from "bun:test";
 import { Text } from "./text";
 import { debugPrint } from "./egwalker/oplog";
 import { mulberry32 } from "../bench/harness";
+import type { Accumulator, OpData } from "./egwalker/op";
 
 function fuzzer(seed: number) {
 	const random = mulberry32(seed);
@@ -61,37 +62,27 @@ function fuzzer(seed: number) {
 		try {
 			expect(a.toString()).toBe(b.toString());
 		} catch (e) {
-			console.log(
-				"bad",
-				seed,
-				i,
-				a.toString(),
-				b.toString(),
-			);
+			console.log("bad", seed, i, a.toString(), b.toString());
 			//throw e;
 		}
 	}
 }
 
-type Row = [
+type Row<T, AccT extends Accumulator<T>> = [
+	id: string,
 	pos: number,
-	deleted: boolean,
-	item: string,
-	site: string,
-	clock: number,
+	item: OpData<T, AccT>,
 	parents: number[],
 ];
-function toOplogRows(text: Text): Row[] {
-	const res: Row[] = [];
+function toOplogRows(text: Text): Row<string, string>[] {
+	const res: Row<string, string>[] = [];
 
 	const oplog = text.oplog;
 	for (let i = 0; i < oplog.length; i++) {
 		res.push([
+			`${oplog.getSite(i)}${oplog.getClock(i)}`,
 			oplog.getPos(i),
-			oplog.getDeleted(i),
-			oplog.getItem(i) ?? "",
-			oplog.getSite(i),
-			oplog.getClock(i),
+			oplog.getData(i),
 			oplog.getParents(i),
 		]);
 	}
@@ -117,30 +108,30 @@ test("correctness", () => {
 		aInsert.length + bInsert.length - 1,
 	];
 	expect(toOplogRows(a)).toEqual([
-		[0, false, "h", "a", 0, []],
-		[1, false, "e", "a", 1, [0]],
-		[2, false, "l", "a", 2, [1]],
-		[3, false, "l", "a", 3, [2]],
-		[4, false, "o", "a", 4, [3]],
-		[0, false, "w", "b", 0, []],
-		[1, false, "o", "b", 1, [5]],
-		[2, false, "r", "b", 2, [6]],
-		[3, false, "l", "b", 3, [7]],
-		[4, false, "d", "b", 4, [8]],
+		["a0", 0, "h", []],
+		["a1", 1, "e", [0]],
+		["a2", 2, "l", [1]],
+		["a3", 3, "l", [2]],
+		["a4", 4, "o", [3]],
+		["b0", 0, "w", []],
+		["b1", 1, "o", [5]],
+		["b2", 2, "r", [6]],
+		["b3", 3, "l", [7]],
+		["b4", 4, "d", [8]],
 	]);
 	expect(a.oplog.frontier).toEqual(expectedFrontier);
 
 	expect(toOplogRows(b)).toEqual([
-		[0, false, "w", "b", 0, []],
-		[1, false, "o", "b", 1, [0]],
-		[2, false, "r", "b", 2, [1]],
-		[3, false, "l", "b", 3, [2]],
-		[4, false, "d", "b", 4, [3]],
-		[0, false, "h", "a", 0, []],
-		[1, false, "e", "a", 1, [5]],
-		[2, false, "l", "a", 2, [6]],
-		[3, false, "l", "a", 3, [7]],
-		[4, false, "o", "a", 4, [8]],
+		["b0", 0, "w", []],
+		["b1", 1, "o", [0]],
+		["b2", 2, "r", [1]],
+		["b3", 3, "l", [2]],
+		["b4", 4, "d", [3]],
+		["a0", 0, "h", []],
+		["a1", 1, "e", [5]],
+		["a2", 2, "l", [6]],
+		["a3", 3, "l", [7]],
+		["a4", 4, "o", [8]],
 	]);
 	expect(b.oplog.frontier).toEqual(expectedFrontier);
 
@@ -152,19 +143,19 @@ test("correctness", () => {
 	b.delete(0, "hello".length);
 	b.insert(0, "share");
 
-	expect(toOplogRows(a).slice(10)).toEqual([[8, true, "", "a", 5, [4, 9]]]);
+	expect(toOplogRows(a).slice(10)).toEqual([["a5", 8, -1, [4, 9]]]);
 	expect(a.oplog.frontier).toEqual([10]);
 	expect(toOplogRows(b).slice(10)).toEqual([
-		[0, true, "", "b", 5, [4, 9]],
-		[0, true, "", "b", 6, [10]],
-		[0, true, "", "b", 7, [11]],
-		[0, true, "", "b", 8, [12]],
-		[0, true, "", "b", 9, [13]],
-		[0, false, "s", "b", 10, [14]],
-		[1, false, "h", "b", 11, [15]],
-		[2, false, "a", "b", 12, [16]],
-		[3, false, "r", "b", 13, [17]],
-		[4, false, "e", "b", 14, [18]],
+		["b5", 0, -1, [4, 9]],
+		["b6", 0, -1, [10]],
+		["b7", 0, -1, [11]],
+		["b8", 0, -1, [12]],
+		["b9", 0, -1, [13]],
+		["b10", 0, "s", [14]],
+		["b11", 1, "h", [15]],
+		["b12", 2, "a", [16]],
+		["b13", 3, "r", [17]],
+		["b14", 4, "e", [18]],
 	]);
 	expect(b.oplog.frontier).toEqual([19]);
 
@@ -172,31 +163,31 @@ test("correctness", () => {
 	b.merge(a);
 
 	expect(toOplogRows(a).slice(10)).toEqual([
-		[8, true, "", "a", 5, [4, 9]],
-		[0, true, "", "b", 5, [4, 9]],
-		[0, true, "", "b", 6, [11]],
-		[0, true, "", "b", 7, [12]],
-		[0, true, "", "b", 8, [13]],
-		[0, true, "", "b", 9, [14]],
-		[0, false, "s", "b", 10, [15]],
-		[1, false, "h", "b", 11, [16]],
-		[2, false, "a", "b", 12, [17]],
-		[3, false, "r", "b", 13, [18]],
-		[4, false, "e", "b", 14, [19]],
+		["a5", 8, -1, [4, 9]],
+		["b5", 0, -1, [4, 9]],
+		["b6", 0, -1, [11]],
+		["b7", 0, -1, [12]],
+		["b8", 0, -1, [13]],
+		["b9", 0, -1, [14]],
+		["b10", 0, "s", [15]],
+		["b11", 1, "h", [16]],
+		["b12", 2, "a", [17]],
+		["b13", 3, "r", [18]],
+		["b14", 4, "e", [19]],
 	]);
 	expect(a.oplog.frontier).toEqual([10, 20]);
 	expect(toOplogRows(b).slice(10)).toEqual([
-		[0, true, "", "b", 5, [4, 9]],
-		[0, true, "", "b", 6, [10]],
-		[0, true, "", "b", 7, [11]],
-		[0, true, "", "b", 8, [12]],
-		[0, true, "", "b", 9, [13]],
-		[0, false, "s", "b", 10, [14]],
-		[1, false, "h", "b", 11, [15]],
-		[2, false, "a", "b", 12, [16]],
-		[3, false, "r", "b", 13, [17]],
-		[4, false, "e", "b", 14, [18]],
-		[8, true, "", "a", 5, [4, 9]],
+		["b5", 0, -1, [4, 9]],
+		["b6", 0, -1, [10]],
+		["b7", 0, -1, [11]],
+		["b8", 0, -1, [12]],
+		["b9", 0, -1, [13]],
+		["b10", 0, "s", [14]],
+		["b11", 1, "h", [15]],
+		["b12", 2, "a", [16]],
+		["b13", 3, "r", [17]],
+		["b14", 4, "e", [18]],
+		["a5", 8, -1, [4, 9]],
 	]);
 	expect(b.oplog.frontier).toEqual([19, 20]);
 
@@ -214,8 +205,8 @@ test("partial op merge", () => {
 	b.merge(a); // noop
 
 	expect(toOplogRows(a)).toEqual([
-		[0, false, "v", "b", 0, []],
-		[1, false, "c", "b", 1, [0]],
+		["b0", 0, "v", []],
+		["b1", 1, "c", [0]],
 	]);
 	expect(toOplogRows(b)).toEqual(toOplogRows(a));
 	expect(a.oplog.frontier).toEqual([1]);
@@ -226,15 +217,15 @@ test("partial op merge", () => {
 	b.delete(1, 1);
 
 	expect(toOplogRows(a)).toEqual([
-		[0, false, "v", "b", 0, []],
-		[1, false, "c", "b", 1, [0]],
-		[2, false, "e", "a", 0, [1]],
+		["b0", 0, "v", []],
+		["b1", 1, "c", [0]],
+		["a0", 2, "e", [1]],
 	]);
 	expect(toOplogRows(b)).toEqual([
-		[0, false, "v", "b", 0, []],
-		[1, false, "c", "b", 1, [0]],
-		[2, false, "z", "b", 2, [1]],
-		[1, true, "", "b", 3, [2]],
+		["b0", 0, "v", []],
+		["b1", 1, "c", [0]],
+		["b2", 2, "z", [1]],
+		["b3", 1, -1, [2]],
 	]);
 	expect(a.oplog.frontier).toEqual([2]);
 	expect(b.oplog.frontier).toEqual([3]);
@@ -242,18 +233,18 @@ test("partial op merge", () => {
 	a.merge(b);
 
 	expect(toOplogRows(a)).toEqual([
-		[0, false, "v", "b", 0, []],
-		[1, false, "c", "b", 1, [0]],
-		[2, false, "e", "a", 0, [1]],
-		[2, false, "z", "b", 2, [1]], // tricky
-		[1, true, "", "b", 3, [3]],
+		["b0", 0, "v", []],
+		["b1", 1, "c", [0]],
+		["a0", 2, "e", [1]],
+		["b2", 2, "z", [1]], // tricky
+		["b3", 1, -1, [3]],
 	]);
 	expect(toOplogRows(b)).toEqual([
-		[0, false, "v", "b", 0, []],
-		[1, false, "c", "b", 1, [0]],
-		[2, false, "z", "b", 2, [1]],
-		[1, true, "", "b", 3, [2]],
-		[2, false, "e", "a", 0, [1]],
+		["b0", 0, "v", []],
+		["b1", 1, "c", [0]],
+		["b2", 2, "z", [1]],
+		["b3", 1, -1, [2]],
+		["a0", 2, "e", [1]],
 	]);
 	expect(a.oplog.frontier).toEqual([2, 4]);
 	expect(b.oplog.frontier).toEqual([3, 4]);
@@ -299,36 +290,36 @@ test("frontiers", () => {
 	expect(a.oplog.frontier).toEqual([12, 13]);
 	expect(c.oplog.frontier).toEqual([3, 13]);
 	expect(toOplogRows(a)).toEqual([
-		[0, false, "c", "b", 0, []],
-		[1, false, "r", "b", 1, [0]],
-		[0, false, "o", "b", 2, [1]],
-		[3, false, "m", "a", 0, [2]],
-		[2, true, "", "a", 1, [3]],
-		[3, false, "w", "a", 2, [4]],
-		[3, true, "", "a", 3, [5]],
-		[0, false, "d", "a", 4, [6]],
-		[1, false, "f", "a", 5, [7]],
-		[0, true, "", "a", 6, [8]],
-		[0, false, "g", "b", 3, [2]],
-		[1, false, "t", "b", 4, [10]],
-		[2, true, "", "a", 7, [9, 11]],
-		[0, false, "b", "c", 0, [2]],
+		["b0" ,0, "c",  []],
+		["b1" ,1, "r",  [0]],
+		["b2" ,0, "o",  [1]],
+		["a0" ,3, "m",  [2]],
+		["a1" ,2, -1,   [3]],
+		["a2" ,3, "w",  [4]],
+		["a3" ,3, -1,   [5]],
+		["a4" ,0, "d",  [6]],
+		["a5" ,1, "f",  [7]],
+		["a6" ,0, -1,   [8]],
+		["b3" ,0, "g",  [2]],
+		["b4" ,1, "t",  [10]],
+		["a7" ,2, -1,   [9, 11]],
+		["c0" ,0, "b",  [2]],
 	]);
 	expect(toOplogRows(c)).toEqual([
-		[0, false, "c", "b", 0, []],
-		[1, false, "r", "b", 1, [0]],
-		[0, false, "o", "b", 2, [1]],
-		[0, false, "b", "c", 0, [2]],
-		[3, false, "m", "a", 0, [2]],
-		[2, true, "", "a", 1, [4]],
-		[3, false, "w", "a", 2, [5]],
-		[3, true, "", "a", 3, [6]],
-		[0, false, "d", "a", 4, [7]],
-		[1, false, "f", "a", 5, [8]],
-		[0, true, "", "a", 6, [9]],
-		[0, false, "g", "b", 3, [2]],
-		[1, false, "t", "b", 4, [11]],
-		[2, true, "", "a", 7, [10, 12]],
+		["b0" ,0, "c",  []],
+		["b1" ,1, "r",  [0]],
+		["b2" ,0, "o",  [1]],
+		["c0" ,0, "b",  [2]],
+		["a0" ,3, "m",  [2]],
+		["a1" ,2, -1,   [4]],
+		["a2" ,3, "w",  [5]],
+		["a3" ,3, -1,   [6]],
+		["a4" ,0, "d",  [7]],
+		["a5" ,1, "f",  [8]],
+		["a6" ,0, -1,   [9]],
+		["b3" ,0, "g",  [2]],
+		["b4" ,1, "t",  [11]],
+		["a7" ,2, -1,   [10, 12]],
 	]);
 
 	a.delete(2, 2);
@@ -337,40 +328,40 @@ test("frontiers", () => {
 	expect(a.oplog.frontier).toEqual([15]);
 	expect(c.oplog.frontier).toEqual([15]);
 	expect(toOplogRows(a)).toEqual([
-		[0, false, "c", "b", 0, []],
-		[1, false, "r", "b", 1, [0]],
-		[0, false, "o", "b", 2, [1]],
-		[3, false, "m", "a", 0, [2]],
-		[2, true, "", "a", 1, [3]],
-		[3, false, "w", "a", 2, [4]],
-		[3, true, "", "a", 3, [5]],
-		[0, false, "d", "a", 4, [6]],
-		[1, false, "f", "a", 5, [7]],
-		[0, true, "", "a", 6, [8]],
-		[0, false, "g", "b", 3, [2]],
-		[1, false, "t", "b", 4, [10]],
-		[2, true, "", "a", 7, [9, 11]],
-		[0, false, "b", "c", 0, [2]],
-		[2, true, "", "a", 8, [12, 13]],
-		[2, true, "", "a", 9, [14]],
+		["b0", 0, "c", []],
+		["b1", 1, "r", [0]],
+		["b2", 0, "o", [1]],
+		["a0", 3, "m", [2]],
+		["a1", 2, -1,  [3]],
+		["a2", 3, "w", [4]],
+		["a3", 3, -1,  [5]],
+		["a4", 0, "d", [6]],
+		["a5", 1, "f", [7]],
+		["a6", 0, -1,  [8]],
+		["b3", 0, "g", [2]],
+		["b4", 1, "t", [10]],
+		["a7", 2, -1,  [9, 11]],
+		["c0", 0, "b", [2]],
+		["a8", 2, -1,  [12, 13]],
+		["a9", 2, -1,  [14]],
 	]);
 	expect(toOplogRows(c)).toEqual([
-		[0, false, "c", "b", 0, []],
-		[1, false, "r", "b", 1, [0]],
-		[0, false, "o", "b", 2, [1]],
-		[0, false, "b", "c", 0, [2]],
-		[3, false, "m", "a", 0, [2]],
-		[2, true, "", "a", 1, [4]],
-		[3, false, "w", "a", 2, [5]],
-		[3, true, "", "a", 3, [6]],
-		[0, false, "d", "a", 4, [7]],
-		[1, false, "f", "a", 5, [8]],
-		[0, true, "", "a", 6, [9]],
-		[0, false, "g", "b", 3, [2]],
-		[1, false, "t", "b", 4, [11]],
-		[2, true, "", "a", 7, [10, 12]],
-		[2, true, "", "a", 8, [3, 13]],
-		[2, true, "", "a", 9, [14]],
+		["b0", 0, "c", []],
+		["b1", 1, "r", [0]],
+		["b2", 0, "o", [1]],
+		["c0", 0, "b", [2]],
+		["a0", 3, "m", [2]],
+		["a1", 2, -1,  [4]],
+		["a2", 3, "w", [5]],
+		["a3", 3, -1,  [6]],
+		["a4", 0, "d", [7]],
+		["a5", 1, "f", [8]],
+		["a6", 0, -1,  [9]],
+		["b3", 0, "g", [2]],
+		["b4", 1, "t", [11]],
+		["a7", 2, -1,  [10, 12]],
+		["a8", 2, -1,  [3, 13]],
+		["a9", 2, -1,  [14]],
 	]);
 
 	expect(a.toString()).toEqual(c.toString());
