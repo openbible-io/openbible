@@ -94,7 +94,7 @@ export class RleOpLog<T, AccT extends Accumulator<T>> extends Rle<
 		);
 	}
 
-	protected getSiteRaw(idx: number): Site {
+	getSiteRaw(idx: number): Site {
 		const site = this.items.fields.site[idx];
 		return this.sites.keys[site];
 	}
@@ -104,7 +104,7 @@ export class RleOpLog<T, AccT extends Accumulator<T>> extends Rle<
 		return this.getSiteRaw(idx);
 	}
 
-	protected getClockRaw(idx: number, offset: number): Clock {
+	getClockRaw(idx: number, offset: number): Clock {
 		let res = this.items.fields.clock[idx];
 		res += offset;
 		return res;
@@ -115,7 +115,7 @@ export class RleOpLog<T, AccT extends Accumulator<T>> extends Rle<
 		return this.getClockRaw(idx, offset);
 	}
 
-	protected getPosRaw(idx: number, offset: number, deleted: boolean): number {
+	getPosRaw(idx: number, offset: number, deleted: boolean): number {
 		const pos = this.items.fields.position[idx];
 		if (deleted) return pos;
 		return pos + offset;
@@ -126,7 +126,7 @@ export class RleOpLog<T, AccT extends Accumulator<T>> extends Rle<
 		return this.getPosRaw(idx, offset, this.getDeleted(c));
 	}
 
-	protected getDeletedRaw(idx: number): boolean {
+	getDeletedRaw(idx: number): boolean {
 		return opType(this.getItemRaw(idx)) === OpType.Deletion;
 	}
 
@@ -135,7 +135,7 @@ export class RleOpLog<T, AccT extends Accumulator<T>> extends Rle<
 		return this.getDeletedRaw(idx);
 	}
 
-	protected getItemRaw(idx: number): OpData<T, AccT> {
+	getItemRaw(idx: number): OpData<T, AccT> {
 		return this.items.fields.data[idx];
 	}
 
@@ -164,7 +164,7 @@ export class RleOpLog<T, AccT extends Accumulator<T>> extends Rle<
 		return this.parents[c] ?? [c - 1];
 	}
 
-	protected insertParents(parents: Clock[]): void {
+	insertParents(parents: Clock[]): void {
 		const prevIdx = this.starts.length - 1;
 		// non-consecutive parents?
 		if (
