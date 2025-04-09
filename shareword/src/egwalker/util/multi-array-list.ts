@@ -35,7 +35,7 @@ export class MultiArrayList<T extends { [key: string]: any }> {
 	}
 
 	push(item: T) {
-		for (const [k, v] of Object.entries(item)) this.fields[k].push(v);
+		for (const k in this.fields) this.fields[k].push(item[k]);
 	}
 
 	slice(start?: number, end?: number): MultiArrayList<T> {

@@ -69,35 +69,29 @@ export function opLength<T, AccT extends Accumulator<T>>(
 	}
 }
 
-export function opSlice<T, AccT extends Accumulator<T>>(
-	data: OpData<T, AccT>,
-	start?: number,
-	end?: number,
-): OpData<T, AccT> {
-	switch (opType(data)) {
-		case OpType.Insertion:
-			return (data as AccT).slice(start, end);
-		case OpType.Deletion:
-			return (data as number) + (start ?? 0);
-		default:
-			return data;
-	}
+export interface OpSliceable<T, AccT extends Accumulator<T>> extends OpId {
+	position: number;
+	data: OpData<T, AccT>;
 }
 
-export function opMerge<T, AccT extends Accumulator<T>>(
-	mergeFn: (acc: AccT, cur: AccT) => AccT,
-	lhs: OpData<T, AccT>,
-	rhs: OpData<T, AccT>,
-): OpData<T, AccT> | undefined {
-	const ty = opType(lhs);
-	if (ty !== opType(rhs)) return;
-
-	switch (ty) {
+export function opSlice<T, AccT extends Accumulator<T>>(
+	op: OpSliceable<T, AccT>,
+	start?: number,
+	end?: number,
+): OpSliceable<T, AccT> {
+	const res = {...op};
+	start ??= 0;
+	res.siteClock += start;
+	switch (opType(op.data)) {
 		case OpType.Insertion:
-			return mergeFn(lhs as AccT, rhs as AccT);
+			res.data = (res.data as AccT).slice(start, end);
+			res.position += start;
+			break
 		case OpType.Deletion:
-			return (lhs as number) + (rhs as number);
+			(res.data as number) += start;
+			break;
 		default:
-			return lhs as number; // overwrite previous seek
+			return op;
 	}
+	return res;
 }

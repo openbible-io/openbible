@@ -1,6 +1,6 @@
-import { opSlice, opType, OpType } from "./op";
-import type { Accumulator, OpId, OpRun, Site } from "./op";
-import type { OpLog } from "./oplog";
+import { opSlice } from "./op";
+import type { Accumulator, Clock, OpId, OpRun, Site } from "./op";
+import { debugPrint, type OpLog } from "./oplog";
 import { MultiArrayList } from "./util";
 
 /** Max stored `clock` for each site. */
@@ -32,14 +32,7 @@ export class Patch<T, AccT extends Accumulator<T>> {
 				return { site: op.site, siteClock: op.siteClock };
 			});
 
-			this.ops.push({
-				site: run.site,
-				siteClock: run.siteClock + offset,
-				position:
-					run.position + (opType(run.data) === OpType.Insertion ? offset : 0),
-				data: opSlice(run.data, offset),
-				parents,
-			});
+			this.ops.push({ ...opSlice(run, offset), parents });
 		}
 	}
 
@@ -47,7 +40,7 @@ export class Patch<T, AccT extends Accumulator<T>> {
 		for (let i = 0; i < this.ops.length; i++) {
 			const run = this.ops.at(i);
 			const parents = run.parents
-				.map((p) => oplog.idToClock(p.site, p.siteClock))
+				.map((p) => idToClock(oplog, p.site, p.siteClock))
 				.sort((a, b) => a - b);
 			// TODO: check if already has op
 
@@ -60,4 +53,25 @@ export class Patch<T, AccT extends Accumulator<T>> {
 			});
 		}
 	}
+}
+
+/** TODO: make fast. */
+function idToClock<T, AccT extends Accumulator<T>>(
+	oplog: OpLog<T, AccT>,
+	site: Site,
+	siteClock: Clock,
+): Clock {
+	for (let i = oplog.ops.items.length - 1; i >= 0; i--) {
+		const op = oplog.at(i);
+		const offset = siteClock - op.siteClock;
+		if (
+			op.site === site &&
+			offset >= 0 &&
+			op.siteClock + op.length > siteClock
+		) {
+			return oplog.ops.starts[i] + offset;
+		}
+	}
+	debugPrint(oplog);
+	throw new Error(`Id (${site},${siteClock}) does not exist`);
 }

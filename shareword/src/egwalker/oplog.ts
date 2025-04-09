@@ -42,8 +42,6 @@ export class OpLog<T, AccT extends Accumulator<T> = T[]> {
 				const { fields } = ctx.items;
 				const prevIdx = ctx.starts.length - 1;
 				const prevLen = ctx.len(prevIdx);
-				const prevDeleted = opType(fields.data[prevIdx]) === OpType.Deletion;
-				const curDeleted = opType(item.data) === OpType.Deletion;
 
 				const prevPos = fields.position[prevIdx];
 				const prevSite = fields.site[prevIdx];
@@ -53,34 +51,29 @@ export class OpLog<T, AccT extends Accumulator<T> = T[]> {
 				if (prevSite !== item.site || prevClock + prevLen !== item.siteClock)
 					return false;
 
-				// deletion?
-				if (prevDeleted && curDeleted && prevPos === item.position) {
-					(fields.data[prevIdx] as number) -= len;
-					return true;
-				}
-				// insertion?
-				if (
-					!prevDeleted &&
-					!curDeleted &&
-					prevPos + prevLen === item.position
-				) {
-					fields.data[prevIdx] = mergeFn(
-						fields.data[prevIdx] as AccT,
-						item.data as AccT,
-					);
-					return true;
-				}
+				const ty = opType(fields.data[prevIdx]);
+				if (ty !== opType(item.data)) return false;
 
+				switch (ty) {
+					case OpType.Insertion:
+						if (prevPos + prevLen === item.position) {
+							fields.data[prevIdx] = mergeFn(
+								fields.data[prevIdx] as AccT,
+								item.data as AccT,
+							);
+							return true;
+						}
+						break;
+					case OpType.Deletion:
+						if (prevPos === item.position) {
+							(fields.data[prevIdx] as number) -= len;
+							return true;
+						}
+						break;
+				}
 				return false;
 			},
-			(item, start, end) => ({
-				site: item.site,
-				siteClock: item.siteClock + (start ?? 0),
-				position:
-					item.position +
-					(opType(item.data) === OpType.Insertion ? (start ?? 0) : 0),
-				data: opSlice(item.data, start, end),
-			}),
+			opSlice,
 		);
 	}
 
@@ -171,23 +164,6 @@ export class OpLog<T, AccT extends Accumulator<T> = T[]> {
 			position,
 			parents: this.frontier,
 		});
-	}
-
-	/** For patch to remap ids. */
-	idToClock(site: Site, siteClock: Clock): Clock {
-		for (let i = this.ops.items.length - 1; i >= 0; i--) {
-			const op = this.at(i);
-			const offset = siteClock - op.siteClock;
-			if (
-				op.site === site &&
-				offset >= 0 &&
-				op.siteClock + op.length > siteClock
-			) {
-				return this.ops.starts[i] + offset;
-			}
-		}
-		debugPrint(this);
-		throw new Error(`Id (${site},${siteClock}) does not exist`);
 	}
 
 	merge(src: OpLog<T, AccT>) {
