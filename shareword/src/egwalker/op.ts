@@ -1,3 +1,5 @@
+import { assert } from "./util";
+
 /** Non-negative integer incremented after each operation. */
 export type Clock = number;
 
@@ -7,7 +9,6 @@ export type Site = string;
 /** Unique identifier for an op. */
 export type OpId = {
 	site: Site;
-	/** Local to originating site */
 	siteClock: Clock;
 };
 export function opIdSlice(opId: OpId, start?: number, end?: number): OpId {
@@ -17,18 +18,19 @@ export function opIdSlice(opId: OpId, start?: number, end?: number): OpId {
 	};
 }
 
+export type OpRef = number;
+export const maxRunLen = 256;
+export function refEncode(idx: number, offset = 0): OpRef {
+	return (idx << 8) + offset;
+}
+export function refDecode(ref: OpRef): [idx: number, offset: number] {
+	return [ref >> 8, ref & 0xff];
+}
+
 /** Supported text operations. */
 export enum OpType {
 	Insertion = 1, // string
 	Deletion = 2, // -number
-	Seek = 3, // number
-}
-
-/** A full operation and metadata to resolve it conflict-free. */
-export interface Op<T> extends OpId {
-	position: number; // TODO: remove
-	data: T | number;
-	parents: Clock[];
 }
 
 /** Accumulator for runs of Op<T>. May NOT == number. */
@@ -38,12 +40,10 @@ export interface Accumulator<T> extends ArrayLike<T> {
 	[Symbol.iterator](): Iterator<T>;
 }
 
-/** A run of Op<T>. */
 export interface OpRun<T, AccT extends Accumulator<T>> extends OpId {
-	position: number; // TODO: remove
+	position: number;
 	/** Insertion UTF-16 | deleteCount (negative) | seekPos (positive) */
 	data: AccT | number;
-	parents: Clock[];
 }
 
 // We could make various `Op` classes with nice functions, but it has a
@@ -52,7 +52,10 @@ export interface OpRun<T, AccT extends Accumulator<T>> extends OpId {
 export type OpData<T, AccT extends Accumulator<T>> = OpRun<T, AccT>["data"];
 
 export function opType(data: OpData<any, any>): OpType {
-	if (typeof data === "number") return data < 0 ? OpType.Deletion : OpType.Seek;
+	if (typeof data === "number") {
+		assert(data < 0, `non-positive op ${data}`);
+		return OpType.Deletion;
+	}
 	return OpType.Insertion;
 }
 

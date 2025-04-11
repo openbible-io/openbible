@@ -10,6 +10,7 @@
 - btree crdt items
 - [x] generate + apply patches from state vectors
 - patch binary encoding
+- why placeholder?!?!
 
 - add LWW type
 - composable types

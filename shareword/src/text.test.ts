@@ -3,6 +3,7 @@ import { Text } from "./text";
 import { debugPrint, debugRows2 } from "./egwalker/oplog";
 import { mulberry32 } from "../bench/harness";
 import { Patch } from "./egwalker/patch";
+import { refDecode, refEncode } from "./egwalker/op";
 
 function fuzzer(seed: number) {
 	const random = mulberry32(seed);
@@ -78,24 +79,20 @@ test("correctness", () => {
 	a.insert(0, aInsert);
 	b.insert(0, bInsert);
 
-	const expectedFrontier = [
-		aInsert.length - 1,
-		aInsert.length + bInsert.length - 1,
-	];
 	a.merge(b);
 	expect(debugRows2(a.oplog)).toEqual([
 		["a0", 0, "hello", []],
 		["b0", 0, "world", []],
 	]);
 	expect(a.oplog.stateVector).toEqual({ a: 5, b: 5 });
-	expect(a.oplog.frontier).toEqual(expectedFrontier);
+	expect(a.oplog.frontier.map(refDecode)).toEqual([[0,4],[1,4]]);
 
 	b.merge(a);
 	expect(debugRows2(b.oplog)).toEqual([
 		["b0", 0, "world", []],
 		["a0", 0, "hello", []],
 	]);
-	expect(b.oplog.frontier).toEqual(expectedFrontier);
+	expect(b.oplog.frontier.map(refDecode)).toEqual([[0,4],[1,4]]);
 
 	let expected = "helloworld";
 	expect(a.toString()).toBe(expected);
@@ -108,16 +105,16 @@ test("correctness", () => {
 	expect(debugRows2(a.oplog)).toEqual([
 		["a0", 0, "hello", []],
 		["b0", 0, "world", []],
-		["a5", 8, -1, [4, 9]],
+		["a5", 8, -1, [[0, 4], [1, 4]] ],
 	]);
-	expect(a.oplog.frontier).toEqual([10]);
+	expect(a.oplog.frontier.map(refDecode)).toEqual([[2,0]]);
 	expect(debugRows2(b.oplog)).toEqual([
 		["b0", 0, "world", []],
 		["a0", 0, "hello", []],
-		["b5", 0, -5, [4, 9]],
-		["b10", 0, "share", [14]],
+		["b5", 0, -5, [[0, 4], [1, 4]] ],
+		["b10", 0, "share", [[2, 4]]],
 	]);
-	expect(b.oplog.frontier).toEqual([19]);
+	expect(b.oplog.frontier.map(refDecode)).toEqual([[3,4]]);
 
 	expect(a.toString()).toBe("helloword");
 	expect(b.toString()).toBe("shareworld");
@@ -126,21 +123,21 @@ test("correctness", () => {
 	expect(debugRows2(a.oplog)).toEqual([
 		["a0", 0, "hello", []],
 		["b0", 0, "world", []],
-		["a5", 8, -1, [4, 9]],
-		["b5", 0, -5, [4, 9]],
-		["b10", 0, "share", [15]],
+		["a5", 8, -1, [[0, 4], [1, 4]] ],
+		["b5", 0, -5, [[0, 4], [1, 4]] ],
+		["b10", 0, "share", [[3, 4]]],
 	]);
-	expect(a.oplog.frontier).toEqual([10, 20]);
+	expect(a.oplog.frontier.map(refDecode)).toEqual([[2,0], [4,4]]);
 
 	b.merge(a);
 	expect(debugRows2(b.oplog)).toEqual([
 		["b0", 0, "world", []],
 		["a0", 0, "hello", []],
-		["b5", 0, -5, [4, 9]],
-		["b10", 0, "share", [14]],
-		["a5", 8, -1, [4, 9]],
+		["b5", 0, -5, [[0, 4], [1, 4]] ],
+		["b10", 0, "share", [[2, 4]]],
+		["a5", 8, -1, [[0, 4], [1, 4]] ],
 	]);
-	expect(b.oplog.frontier).toEqual([19, 20]);
+	expect(b.oplog.frontier.map(refDecode)).toEqual([[3,4], [4,0]]);
 
 	expected = "shareword";
 	expect(a.toString()).toBe(expected);

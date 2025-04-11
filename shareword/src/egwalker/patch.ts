@@ -1,13 +1,13 @@
-import { opSlice } from "./op";
-import type { Accumulator, Clock, OpId, OpRun, Site } from "./op";
+import { maxRunLen, refEncode } from "./op";
+import type { Accumulator, Clock, OpId, OpRef, OpRun, Site } from "./op";
 import { debugPrint, type OpLog } from "./oplog";
-import { MultiArrayList } from "./util";
+import { assert, MultiArrayList } from "./util";
 
 /** Max stored `clock` for each site. */
 export type StateVector = Record<Site, number>;
 
 export interface OpPatch<T, AccT extends Accumulator<T>>
-	extends Omit<OpRun<T, AccT>, "parents"> {
+	extends OpRun<T, AccT> {
 	parents: OpId[];
 }
 
@@ -17,22 +17,24 @@ export class Patch<T, AccT extends Accumulator<T>> {
 		siteClock: 0,
 		position: 0,
 		data: 0,
-		parents: [],
+		parents: [], // TODO: map
 	});
 
 	constructor(oplog: OpLog<T, AccT>, to: StateVector) {
 		for (let i = 0; i < oplog.ops.items.length; i++) {
-			const run = oplog.at(i);
-			if (run.siteClock + run.length <= to[run.site]) continue;
+			const run = oplog.at(refEncode(i, 0));
+			const runLength = oplog.ops.len(i);
+			if (run.siteClock + runLength <= to[run.site]) continue;
 
-			const offset =
-				run.siteClock < to[run.site] ? to[run.site] - run.siteClock : 0;
-			const parents = oplog.parentsAt(run.start + offset).map((clock) => {
-				const op = oplog.itemAt(clock);
+			const offset = Math.max((to[run.site] ?? -1) - run.siteClock, 0);
+			const ref = refEncode(i, offset);
+			const parents = oplog.parentsAt(ref).map((ref) => {
+				const op = oplog.at(ref);
 				return { site: op.site, siteClock: op.siteClock };
 			});
 
-			this.ops.push({ ...opSlice(run, offset), parents });
+			assert(offset < maxRunLen, `offset ${offset} >= ${maxRunLen}`);
+			this.ops.push({ ...oplog.at(ref), parents });
 		}
 	}
 
@@ -40,36 +42,32 @@ export class Patch<T, AccT extends Accumulator<T>> {
 		for (let i = 0; i < this.ops.length; i++) {
 			const run = this.ops.at(i);
 			const parents = run.parents
-				.map((p) => idToClock(oplog, p.site, p.siteClock))
+				.map((p) => idToRef(oplog, p.site, p.siteClock))
 				.sort((a, b) => a - b);
 			// TODO: check if already has op
 
-			oplog.push({
-				site: run.site,
-				siteClock: run.siteClock,
-				position: run.position,
-				data: run.data,
-				parents,
-			});
+			oplog.push(run.site, run.position, run.data, run.siteClock, parents);
 		}
 	}
 }
 
 /** TODO: make fast. */
-function idToClock<T, AccT extends Accumulator<T>>(
+function idToRef<T, AccT extends Accumulator<T>>(
 	oplog: OpLog<T, AccT>,
 	site: Site,
 	siteClock: Clock,
-): Clock {
+): OpRef {
 	for (let i = oplog.ops.items.length - 1; i >= 0; i--) {
-		const op = oplog.at(i);
+		const ref = refEncode(i, 0);
+		const op = oplog.at(ref);
+		const opLength = oplog.ops.len(i);
 		const offset = siteClock - op.siteClock;
 		if (
 			op.site === site &&
 			offset >= 0 &&
-			op.siteClock + op.length > siteClock
+			op.siteClock + opLength > siteClock
 		) {
-			return oplog.ops.starts[i] + offset;
+			return refEncode(i, offset);
 		}
 	}
 	debugPrint(oplog);

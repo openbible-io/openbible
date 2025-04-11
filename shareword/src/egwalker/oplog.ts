@@ -1,15 +1,5 @@
-import {
-	opLength,
-	opSlice,
-	OpType,
-	opType,
-	type Accumulator,
-	type Clock,
-	type Op,
-	type OpData,
-	type OpRun,
-	type Site,
-} from "./op";
+import { opLength, opSlice, OpType, opType, refDecode, refEncode } from "./op";
+import type { Accumulator, Clock, OpData, OpRef, OpRun, Site } from "./op";
 import { Patch, type StateVector } from "./patch";
 import { assertBounds, MultiArrayList, Rle } from "./util";
 
@@ -23,14 +13,13 @@ type RleOp<T, AccT extends Accumulator<T>> = {
 /** An append-only list of immutable operations */
 export class OpLog<T, AccT extends Accumulator<T> = T[]> {
 	ops: Rle<RleOp<T, AccT>, MultiArrayList<RleOp<T, AccT>>>;
-	/** For items whose parents do not immediately precede it. */
+	/** Use a map since most `RleOp`s parents immediately precede it. */
 	parents: Record<Clock, number[]> = {};
 	/** Next Op's `parents`. */
-	frontier: Clock[] = [];
+	frontier: OpRef[] = [];
 	stateVector: StateVector = {};
 
-	/** @param mergeFn How to merge runs together. */
-	constructor(public mergeFn: (acc: AccT, cur: AccT) => AccT) {
+	constructor(public runMerge: (acc: AccT, cur: AccT) => AccT) {
 		this.ops = new Rle(
 			new MultiArrayList<RleOp<T, AccT>>({
 				site: "",
@@ -40,7 +29,7 @@ export class OpLog<T, AccT extends Accumulator<T> = T[]> {
 			}),
 			(ctx, item, len) => {
 				const { fields } = ctx.items;
-				const prevIdx = ctx.starts.length - 1;
+				const prevIdx = ctx.items.length - 1;
 				const prevLen = ctx.len(prevIdx);
 
 				const prevPos = fields.position[prevIdx];
@@ -57,7 +46,7 @@ export class OpLog<T, AccT extends Accumulator<T> = T[]> {
 				switch (ty) {
 					case OpType.Insertion:
 						if (prevPos + prevLen === item.position) {
-							fields.data[prevIdx] = mergeFn(
+							fields.data[prevIdx] = runMerge(
 								fields.data[prevIdx] as AccT,
 								item.data as AccT,
 							);
@@ -77,46 +66,35 @@ export class OpLog<T, AccT extends Accumulator<T> = T[]> {
 		);
 	}
 
-	parentsAt(clock: Clock): Clock[] {
-		assertBounds(clock, this.ops.length);
-		return this.parents[clock] ?? [clock - 1];
+	#refDec(ref: OpRef): OpRef {
+		const [idx, offset] = refDecode(ref);
+		return offset ? ref - 1 : refEncode(idx - 1, this.ops.len(idx - 1) - 1);
 	}
 
-	itemAt(clock: Clock): Op<T> & { clock: number } {
-		const op = this.ops.at(clock);
-		const parents = this.parentsAt(clock);
-		let data: T | number = op.data as number;
-		switch (opType(op.data)) {
-			case OpType.Insertion:
-				data = (op.data as AccT)[0];
-				break;
-			case OpType.Deletion:
-				data = -1;
-				break;
-		}
-		return {
-			clock,
-			site: op.site,
-			siteClock: op.siteClock,
-			position: op.position,
-			data,
-			parents,
-		};
+	parentsAt(ref: OpRef): OpRef[] {
+		const [idx] = refDecode(ref);
+		assertBounds(idx, this.ops.length);
+		return this.parents[idx] ?? [this.#refDec(ref)];
 	}
 
-	at(idx: number): OpRun<T, AccT> & { start: number; length: number } {
+	parentsAt2(ref: OpRef): OpRef[] {
+		const [idx] = refDecode(ref);
+		return this.parents[idx] ?? [this.parentsAt2(refEncode(idx - 1))];
+	}
+
+	at(ref: OpRef): OpRun<T, AccT> {
+		const [idx, offset] = refDecode(ref);
 		const op = this.ops.items.at(idx);
-		const start = this.ops.starts[idx];
 		const data = op.data;
-		return {
-			start,
-			length: opLength(data),
-			site: op.site,
-			siteClock: op.siteClock,
-			position: op.position,
-			data,
-			parents: this.parentsAt(start),
-		};
+		return opSlice<T, AccT>(
+			{
+				site: op.site,
+				siteClock: op.siteClock,
+				position: op.position,
+				data,
+			},
+			offset,
+		);
 	}
 
 	#nextSiteClock(site: Site): Clock {
@@ -124,46 +102,45 @@ export class OpLog<T, AccT extends Accumulator<T> = T[]> {
 	}
 
 	/** @returns If inserted a new item. */
-	#insertParents(clock: Clock, parents: Clock[]): boolean {
-		if (parents.length === 1 && parents[0] === clock - 1) return false;
-		this.parents[clock] = parents;
+	#insertParents(ref: OpRef, parents: OpRef[]): boolean {
+		if (parents.length === 1 && parents[0] === this.#refDec(ref)) {
+			return false;
+		}
+		this.parents[refDecode(ref)[0]] = parents;
 		return true;
 	}
 
-	push(run: OpRun<T, AccT>): void {
-		const { parents, ...rest } = run;
-		const len = opLength(run.data);
+	push(
+		site: Site,
+		position: number,
+		data: OpData<T, AccT>,
+		siteClock: Clock = this.#nextSiteClock(site),
+		parents: OpRef[] = this.frontier,
+	): void {
+		const len = opLength(data);
 		// Adding a new run at every merge point greatly simplifies diffing,
-		// merging, and integrating. These other operations all optimize on this
-		// fact.
-		const forceNewRun = this.#insertParents(this.ops.length, parents);
-		this.ops.push(rest, len, forceNewRun);
+		// merging, and integrating. Otherwise we need a separate graph data
+		// structure that indexes into our ops.
+		//
+		// That would save memory but complicate other algorithms.
+		const ref = refEncode(this.ops.items.length, 0);
+		const forceNewRun = this.#insertParents(ref, parents);
+		this.ops.push({ site, siteClock, position, data }, len, forceNewRun);
+		const prevIdx = this.ops.items.length - 1;
 		this.frontier = advanceFrontier(
 			this.frontier,
-			this.ops.length - 1,
 			parents,
+			refEncode(prevIdx, this.ops.len(prevIdx) - 1),
 		);
-		this.stateVector[rest.site] = run.siteClock + len;
+		this.stateVector[site] = siteClock + len;
 	}
 
 	insert(site: Site, position: number, items: AccT) {
-		this.push({
-			site,
-			siteClock: this.#nextSiteClock(site),
-			data: items,
-			position,
-			parents: this.frontier,
-		});
+		this.push(site, position, items);
 	}
 
 	delete(site: Site, position: number, delCount = 1) {
-		this.push({
-			site,
-			siteClock: this.#nextSiteClock(site),
-			data: -delCount,
-			position,
-			parents: this.frontier,
-		});
+		this.push(site, position, -delCount);
 	}
 
 	merge(src: OpLog<T, AccT>) {
@@ -172,34 +149,33 @@ export class OpLog<T, AccT extends Accumulator<T> = T[]> {
 }
 
 export function advanceFrontier(
-	frontier: Clock[],
-	clock: Clock,
-	parents: Clock[],
-): Clock[] {
+	frontier: OpRef[],
+	parents: OpRef[],
+	clock: OpRef,
+): OpRef[] {
 	const res = frontier.filter((c) => !parents.includes(c));
 	res.push(clock);
 	return res.sort((a, b) => a - b);
 }
 
 type DebugRow<T, AccT extends Accumulator<T>> = {
-	start: number;
 	id: string;
 	position: number;
 	data: OpData<T, AccT>;
-	parents: number[];
+	parents: ReturnType<typeof refDecode>[];
 };
 export function debugRows<T, AccT extends Accumulator<T>>(
 	oplog: OpLog<T, AccT>,
 ): DebugRow<T, AccT>[] {
 	const res: DebugRow<T, AccT>[] = [];
 	for (let i = 0; i < oplog.ops.items.length; i++) {
-		const run = oplog.at(i);
+		const ref = refEncode(i, 0);
+		const run = oplog.at(ref);
 		res.push({
-			start: run.start,
 			id: `${run.site}${run.siteClock}`,
 			position: run.position,
 			data: run.data,
-			parents: run.parents,
+			parents: oplog.parentsAt(ref).map(refDecode),
 		});
 	}
 	return res;
@@ -209,48 +185,25 @@ type DebugRow2<T, AccT extends Accumulator<T>> = [
 	id: string,
 	position: number,
 	data: OpData<T, AccT>,
-	parents: number[],
+	parents: ReturnType<typeof refDecode>[],
 ];
 export function debugRows2<T, AccT extends Accumulator<T>>(
 	oplog: OpLog<T, AccT>,
 ): DebugRow2<T, AccT>[] {
 	const res: DebugRow2<T, AccT>[] = [];
 	for (let i = 0; i < oplog.ops.items.length; i++) {
-		const run = oplog.at(i);
+		const ref = refEncode(i, 0);
+		const run = oplog.at(ref);
 		res.push([
 			`${run.site}${run.siteClock}`,
 			run.position,
 			run.data,
-			run.parents,
+			oplog.parentsAt(ref).map(refDecode),
 		]);
 	}
 	return res;
 }
 
-export function debugPrint<T, AccT extends Accumulator<T>>(
-	oplog: OpLog<T, AccT>,
-	full = false, // TODO: remove
-) {
-	if (full) {
-		type Op = {
-			id: string;
-			position: number;
-			data: T | number;
-			parents: Clock[];
-		};
-		const ops: Op[] = [];
-		for (let i = 0; i < oplog.ops.length; i++) {
-			const item = oplog.itemAt(i);
-			ops.push({
-				id: `${item.site}${item.siteClock}`,
-				position: item.position,
-				data: item.data,
-				parents: oplog.parentsAt(i),
-			});
-		}
-		console.table(ops);
-	} else {
-		const rows = debugRows(oplog);
-		console.table(rows);
-	}
+export function debugPrint(oplog: OpLog<any, any>) {
+	console.table(debugRows(oplog));
 }
