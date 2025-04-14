@@ -208,3 +208,26 @@ export function debugRows2<T, AccT extends Accumulator<T>>(
 export function debugPrint(oplog: OpLog<any, any>) {
 	console.table(debugRows(oplog));
 }
+
+export function toDot(oplog: OpLog<any, any>): string {
+	let res = `digraph { node [shape=rect]
+`;
+
+	const rows = debugRows(oplog);
+	for (let i = 0; i < rows.length; i++) {
+		const row = rows[i];
+		res += `${row.id}[label="${i}\\n${row.id}\\n${row.position}, ${row.data}"`;
+		if (!row.parents.length) res += ',shape="Msquare"';
+		res += "]\n";
+		row.parents.forEach(pref => {
+			const [idx, offset] = pref;
+			const parent = rows[idx];
+
+			res += `${parent.id} -> ${row.id}[dir=back]`;
+			if (offset !== oplog.ops.len(idx) - 1) res += `[label="${offset}"]`;
+			res += "\n";
+		});
+	}
+
+	return `${res}}`;
+}

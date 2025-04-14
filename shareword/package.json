@@ -22,9 +22,10 @@
 	"devDependencies": {
 		"commander": "^13.1.0",
 		"diamond-types-node": "^1.0.2",
-		"rope.js": "^0.1.0",
 		"mitata": "^1.0.34",
 		"preact": "^10.26.4",
+		"rope.js": "^0.1.0",
+		"ts-graphviz": "^2.1.6",
 		"yjs": "^13.6.24"
 	},
 	"dependencies": {

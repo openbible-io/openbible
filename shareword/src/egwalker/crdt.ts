@@ -1,4 +1,4 @@
-import { opLength, opType, OpType, refDecode, refEncode } from "./op";
+import { opLength, opSlice, opType, OpType, refDecode, refEncode } from "./op";
 import type { OpLog } from "./oplog";
 import type { Accumulator, OpRef, Site } from "./op";
 import type { Snapshot } from "./snapshot";
@@ -84,9 +84,10 @@ export class Crdt<T, AccT extends Accumulator<T>> {
 	}
 
 	#apply(ref: OpRef, snapshot?: Snapshot<T>) {
-		const [idx] = refDecode(ref);
-		const op = this.oplog.at(refEncode(idx, 0));
+		const [idx, offset] = refDecode(ref);
+		const op = opSlice(this.oplog.at(refEncode(idx, 0)), 0, offset + 1);
 		const pos = op.position;
+		console.log("applyOp", refDecode(ref), op.position, op.data);
 
 		switch (opType(op.data)) {
 			case OpType.Deletion: {
@@ -230,12 +231,11 @@ export class Crdt<T, AccT extends Accumulator<T>> {
 	applyOp(ref: OpRef, snapshot?: Snapshot<T>) {
 		const parents = this.oplog.parentsAt2(ref);
 		const { aOnly, bOnly } = this.#diff(this.currentVersion, parents);
-		//if (aOnly.length || bOnly.length)
-		//	console.log({ aOnly: aOnly.map(refDecode), bOnly: bOnly.map(refDecode) });
+		if (aOnly.length || bOnly.length)
+			console.log({ aOnly: aOnly.map(refDecode), bOnly: bOnly.map(refDecode) });
 
 		for (const ref of aOnly) this.#retreat(ref);
 		for (const ref of bOnly) this.#advance(ref);
-		console.log("applyOp", refDecode(ref), this.oplog.at(ref));
 		this.#apply(ref, snapshot);
 		this.currentVersion = [ref];
 	}

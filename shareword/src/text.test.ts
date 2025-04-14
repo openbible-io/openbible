@@ -1,9 +1,9 @@
 import { test, expect } from "bun:test";
 import { Text } from "./text";
-import { debugPrint, debugRows2 } from "./egwalker/oplog";
+import { debugPrint, debugRows2, toDot } from "./egwalker/oplog";
 import { mulberry32 } from "../bench/harness";
-import { Patch } from "./egwalker/patch";
-import { refDecode, refEncode } from "./egwalker/op";
+import { refDecode } from "./egwalker/op";
+import { toFile } from "ts-graphviz/adapter";
 
 function fuzzer(seed: number) {
 	const random = mulberry32(seed);
@@ -69,7 +69,7 @@ function fuzzer(seed: number) {
 	}
 }
 
-test("correctness", () => {
+test("correctness", async () => {
 	const a = new Text("a");
 	const b = new Text("b");
 
@@ -236,6 +236,8 @@ test("partial op merge", () => {
 	expect(b.toString()).toEqual("vz");
 
 	console.log("bbbb")
+	debugPrint(b.oplog);
+	console.log(toDot(b.oplog));
 	b.merge(a);
 	expect(debugRows2(b.oplog)).toEqual([
 		["b0", 0, "vcz", []],

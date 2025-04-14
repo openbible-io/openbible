@@ -18,7 +18,27 @@ export function opIdSlice(opId: OpId, start?: number, end?: number): OpId {
 	};
 }
 
+/**
+ * There are 52 fraction bits in a `number` (Float64).
+ * However, JS only allows array indices up to 2^32, which is what the run
+ * index represents.
+ *
+ * Note: SMI deoptimization begins at 2^32-1.
+ *
+ * High 32 bits = run index
+ * Low 8 bits = run offset
+ */
 export type OpRef = number;
+/**
+ * Every part of every operation must be referable in order to determine
+ * causality and automatically merge. Additionally, that reference must be
+ * serializable so that it can be sent as a `Patch` to other `Site`s.
+ *
+ * Since we do a lot of graph operations to determine causality, it's
+ * preferable that such a reference fit in a single small integer that our JS
+ * engine can store in an SMI. For that reason, we limit the length of runs so
+ * that we can use the lower bits to represent offsets.
+ */
 export const maxRunLen = 256;
 export function refEncode(idx: number, offset = 0): OpRef {
 	return (idx << 8) + offset;
@@ -46,9 +66,8 @@ export interface OpRun<T, AccT extends Accumulator<T>> extends OpId {
 	data: AccT | number;
 }
 
-// We could make various `Op` classes with nice functions, but it has a
-// non-zero overhead compared to primitives and the whole point of the OpLog
-// is to store a lot of these things.
+// We could make an `Op` class with optional members and nice functions, but
+// primitives are smaller and faster.
 export type OpData<T, AccT extends Accumulator<T>> = OpRun<T, AccT>["data"];
 
 export function opType(data: OpData<any, any>): OpType {

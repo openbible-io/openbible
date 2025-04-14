@@ -2,7 +2,7 @@ import { advanceFrontier, type OpLog } from "./oplog";
 import { Crdt, State, type Item } from "./crdt";
 import type { Snapshot } from "./snapshot";
 import { PriorityQueue } from "./util/pq";
-import { refEncode, type Accumulator, type OpRef } from "./op";
+import { refDecode, refEncode, type Accumulator, type OpRef } from "./op";
 import { assert } from "./util";
 
 export class Branch<T, AccT extends Accumulator<T>> {
@@ -11,7 +11,7 @@ export class Branch<T, AccT extends Accumulator<T>> {
 	constructor(public oplog: OpLog<T, AccT>) {}
 
 	#diff(
-		from: OpRef[],
+		src: OpRef[],
 		dest: OpRef[],
 	): {
 		head: OpRef[];
@@ -20,21 +20,21 @@ export class Branch<T, AccT extends Accumulator<T>> {
 	} {
 		type MergePoint = {
 			refs: OpRef[];
-			inFrom: boolean;
+			inSrc: boolean;
 		};
 
 		const queue = new PriorityQueue<MergePoint>((a, b) =>
 			cmpClocks(b.refs, a.refs),
 		);
 
-		const enq = (refs: OpRef[], inA: boolean) => {
+		const enq = (refs: OpRef[], inSrc: boolean) => {
 			queue.push({
 				refs: refs.toSorted((a, b) => b - a),
-				inFrom: inA,
+				inSrc,
 			});
 		};
 
-		enq(from, true);
+		enq(src, true);
 		enq(dest, false);
 
 		let head: OpRef[] = [];
@@ -44,7 +44,7 @@ export class Branch<T, AccT extends Accumulator<T>> {
 		let next: MergePoint | undefined;
 		while ((next = queue.pop())) {
 			if (next.refs.length === 0) break; // root element
-			let inFrom = next.inFrom;
+			let inSrc = next.inSrc;
 
 			let peek: MergePoint | undefined;
 			// multiple elements may have same merge point
@@ -52,28 +52,28 @@ export class Branch<T, AccT extends Accumulator<T>> {
 				if (cmpClocks(next.refs, peek.refs)) break;
 
 				queue.pop();
-				if (peek.inFrom) inFrom = true;
+				if (peek.inSrc) inSrc = true;
 			}
 
 			if (!queue.length) {
-				head = next.refs.reverse();
+				head = next.refs;
 				break;
 			}
 
 			if (next.refs.length > 1) {
-				for (const ref of next.refs) enq([ref], inFrom);
+				for (const ref of next.refs) enq([ref], inSrc);
 			} else {
 				assert(next.refs.length === 1, `too long ${next.refs}`);
-				const ref = next.refs[0];
-				if (inFrom) shared.push(ref);
+				const [ref] = next.refs
+				if (inSrc) shared.push(ref);
 				else bOnly.push(ref);
 
-				enq(this.oplog.parentsAt2(ref), inFrom);
+				enq(this.oplog.parentsAt2(ref), inSrc);
 			}
 		}
 
 		return {
-			head,
+			head: head.reverse(),
 			shared: shared.reverse(),
 			destOnly: bOnly.reverse(),
 		};
@@ -85,20 +85,18 @@ export class Branch<T, AccT extends Accumulator<T>> {
 			mergeFrontier,
 		);
 		//debugPrint(this.oplog);
-		//console.log(
-		//	"checkout",
-		//	this.frontier.map(refDecode),
-		//	mergeFrontier.map(refDecode),
-		//	head.map(refDecode),
-		//	shared.map(refDecode),
-		//	bOnly.map(refDecode),
-		//);
+		console.log("checkout")
+		console.log(this.frontier.map(r => refDecode(r).toString()))
+		console.log(mergeFrontier.map(r => refDecode(r).toString()))
+		console.log(head.map(r => refDecode(r).toString()))
+		console.log(shared.map(r => refDecode(r).toString()))
+		console.log(destOnly.map(r => refDecode(r).toString()))
 
 		const doc = new Crdt(this.oplog);
 		doc.currentVersion = head;
 
-		const placeholderLength = this.frontier[this.frontier.length - 1] + 1;
-		const placeholderOffset = refEncode(2 ** 32, 0);
+		const placeholderLength = this.oplog.ops.length;
+		const placeholderOffset = refEncode(this.oplog.ops.items.length, 0);
 		for (let i = 0; i < placeholderLength; i++) {
 			const item: Item = {
 				ref: placeholderOffset + i,
