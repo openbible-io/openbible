@@ -80,7 +80,8 @@ export class OpLog<T, AccT extends Accumulator<T> = T[]> {
 
 	parentsAt2(ref: OpRef): OpRef[] {
 		const [idx] = refDecode(ref);
-		return this.parents[idx] ?? [refEncode(idx - 1, this.ops.len(idx - 1) - 1)];
+		assertBounds(idx, this.ops.length);
+		return this.parents[idx] ?? [this.#refDec(ref)];
 	}
 
 	at(ref: OpRef): OpRun<T, AccT> {
@@ -210,7 +211,7 @@ export function debugPrint(oplog: OpLog<any, any>) {
 }
 
 export function toDot(oplog: OpLog<any, any>): string {
-	let res = `digraph { node [shape=rect]
+	let res = `digraph { node[shape=rect] edge[dir=back]
 `;
 
 	const rows = debugRows(oplog);
@@ -223,7 +224,7 @@ export function toDot(oplog: OpLog<any, any>): string {
 			const [idx, offset] = pref;
 			const parent = rows[idx];
 
-			res += `${parent.id} -> ${row.id}[dir=back]`;
+			res += `${parent.id} -> ${row.id}`;
 			if (offset !== oplog.ops.len(idx) - 1) res += `[label="${offset}"]`;
 			res += "\n";
 		});

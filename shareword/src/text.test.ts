@@ -238,6 +238,19 @@ test("partial op merge", () => {
 	console.log("bbbb")
 	debugPrint(b.oplog);
 	console.log(toDot(b.oplog));
+	//checkout
+	//[ "1,0" ]
+	//[ "1,0", "2,0" ]
+	//[]
+	//[ "0,2", "1,0" ]
+	//[ "0,1", "2,0" ]
+	//
+	//checkout
+	//[ 3 ]
+	//[ 3, 4 ]
+	//[ 1 ]
+	//[ 2, 3 ]
+	//[ 4 ]
 	b.merge(a);
 	expect(debugRows2(b.oplog)).toEqual([
 		["b0", 0, "vcz", []],

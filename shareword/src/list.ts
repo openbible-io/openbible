@@ -59,7 +59,7 @@ export class List<T> extends GenericList<T, T[]> {
 			site,
 			[],
 			(acc, cur) => {
-				acc.push(...cur);
+				acc.push.apply(cur);
 				return acc;
 			},
 			new ListSnapshot(),
