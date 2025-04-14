@@ -1,7 +1,8 @@
 import { test, expect } from "bun:test";
-import { diff } from "./branch";
-import { refEncode as opEncode } from "./op";
+import { decodeDiff, findHead, type DiffResult } from "./branch";
+import { refEncode, refDecode } from "./op";
 import { OpLog } from "./oplog";
+
 
 test("partial op merge diff", () => {
 	//          ┌─────────┐
@@ -19,17 +20,25 @@ test("partial op merge diff", () => {
 	const log = new OpLog<string, string>((acc, cur) => acc + cur);
 	log.push("b", 0, "abcd");
 	log.push("b", 1, -1);
-	log.push("a", 2, "e", 0, [opEncode(0, 1)]);
+	log.push("a", 2, "e", 0, [refEncode(0, 1)]);
 
 	expect(
-		diff(
-			(r) => log.parentsAt(r),
-			[opEncode(1, 0)],
-			[opEncode(1, 0), opEncode(2, 0)],
+		decodeDiff(
+			findHead(
+				(r) => log.parentsAt(r),
+				[refEncode(1, 0)],
+				[refEncode(1, 0), refEncode(2, 0)],
+			),
 		),
 	).toEqual({
-		head: [opEncode(0, 1)],
-		shared: [opEncode(0, 2), opEncode(0, 3), opEncode(1, 0)],
-		destOnly: [opEncode(2, 0)],
+		head: [[0, 1]],
+		shared: {
+			start: [0, 2],
+			end: [1, 0],
+		},
+		destOnly: {
+			start: [2, 0],
+			end: [2, 0],
+		},
 	});
 });

@@ -1,5 +1,5 @@
 import { Branch } from "./egwalker/branch";
-import { debugPrint, OpLog, toDot } from "./egwalker/oplog";
+import { OpLog } from "./egwalker/oplog";
 import type { Accumulator, Site } from "./egwalker/op";
 import { ListSnapshot, type Snapshot } from "./egwalker/snapshot";
 
@@ -46,8 +46,6 @@ export class GenericList<T, AccT extends Accumulator<T>> extends EventTarget {
 
 	merge(other: GenericList<T, AccT>) {
 		this.oplog.merge(other.oplog);
-		debugPrint(this.oplog);
-		console.log(toDot(this.oplog));
 		this.branch.checkout(this.oplog.frontier, this.snapshot);
 		this.dispatchEvent(new CustomEvent("merge"));
 	}

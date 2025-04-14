@@ -78,16 +78,10 @@ export class OpLog<T, AccT extends Accumulator<T> = T[]> {
 		return this.parents[idx];
 	}
 
-	parentsAt2(ref: OpRef): OpRef[] {
-		const [idx] = refDecode(ref);
-		assertBounds(idx, this.ops.length);
-		return this.parents[idx] ?? [this.#refDec(ref)];
-	}
-
-	at(ref: OpRef): OpRun<T, AccT> {
-		const [idx, offset] = refDecode(ref);
+	atSlice(idx: number, start?: number, end?: number): OpRun<T, AccT> {
 		const op = this.ops.items.at(idx);
 		const data = op.data;
+
 		return opSlice<T, AccT>(
 			{
 				site: op.site,
@@ -95,8 +89,14 @@ export class OpLog<T, AccT extends Accumulator<T> = T[]> {
 				position: op.position,
 				data,
 			},
-			offset,
+			start,
+			end,
 		);
+	}
+
+	at(ref: OpRef): OpRun<T, AccT> {
+		const [idx, offset] = refDecode(ref);
+		return this.atSlice(idx, offset);
 	}
 
 	#nextSiteClock(site: Site): Clock {

@@ -1,4 +1,4 @@
-import { opLength, opSlice, opType, OpType, refDecode, refEncode } from "./op";
+import { opLength, opType, OpType, refDecode, refEncode } from "./op";
 import type { OpLog } from "./oplog";
 import type { Accumulator, OpRef, Site } from "./op";
 import type { Snapshot } from "./snapshot";
@@ -54,6 +54,7 @@ export class Crdt<T, AccT extends Accumulator<T>> {
 	}
 
 	#advance(ref: OpRef) {
+				console.log("get", refDecode(ref));
 		this.#target(ref).state += 1;
 	}
 
@@ -83,11 +84,11 @@ export class Crdt<T, AccT extends Accumulator<T>> {
 		return { idx, endPos };
 	}
 
-	#apply(ref: OpRef, snapshot?: Snapshot<T>) {
-		const [idx, offset] = refDecode(ref);
-		const op = opSlice(this.oplog.at(refEncode(idx, 0)), 0, offset + 1);
+	#apply(idx: number, start: number, end: number, snapshot?: Snapshot<T>) {
+		const ref = refEncode(idx, start);
+		const op = this.oplog.atSlice(idx, start, end + 1);
 		const pos = op.position;
-		console.log("applyOp", refDecode(ref), op.position, op.data);
+		console.log("applyOp", idx, start, end, op.position, op.data);
 
 		switch (opType(op.data)) {
 			case OpType.Deletion: {
@@ -125,6 +126,7 @@ export class Crdt<T, AccT extends Accumulator<T>> {
 					deleted: false,
 					state: State.Inserted,
 				};
+				console.log("assign", refDecode(ref));
 				this.targets[ref] = item;
 				//console.log("integrate", refDecode(ref), op.data)
 				this.#integrate(item, idx, endPos, op.data as AccT, snapshot);
@@ -189,54 +191,62 @@ export class Crdt<T, AccT extends Accumulator<T>> {
 		snapshot?.insert(endPos, content);
 	}
 
-	#diff(a: OpRef[], b: OpRef[]): { aOnly: OpRef[]; bOnly: OpRef[] } {
-		type DiffFlag = "a" | "b" | "both";
-		const flags: { [ref: OpRef]: DiffFlag } = {};
-		const queue = new PriorityQueue<OpRef>((a, b) => b - a);
-		let numShared = 0;
-
-		function enq(v: OpRef, flag: DiffFlag) {
-			const oldFlag = flags[v];
-			if (oldFlag == null) {
-				queue.push(v);
-				flags[v] = flag;
-				if (flag === "both") numShared++;
-			} else if (flag !== oldFlag && oldFlag !== "both") {
-				flags[v] = "both";
-				numShared++;
-			}
-		}
-
-		for (const aa of a) enq(aa, "a");
-		for (const bb of b) enq(bb, "b");
-
-		const aOnly: OpRef[] = [];
-		const bOnly: OpRef[] = [];
-
-		while (queue.length > numShared) {
-			// biome-ignore lint/style/noNonNullAssertion: size check above
-			const ref = queue.pop()!;
-			const flag = flags[ref];
-
-			if (flag === "a") aOnly.push(ref);
-			else if (flag === "b") bOnly.push(ref);
-			else numShared--;
-
-			for (const p of this.oplog.parentsAt2(ref)) enq(p, flag);
-		}
-
-		return { aOnly, bOnly };
-	}
-
-	applyOp(ref: OpRef, snapshot?: Snapshot<T>) {
-		const parents = this.oplog.parentsAt2(ref);
-		const { aOnly, bOnly } = this.#diff(this.currentVersion, parents);
-		if (aOnly.length || bOnly.length)
-			console.log({ aOnly: aOnly.map(refDecode), bOnly: bOnly.map(refDecode) });
+	applyOpRun(idx: number, start: number, end: number, snapshot?: Snapshot<T>) {
+		console.log("applyOpRun", idx, start, end);
+		const getParents = (ref: OpRef) => this.oplog.parentsAt(ref);
+		const ref = refEncode(idx, start);
+		const parents = getParents(ref);
+		const { aOnly, bOnly } = diff(getParents, this.currentVersion, parents);
+		//if (aOnly.length || bOnly.length)
+		//	console.log({ aOnly: aOnly.map(refDecode), bOnly: bOnly.map(refDecode) });
 
 		for (const ref of aOnly) this.#retreat(ref);
 		for (const ref of bOnly) this.#advance(ref);
-		this.#apply(ref, snapshot);
+		this.#apply(idx, start, end, snapshot);
 		this.currentVersion = [ref];
 	}
+}
+
+// TODO: test
+export function diff(
+	getParents: (ref: OpRef) => OpRef[],
+	a: OpRef[],
+	b: OpRef[],
+): { aOnly: OpRef[]; bOnly: OpRef[] } {
+	type DiffFlag = "a" | "b" | "both";
+	const flags: { [ref: OpRef]: DiffFlag } = {};
+	const queue = new PriorityQueue<OpRef>((a, b) => b - a);
+	let numShared = 0;
+
+	function enq(v: OpRef, flag: DiffFlag) {
+		const oldFlag = flags[v];
+		if (oldFlag == null) {
+			queue.push(v);
+			flags[v] = flag;
+			if (flag === "both") numShared++;
+		} else if (flag !== oldFlag && oldFlag !== "both") {
+			flags[v] = "both";
+			numShared++;
+		}
+	}
+
+	for (const aa of a) enq(aa, "a");
+	for (const bb of b) enq(bb, "b");
+
+	const aOnly: OpRef[] = [];
+	const bOnly: OpRef[] = [];
+
+	while (queue.length > numShared) {
+		// biome-ignore lint/style/noNonNullAssertion: size check above
+		const ref = queue.pop()!;
+		const flag = flags[ref];
+
+		if (flag === "a") aOnly.push(ref);
+		else if (flag === "b") bOnly.push(ref);
+		else numShared--;
+
+		for (const p of getParents(ref)) enq(p, flag);
+	}
+
+	return { aOnly, bOnly };
 }

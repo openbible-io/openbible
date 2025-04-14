@@ -11,8 +11,8 @@ export class Branch<T, AccT extends Accumulator<T>> {
 	constructor(public oplog: OpLog<T, AccT>) {}
 
 	checkout(mergeFrontier: OpRef[], snapshot?: Snapshot<T>) {
-		const { head, shared, destOnly } = diff(
-			(ref) => this.oplog.parentsAt2(ref),
+		const { head, shared, destOnly } = findHead(
+			(ref) => this.oplog.parentsAt(ref),
 			this.frontier,
 			mergeFrontier,
 		);
@@ -20,9 +20,7 @@ export class Branch<T, AccT extends Accumulator<T>> {
 		console.log("checkout");
 		console.log(this.frontier.map((r) => refDecode(r).toString()));
 		console.log(mergeFrontier.map((r) => refDecode(r).toString()));
-		console.log(head.map((r) => refDecode(r).toString()));
-		console.log(shared.map((r) => refDecode(r).toString()));
-		console.log(destOnly.map((r) => refDecode(r).toString()));
+		console.log(decodeDiff({ head, shared, destOnly }));
 
 		const doc = new Crdt(this.oplog);
 		doc.currentVersion = head;
@@ -44,9 +42,22 @@ export class Branch<T, AccT extends Accumulator<T>> {
 			doc.targets[item.ref] = item;
 		}
 
-		for (const ref of shared) doc.applyOp(ref);
-		for (const ref of destOnly) {
-			doc.applyOp(ref, snapshot);
+		const [sharedStartIdx, sharedStartOffset] = refDecode(shared.start);
+		const [sharedEndIdx, sharedEndOffset] = refDecode(shared.end);
+		for (let i = sharedStartIdx; i <= sharedEndIdx; i++) {
+			const startOffset = i === sharedStartOffset ? sharedStartOffset : 0;
+			const endOffset = i === sharedEndIdx ? sharedEndOffset : this.oplog.ops.len(i);
+			doc.applyOpRun(i, startOffset, endOffset);
+		}
+
+		const [destOnlyStartIdx, destOnlyStartOffset] = refDecode(destOnly.start);
+		const [destOnlyEndIdx, destOnlyEndOffset] = refDecode(destOnly.end);
+		for (let i = destOnlyStartIdx; i <= destOnlyEndIdx; i++) {
+			const startOffset = i === destOnlyStartOffset ? destOnlyStartOffset : 0;
+			const endOffset = i === destOnlyEndIdx ? destOnlyEndOffset : this.oplog.ops.len(i);
+			doc.applyOpRun(i, startOffset, endOffset, snapshot);
+
+			const ref = refEncode(i, endOffset);
 			this.frontier = advanceFrontier(
 				this.frontier,
 				this.oplog.parentsAt(ref),
@@ -67,15 +78,29 @@ function cmpClocks(a: OpRef[], b: OpRef[]): number {
 	return a.length < b.length ? -1 : 0;
 }
 
-export function diff(
+export type OpRange = {
+	start: OpRef;
+	end: OpRef;
+};
+export type DiffResult = {
+	head: OpRef[];
+	shared: OpRange;
+	destOnly: OpRange;
+};
+
+// There's a lot of complexity here.
+//
+// 1. Nodes point to parents, so graph traversal is backwards.
+// As far as I can tell, this means we have to visit EVERY part of EVERY run
+// since there might be a parent that points partway into a run.
+//
+// This also means
+// that we have
+export function findHead(
 	getParents: (ref: OpRef) => OpRef[],
 	src: OpRef[],
 	dest: OpRef[],
-): {
-	head: OpRef[];
-	shared: OpRef[];
-	destOnly: OpRef[];
-} {
+): DiffResult {
 	type MergePoint = {
 		refs: OpRef[];
 		inSrc: boolean;
@@ -87,7 +112,7 @@ export function diff(
 
 	const enq = (refs: OpRef[], inSrc: boolean) => {
 		queue.push({
-			refs: refs.toSorted((a, b) => b - a),
+			refs: refs.toSorted((a, b) => b - a), // TODO: optimize
 			inSrc,
 		});
 	};
@@ -96,8 +121,11 @@ export function diff(
 	enq(dest, false);
 
 	let head: OpRef[] = [];
-	const shared: OpRef[] = [];
-	const destOnly: OpRef[] = [];
+	const shared: OpRange = {
+		start: Number.POSITIVE_INFINITY,
+		end: Number.NEGATIVE_INFINITY,
+	};
+	const destOnly = { ...shared };
 
 	let next: MergePoint | undefined;
 	while ((next = queue.pop())) {
@@ -125,15 +153,40 @@ export function diff(
 			for (const ref of next.refs) enq([ref], inSrc);
 		} else {
 			const [ref] = next.refs;
-			(inSrc ? shared : destOnly).unshift(ref);
+			// TODO: optimize
+			if (inSrc) {
+				shared.start = Math.min(shared.start, ref);
+				shared.end = Math.max(shared.end, ref);
+			} else {
+				destOnly.start = Math.min(destOnly.start, ref);
+				destOnly.end = Math.max(destOnly.end, ref);
+			}
 
 			enq(getParents(ref), inSrc);
 		}
 	}
 
+	return { head: head.reverse(), shared, destOnly };
+}
+
+type LongRef = ReturnType<typeof refDecode>;
+type LongOpRange = {
+	start: LongRef;
+	end: LongRef;
+};
+type LongDiffResult = {
+	head: LongRef[];
+	shared: LongOpRange;
+	destOnly: LongOpRange;
+};
+/** For debugging */
+export function decodeDiff(d: DiffResult): LongDiffResult {
 	return {
-		head: head.reverse(),
-		shared: shared,
-		destOnly: destOnly,
+		head: d.head.map(refDecode),
+		shared: { start: refDecode(d.shared.start), end: refDecode(d.shared.end) },
+		destOnly: {
+			start: refDecode(d.destOnly.start),
+			end: refDecode(d.destOnly.end),
+		},
 	};
 }

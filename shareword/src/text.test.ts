@@ -3,7 +3,6 @@ import { Text } from "./text";
 import { debugPrint, debugRows2, toDot } from "./egwalker/oplog";
 import { mulberry32 } from "../bench/harness";
 import { refDecode } from "./egwalker/op";
-import { toFile } from "ts-graphviz/adapter";
 
 function fuzzer(seed: number) {
 	const random = mulberry32(seed);
