@@ -72,14 +72,15 @@ export class OpLog<T, AccT extends Accumulator<T> = T[]> {
 	}
 
 	parentsAt(ref: OpRef): OpRef[] {
-		const [idx] = refDecode(ref);
+		const [idx, offset] = refDecode(ref);
 		assertBounds(idx, this.ops.length);
-		return this.parents[idx] ?? [this.#refDec(ref)];
+		if (offset || !this.parents[idx]) return [this.#refDec(ref)];
+		return this.parents[idx];
 	}
 
 	parentsAt2(ref: OpRef): OpRef[] {
 		const [idx] = refDecode(ref);
-		return this.parents[idx] ?? [this.parentsAt2(refEncode(idx - 1))];
+		return this.parents[idx] ?? [refEncode(idx - 1, this.ops.len(idx - 1) - 1)];
 	}
 
 	at(ref: OpRef): OpRun<T, AccT> {

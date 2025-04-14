@@ -84,7 +84,7 @@ export class Crdt<T, AccT extends Accumulator<T>> {
 	}
 
 	#apply(ref: OpRef, snapshot?: Snapshot<T>) {
-		const [idx, offset] = refDecode(ref);
+		const [idx] = refDecode(ref);
 		const op = this.oplog.at(refEncode(idx, 0));
 		const pos = op.position;
 
@@ -221,22 +221,21 @@ export class Crdt<T, AccT extends Accumulator<T>> {
 			else if (flag === "b") bOnly.push(ref);
 			else numShared--;
 
-			for (const p of this.oplog.parentsAt(ref)) enq(p, flag);
+			for (const p of this.oplog.parentsAt2(ref)) enq(p, flag);
 		}
 
 		return { aOnly, bOnly };
 	}
 
 	applyOp(ref: OpRef, snapshot?: Snapshot<T>) {
-		//console.log("applyOp", refDecode(ref))
-		const parents = this.oplog.parentsAt(ref);
+		const parents = this.oplog.parentsAt2(ref);
 		const { aOnly, bOnly } = this.#diff(this.currentVersion, parents);
 		//if (aOnly.length || bOnly.length)
 		//	console.log({ aOnly: aOnly.map(refDecode), bOnly: bOnly.map(refDecode) });
 
 		for (const ref of aOnly) this.#retreat(ref);
 		for (const ref of bOnly) this.#advance(ref);
-//refEncode(refDecode(ref)[0], 0)
+		console.log("applyOp", refDecode(ref), this.oplog.at(ref));
 		this.#apply(ref, snapshot);
 		this.currentVersion = [ref];
 	}

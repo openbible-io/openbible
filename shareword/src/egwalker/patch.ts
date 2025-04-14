@@ -28,6 +28,7 @@ export class Patch<T, AccT extends Accumulator<T>> {
 
 			const offset = Math.max((to[run.site] ?? -1) - run.siteClock, 0);
 			const ref = refEncode(i, offset);
+			console.log(i, offset, oplog.parentsAt(ref))
 			const parents = oplog.parentsAt(ref).map((ref) => {
 				const op = oplog.at(ref);
 				return { site: op.site, siteClock: op.siteClock };

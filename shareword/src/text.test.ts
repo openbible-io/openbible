@@ -85,14 +85,20 @@ test("correctness", () => {
 		["b0", 0, "world", []],
 	]);
 	expect(a.oplog.stateVector).toEqual({ a: 5, b: 5 });
-	expect(a.oplog.frontier.map(refDecode)).toEqual([[0,4],[1,4]]);
+	expect(a.oplog.frontier.map(refDecode)).toEqual([
+		[0, 4],
+		[1, 4],
+	]);
 
 	b.merge(a);
 	expect(debugRows2(b.oplog)).toEqual([
 		["b0", 0, "world", []],
 		["a0", 0, "hello", []],
 	]);
-	expect(b.oplog.frontier.map(refDecode)).toEqual([[0,4],[1,4]]);
+	expect(b.oplog.frontier.map(refDecode)).toEqual([
+		[0, 4],
+		[1, 4],
+	]);
 
 	let expected = "helloworld";
 	expect(a.toString()).toBe(expected);
@@ -105,16 +111,32 @@ test("correctness", () => {
 	expect(debugRows2(a.oplog)).toEqual([
 		["a0", 0, "hello", []],
 		["b0", 0, "world", []],
-		["a5", 8, -1, [[0, 4], [1, 4]] ],
+		[
+			"a5",
+			8,
+			-1,
+			[
+				[0, 4],
+				[1, 4],
+			],
+		],
 	]);
-	expect(a.oplog.frontier.map(refDecode)).toEqual([[2,0]]);
+	expect(a.oplog.frontier.map(refDecode)).toEqual([[2, 0]]);
 	expect(debugRows2(b.oplog)).toEqual([
 		["b0", 0, "world", []],
 		["a0", 0, "hello", []],
-		["b5", 0, -5, [[0, 4], [1, 4]] ],
+		[
+			"b5",
+			0,
+			-5,
+			[
+				[0, 4],
+				[1, 4],
+			],
+		],
 		["b10", 0, "share", [[2, 4]]],
 	]);
-	expect(b.oplog.frontier.map(refDecode)).toEqual([[3,4]]);
+	expect(b.oplog.frontier.map(refDecode)).toEqual([[3, 4]]);
 
 	expect(a.toString()).toBe("helloword");
 	expect(b.toString()).toBe("shareworld");
@@ -123,21 +145,59 @@ test("correctness", () => {
 	expect(debugRows2(a.oplog)).toEqual([
 		["a0", 0, "hello", []],
 		["b0", 0, "world", []],
-		["a5", 8, -1, [[0, 4], [1, 4]] ],
-		["b5", 0, -5, [[0, 4], [1, 4]] ],
+		[
+			"a5",
+			8,
+			-1,
+			[
+				[0, 4],
+				[1, 4],
+			],
+		],
+		[
+			"b5",
+			0,
+			-5,
+			[
+				[0, 4],
+				[1, 4],
+			],
+		],
 		["b10", 0, "share", [[3, 4]]],
 	]);
-	expect(a.oplog.frontier.map(refDecode)).toEqual([[2,0], [4,4]]);
+	expect(a.oplog.frontier.map(refDecode)).toEqual([
+		[2, 0],
+		[4, 4],
+	]);
 
 	b.merge(a);
 	expect(debugRows2(b.oplog)).toEqual([
 		["b0", 0, "world", []],
 		["a0", 0, "hello", []],
-		["b5", 0, -5, [[0, 4], [1, 4]] ],
+		[
+			"b5",
+			0,
+			-5,
+			[
+				[0, 4],
+				[1, 4],
+			],
+		],
 		["b10", 0, "share", [[2, 4]]],
-		["a5", 8, -1, [[0, 4], [1, 4]] ],
+		[
+			"a5",
+			8,
+			-1,
+			[
+				[0, 4],
+				[1, 4],
+			],
+		],
 	]);
-	expect(b.oplog.frontier.map(refDecode)).toEqual([[3,4], [4,0]]);
+	expect(b.oplog.frontier.map(refDecode)).toEqual([
+		[3, 4],
+		[4, 0],
+	]);
 
 	expected = "shareword";
 	expect(a.toString()).toBe(expected);
@@ -152,11 +212,11 @@ test("partial op merge", () => {
 
 	a.merge(b);
 	expect(debugRows2(a.oplog)).toEqual([["b0", 0, "vc", []]]);
-	expect(a.oplog.frontier).toEqual([1]);
+	expect(a.oplog.frontier.map(refDecode)).toEqual([[0, 1]]);
 
 	b.merge(a); // noop
 	expect(debugRows2(b.oplog)).toEqual(debugRows2(a.oplog));
-	expect(b.oplog.frontier).toEqual([1]);
+	expect(b.oplog.frontier.map(refDecode)).toEqual([[0, 1]]);
 
 	a.insert(2, "e");
 	b.insert(2, "z"); // joined with previous run, only partially in a
@@ -164,34 +224,44 @@ test("partial op merge", () => {
 
 	expect(debugRows2(a.oplog)).toEqual([
 		["b0", 0, "vc", []],
-		["a0", 2, "e", [1]],
+		["a0", 2, "e", [[0, 1]]],
 	]);
 	expect(debugRows2(b.oplog)).toEqual([
 		["b0", 0, "vcz", []],
-		["b3", 1, -1, [2]],
+		["b3", 1, -1, [[0, 2]]],
 	]);
-	expect(a.oplog.frontier).toEqual([2]);
-	expect(b.oplog.frontier).toEqual([3]);
+	expect(a.oplog.frontier.map(refDecode)).toEqual([[1, 0]]);
+	expect(b.oplog.frontier.map(refDecode)).toEqual([[1, 0]]);
+	expect(a.toString()).toEqual("vce");
+	expect(b.toString()).toEqual("vz");
 
+	console.log("bbbb")
 	b.merge(a);
 	expect(debugRows2(b.oplog)).toEqual([
 		["b0", 0, "vcz", []],
-		["b3", 1, -1, [2]],
-		["a0", 2, "e", [1]],
+		["b3", 1, -1, [[0, 2]]],
+		["a0", 2, "e", [[0, 1]]],
 	]);
-	expect(b.oplog.frontier).toEqual([3, 4]);
+	expect(b.oplog.frontier.map(refDecode)).toEqual([
+		[1, 0],
+		[2, 0],
+	]);
+	expect(b.toString()).toEqual("vze");
 
 	a.merge(b);
 	expect(debugRows2(a.oplog)).toEqual([
 		["b0", 0, "vc", []],
-		["a0", 2, "e", [1]],
-		["b2", 2, "z", [1]], // tricky
-		["b3", 1, -1, [3]],
+		["a0", 2, "e", [[0, 1]]],
+		["b2", 2, "z", [[0, 1]]], // tricky
+		["b3", 1, -1, [[2, 0]]],
 	]);
-	expect(a.oplog.frontier).toEqual([2, 4]);
+	expect(a.oplog.frontier.map(refDecode)).toEqual([
+		[1, 0],
+		[3, 0],
+	]);
 
 	expect(a.toString()).toEqual("vez");
-	expect(b.toString()).toEqual(a.toString());
+	expect(b.toString()).toEqual("vez");
 });
 
 test("frontiers", () => {

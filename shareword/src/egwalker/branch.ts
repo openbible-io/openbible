@@ -2,7 +2,7 @@ import { advanceFrontier, type OpLog } from "./oplog";
 import { Crdt, State, type Item } from "./crdt";
 import type { Snapshot } from "./snapshot";
 import { PriorityQueue } from "./util/pq";
-import { refDecode, refEncode, type Accumulator, type OpRef } from "./op";
+import { refEncode, type Accumulator, type OpRef } from "./op";
 import { assert } from "./util";
 
 export class Branch<T, AccT extends Accumulator<T>> {
@@ -68,7 +68,7 @@ export class Branch<T, AccT extends Accumulator<T>> {
 				if (inFrom) shared.push(ref);
 				else bOnly.push(ref);
 
-				enq(this.oplog.parentsAt(ref), inFrom);
+				enq(this.oplog.parentsAt2(ref), inFrom);
 			}
 		}
 
@@ -80,19 +80,19 @@ export class Branch<T, AccT extends Accumulator<T>> {
 	}
 
 	checkout(mergeFrontier: OpRef[], snapshot?: Snapshot<T>) {
-		const { head, shared, destOnly: bOnly } = this.#diff(
+		const { head, shared, destOnly } = this.#diff(
 			this.frontier,
 			mergeFrontier,
 		);
 		//debugPrint(this.oplog);
-		console.log(
-			"checkout",
-			this.frontier.map(refDecode),
-			mergeFrontier.map(refDecode),
-			head.map(refDecode),
-			shared.map(refDecode),
-			bOnly.map(refDecode),
-		);
+		//console.log(
+		//	"checkout",
+		//	this.frontier.map(refDecode),
+		//	mergeFrontier.map(refDecode),
+		//	head.map(refDecode),
+		//	shared.map(refDecode),
+		//	bOnly.map(refDecode),
+		//);
 
 		const doc = new Crdt(this.oplog);
 		doc.currentVersion = head;
@@ -114,7 +114,7 @@ export class Branch<T, AccT extends Accumulator<T>> {
 		}
 
 		for (const ref of shared) doc.applyOp(ref);
-		for (const ref of bOnly) {
+		for (const ref of destOnly) {
 			doc.applyOp(ref, snapshot);
 			this.frontier = advanceFrontier(
 				this.frontier,
