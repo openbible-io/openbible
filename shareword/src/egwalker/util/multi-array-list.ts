@@ -26,7 +26,7 @@ export class MultiArrayList<T extends { [key: string]: any }> {
 	}
 
 	at(idx: number): T {
-		assertBounds(idx, this.length);
+		//assertBounds(idx, this.length);
 
 		const res: Partial<T> = {};
 		for (const k of Object.keys(this.fields))

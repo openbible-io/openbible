@@ -6,30 +6,26 @@ import { claz } from "./claz";
 
 function OplogTab(props: { doc: Doc }) {
 	const { doc } = props;
-	const { fields } = doc.oplog.items;
+	const { fields } = doc.oplog.ops.items;
 
 	return <>
 		Frontier: {doc.oplog.frontier.join(", ")}
-		<div class="grid grid-cols-[repeat(5,auto)_1fr] gap-1 gap-x-4 overflow-auto">
+		<div class="grid grid-cols-[repeat(4,auto)_1fr] gap-1 gap-x-4 overflow-auto">
 			<div>Index</div>
-			<div>Len</div>
-			<div>Site</div>
-			<div>Clock</div>
+			<div>Id</div>
 			<div>Position</div>
 			<div>Items</div>
 			{fields.position.map((p, i) => (
 					// biome-ignore lint/suspicious/noArrayIndexKey: <explanation>
 					<Fragment key={i}>
-						<div>{doc.oplog.ranges.fields.start[i]}</div>
-						<div>{doc.oplog.ranges.fields.len[i]}</div>
-						<div>{doc.oplog.sites.keys[fields.site[i]]}</div>
-						<div>{fields.clock[i]}</div>
+						<div>{doc.oplog.ops.starts[i]}</div>
+						<div>{fields.site[i]} {fields.siteClock[i]}</div>
 						<div>{p}</div>
 						<span
 							class="overflow-hidden text-nowrap text-ellipsis"
-							title={fields.items[i]}
+							title={fields.data[i].toString()}
 						>
-							{fields.items[i]}
+							{fields.data[i]}
 						</span>
 					</Fragment>
 				)
@@ -40,7 +36,6 @@ function OplogTab(props: { doc: Doc }) {
 
 function CrdtTab(props: { doc: Doc }) {
 	const { doc } = props;
-	const { fields } = doc.oplog.items;
 				//const len = doc.oplog.ranges.fields.len[i];
 				//const parents: Record<number, number[]> = {};
 				//for (let j = 0; j < len; j++) {
@@ -54,6 +49,7 @@ function CrdtTab(props: { doc: Doc }) {
 export default function EditorDebug(props: { class?: string; doc: Doc }) {
 	const { doc } = props;
 	const [tab, setTab] = useState<"oplog" | "crdt">("oplog");
+	if (!doc) return "wtf";
 
 	return (
 		<div class={claz(props.class, "flex flex-col overflow-auto")}>
