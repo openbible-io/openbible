@@ -1,6 +1,6 @@
 import { render } from "preact";
 import { useState } from "preact/hooks";
-import { Text as Doc, type Site } from "@openbible/shareword";
+import { Text as Doc, fuzzer, type Site } from "@openbible/shareword";
 import Editor from "./editor";
 import EditorDebug from "./editor-debug";
 import Button from "./button";
@@ -52,6 +52,14 @@ function App() {
 					}}
 				>
 					Reset
+				</Button>
+				<Button
+					onClick={() => {
+						for (let seed = 0; seed < 100; seed++) fuzzer(seed);
+						console.log("done");
+					}}
+				>
+					Fuzz
 				</Button>
 			</div>
 			<Editor doc={doc2} />
