@@ -24,11 +24,33 @@ export enum OpType {
 	Seek = 3, // number
 }
 
-/** A full operation and metadata to resolve it conflict-free. */
-export interface Op<T> extends OpId {
-	position: number; // TODO: remove
-	data: T | number;
-	parents: Clock[];
+/**
+ * There are 52 fraction bits in a `number` (Float64).
+ * However, JS only allows array indices up to 2^32, which is what the run
+ * index represents.
+ *
+ * Note: SMI deoptimization begins at 2^32-1.
+ *
+ * High 32 bits = run index
+ * Low 8 bits = run offset
+ */
+export type OpRef = number;
+/**
+ * Every part of every operation must be referable in order to determine
+ * causality and automatically merge. Additionally, that reference must be
+ * serializable so that it can be sent as a `Patch` to other `Site`s.
+ *
+ * Since we do a lot of graph operations to determine causality, it's
+ * preferable that such a reference fit in a single small integer that our JS
+ * engine can store in an SMI. For that reason, we limit the length of runs so
+ * that we can use the lower bits to represent offsets.
+ */
+export const maxRunLen = 256;
+export function refEncode(idx: number, offset = 0): OpRef {
+	return (idx << 8) + offset;
+}
+export function refDecode(ref: OpRef): [idx: number, offset: number] {
+	return [ref >> 8, ref & 0xff];
 }
 
 /** Accumulator for runs of Op<T>. May NOT == number. */
@@ -43,7 +65,6 @@ export interface OpRun<T, AccT extends Accumulator<T>> extends OpId {
 	position: number; // TODO: remove
 	/** Insertion UTF-16 | deleteCount (negative) | seekPos (positive) */
 	data: AccT | number;
-	parents: Clock[];
 }
 
 // We could make various `Op` classes with nice functions, but it has a
@@ -82,7 +103,7 @@ export function opSlice<T, AccT extends Accumulator<T>>(
 	const res = {...op};
 	start ??= 0;
 	res.siteClock += start;
-	switch (opType(op.data)) {
+	switch (opType(res.data)) {
 		case OpType.Insertion:
 			res.data = (res.data as AccT).slice(start, end);
 			res.position += start;

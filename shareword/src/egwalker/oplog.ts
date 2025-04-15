@@ -1,17 +1,7 @@
-import {
-	opLength,
-	opSlice,
-	OpType,
-	opType,
-	type Accumulator,
-	type Clock,
-	type Op,
-	type OpData,
-	type OpRun,
-	type Site,
-} from "./op";
+import { opLength, opSlice, OpType, opType, refDecode, refEncode } from "./op";
+import type { Accumulator, Clock, OpData, OpRef, OpRun, Site } from "./op";
 import { Patch, type StateVector } from "./patch";
-import { assertBounds, MultiArrayList, Rle } from "./util";
+import { assertBounds, Rle } from "./util";
 
 type RleOp<T, AccT extends Accumulator<T>> = {
 	site: Site; // TODO: number
@@ -22,51 +12,39 @@ type RleOp<T, AccT extends Accumulator<T>> = {
 
 /** An append-only list of immutable operations */
 export class OpLog<T, AccT extends Accumulator<T> = T[]> {
-	ops: Rle<RleOp<T, AccT>, MultiArrayList<RleOp<T, AccT>>>;
+	ops: Rle<RleOp<T, AccT>>;
 	/** For items whose parents do not immediately precede it. */
-	parents: Record<Clock, number[]> = {};
+	parents: Record<number /** index into `ops` */, OpRef[]> = {};
 	/** Next Op's `parents`. */
-	frontier: Clock[] = [];
+	frontier: OpRef[] = [];
 	stateVector: StateVector = {};
 
 	/** @param mergeFn How to merge runs together. */
 	constructor(public mergeFn: (acc: AccT, cur: AccT) => AccT) {
-		this.ops = new Rle(
-			new MultiArrayList<RleOp<T, AccT>>({
-				site: "",
-				siteClock: 0,
-				position: 0,
-				data: 0,
-			}),
+		this.ops = new Rle<RleOp<T, AccT>>(
+			[],
 			(ctx, item, len) => {
-				const { fields } = ctx.items;
 				const prevIdx = ctx.starts.length - 1;
 				const prevLen = ctx.len(prevIdx);
-
-				const prevPos = fields.position[prevIdx];
-				const prevSite = fields.site[prevIdx];
-				const prevClock = fields.siteClock[prevIdx];
+				const prev = ctx.items[prevIdx];
 
 				// non-consecutive id?
-				if (prevSite !== item.site || prevClock + prevLen !== item.siteClock)
+				if (prev.site !== item.site || prev.siteClock + prevLen !== item.siteClock)
 					return false;
 
-				const ty = opType(fields.data[prevIdx]);
+				const ty = opType(prev.data);
 				if (ty !== opType(item.data)) return false;
 
 				switch (ty) {
 					case OpType.Insertion:
-						if (prevPos + prevLen === item.position) {
-							fields.data[prevIdx] = mergeFn(
-								fields.data[prevIdx] as AccT,
-								item.data as AccT,
-							);
+						if (prev.position + prevLen === item.position) {
+							prev.data = mergeFn(prev.data as AccT, item.data as AccT);
 							return true;
 						}
 						break;
 					case OpType.Deletion:
-						if (prevPos === item.position) {
-							(fields.data[prevIdx] as number) -= len;
+						if (prev.position === item.position) {
+							(prev.data as number) -= len;
 							return true;
 						}
 						break;
@@ -77,46 +55,20 @@ export class OpLog<T, AccT extends Accumulator<T> = T[]> {
 		);
 	}
 
-	parentsAt(clock: Clock): Clock[] {
-		assertBounds(clock, this.ops.length);
-		return this.parents[clock] ?? [clock - 1];
+	#refDec(ref: OpRef): OpRef {
+		const [idx, offset] = refDecode(ref);
+		return offset ? ref - 1 : refEncode(idx - 1, this.ops.len(idx - 1) - 1);
 	}
 
-	itemAt(clock: Clock): Op<T> & { clock: number } {
-		const op = this.ops.at(clock);
-		const parents = this.parentsAt(clock);
-		let data: T | number = op.data as number;
-		switch (opType(op.data)) {
-			case OpType.Insertion:
-				data = (op.data as AccT)[0];
-				break;
-			case OpType.Deletion:
-				data = -1;
-				break;
-		}
-		return {
-			clock,
-			site: op.site,
-			siteClock: op.siteClock,
-			position: op.position,
-			data,
-			parents,
-		};
+	parentsAt(ref: OpRef): OpRef[] {
+		const [idx, offset] = refDecode(ref);
+		assertBounds(idx, this.ops.length);
+		if (offset || !this.parents[idx]) return [this.#refDec(ref)];
+		return this.parents[idx];
 	}
 
-	at(idx: number): OpRun<T, AccT> & { start: number; length: number } {
-		const op = this.ops.items.at(idx);
-		const start = this.ops.starts[idx];
-		const data = op.data;
-		return {
-			start,
-			length: opLength(data),
-			site: op.site,
-			siteClock: op.siteClock,
-			position: op.position,
-			data,
-			parents: this.parentsAt(start),
-		};
+	at(idx: number, start?: number, end?: number): OpRun<T, AccT> {
+		return opSlice(this.ops.items[idx], start, end);
 	}
 
 	#nextSiteClock(site: Site): Clock {
@@ -124,26 +76,29 @@ export class OpLog<T, AccT extends Accumulator<T> = T[]> {
 	}
 
 	/** @returns If inserted a new item. */
-	#insertParents(clock: Clock, parents: Clock[]): boolean {
-		if (parents.length === 1 && parents[0] === clock - 1) return false;
-		this.parents[clock] = parents;
+	#insertParents(ref: OpRef, parents: OpRef[]): boolean {
+		if (parents.length === 1 && parents[0] === this.#refDec(ref)) {
+			return false;
+		}
+		this.parents[refDecode(ref)[0]] = parents;
 		return true;
 	}
 
-	push(run: OpRun<T, AccT>): void {
-		const { parents, ...rest } = run;
+	push(run: OpRun<T, AccT>, parents = this.frontier): void {
 		const len = opLength(run.data);
 		// Adding a new run at every merge point greatly simplifies diffing,
 		// merging, and integrating. These other operations all optimize on this
 		// fact.
-		const forceNewRun = this.#insertParents(this.ops.length, parents);
-		this.ops.push(rest, len, forceNewRun);
+		const ref = refEncode(this.ops.items.length, 0);
+		const forceNewRun = this.#insertParents(ref, parents);
+		this.ops.push(run, len, forceNewRun);
+		const prevIdx = this.ops.items.length - 1;
 		this.frontier = advanceFrontier(
 			this.frontier,
-			this.ops.length - 1,
 			parents,
+			refEncode(prevIdx, this.ops.len(prevIdx) - 1),
 		);
-		this.stateVector[rest.site] = run.siteClock + len;
+		this.stateVector[run.site] = run.siteClock + len;
 	}
 
 	insert(site: Site, position: number, items: AccT) {
@@ -152,7 +107,6 @@ export class OpLog<T, AccT extends Accumulator<T> = T[]> {
 			siteClock: this.#nextSiteClock(site),
 			data: items,
 			position,
-			parents: this.frontier,
 		});
 	}
 
@@ -162,7 +116,6 @@ export class OpLog<T, AccT extends Accumulator<T> = T[]> {
 			siteClock: this.#nextSiteClock(site),
 			data: -delCount,
 			position,
-			parents: this.frontier,
 		});
 	}
 
@@ -172,17 +125,16 @@ export class OpLog<T, AccT extends Accumulator<T> = T[]> {
 }
 
 export function advanceFrontier(
-	frontier: Clock[],
-	clock: Clock,
-	parents: Clock[],
-): Clock[] {
+	frontier: OpRef[],
+	parents: OpRef[],
+	ref: OpRef,
+): OpRef[] {
 	const res = frontier.filter((c) => !parents.includes(c));
-	res.push(clock);
+	res.push(ref);
 	return res.sort((a, b) => a - b);
 }
 
 type DebugRow<T, AccT extends Accumulator<T>> = {
-	start: number;
 	id: string;
 	position: number;
 	data: OpData<T, AccT>;
@@ -195,11 +147,10 @@ export function debugRows<T, AccT extends Accumulator<T>>(
 	for (let i = 0; i < oplog.ops.items.length; i++) {
 		const run = oplog.at(i);
 		res.push({
-			start: run.start,
 			id: `${run.site}${run.siteClock}`,
 			position: run.position,
 			data: run.data,
-			parents: run.parents,
+			parents: oplog.parentsAt(refEncode(i)),
 		});
 	}
 	return res;
@@ -221,36 +172,13 @@ export function debugRows2<T, AccT extends Accumulator<T>>(
 			`${run.site}${run.siteClock}`,
 			run.position,
 			run.data,
-			run.parents,
+			oplog.parentsAt(refEncode(i)),
 		]);
 	}
 	return res;
 }
 
-export function debugPrint<T, AccT extends Accumulator<T>>(
-	oplog: OpLog<T, AccT>,
-	full = false, // TODO: remove
-) {
-	if (full) {
-		type Op = {
-			id: string;
-			position: number;
-			data: T | number;
-			parents: Clock[];
-		};
-		const ops: Op[] = [];
-		for (let i = 0; i < oplog.ops.length; i++) {
-			const item = oplog.itemAt(i);
-			ops.push({
-				id: `${item.site}${item.siteClock}`,
-				position: item.position,
-				data: item.data,
-				parents: oplog.parentsAt(i),
-			});
-		}
-		console.table(ops);
-	} else {
-		const rows = debugRows(oplog);
-		console.table(rows);
-	}
+export function debugPrint(oplog: OpLog<any, any>): void {
+	const rows = debugRows(oplog);
+	console.table(rows);
 }

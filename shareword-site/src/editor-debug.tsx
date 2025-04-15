@@ -6,7 +6,6 @@ import { claz } from "./claz";
 
 function OplogTab(props: { doc: Doc }) {
 	const { doc } = props;
-	const { fields } = doc.oplog.ops.items;
 
 	return <>
 		Frontier: {doc.oplog.frontier.join(", ")}
@@ -15,17 +14,16 @@ function OplogTab(props: { doc: Doc }) {
 			<div>Id</div>
 			<div>Position</div>
 			<div>Items</div>
-			{fields.position.map((p, i) => (
-					// biome-ignore lint/suspicious/noArrayIndexKey: <explanation>
-					<Fragment key={i}>
+			{doc.oplog.ops.items.map((op, i) => (
+					<Fragment key={op.site + op.siteClock}>
 						<div>{doc.oplog.ops.starts[i]}</div>
-						<div>{fields.site[i]} {fields.siteClock[i]}</div>
-						<div>{p}</div>
+						<div>{op.site} {op.siteClock}</div>
+						<div>{op.position}</div>
 						<span
 							class="overflow-hidden text-nowrap text-ellipsis"
-							title={fields.data[i].toString()}
+							title={op.data.toString()}
 						>
-							{fields.data[i]}
+							{op.data}
 						</span>
 					</Fragment>
 				)
@@ -49,7 +47,6 @@ function CrdtTab(props: { doc: Doc }) {
 export default function EditorDebug(props: { class?: string; doc: Doc }) {
 	const { doc } = props;
 	const [tab, setTab] = useState<"oplog" | "crdt">("oplog");
-	if (!doc) return "wtf";
 
 	return (
 		<div class={claz(props.class, "flex flex-col overflow-auto")}>

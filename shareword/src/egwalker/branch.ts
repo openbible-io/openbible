@@ -2,33 +2,64 @@ import { advanceFrontier, type OpLog } from "./oplog";
 import { Crdt, State, type Item } from "./crdt";
 import type { Snapshot } from "./snapshot";
 import { PriorityQueue } from "./util/pq";
-import type { Accumulator, Clock } from "./op";
+import { refDecode, refEncode } from "./op";
+import type { Accumulator, OpRef } from "./op";
+
+type OpRange = {
+	start: OpRef;
+	/** Inclusive of last index, non-inclusive of last offset. */
+	end: OpRef;
+};
+function* opRangeIter(
+	range: OpRange,
+	len: (idx: number) => number,
+): Generator<OpRef> {
+	const [startIdx, startOffset] = refDecode(range.start);
+	const [endIdx, endOffset] = refDecode(range.end);
+	for (let i = startIdx; i <= endIdx; i++) {
+		for (
+			let j = i === startIdx ? startOffset : 0;
+			j < (i === endIdx ? endOffset : len(i));
+			j++
+		) {
+			yield refEncode(i, j);
+		}
+	}
+}
+type HeadResult = {
+	/** First common op */
+	head: OpRef[];
+	shared: OpRange;
+	bOnly: OpRange;
+};
 
 export class Branch<T, AccT extends Accumulator<T>> {
-	frontier: Clock[] = [];
+	frontier: OpRef[] = [];
 
 	constructor(public oplog: OpLog<T, AccT>) {}
 
-	#diff(
-		a: Clock[],
-		b: Clock[],
-	): {
-		head: Clock[];
-		shared: Clock[];
-		bOnly: Clock[];
-	} {
+	/** Invariant: directed graph */
+	#findHead(a: OpRef[], b: OpRef[]): HeadResult {
 		type MergePoint = {
-			clocks: Clock[];
+			refs: OpRef[];
 			inA: boolean;
+		};
+		const res: HeadResult = {
+			head: [],
+			shared: {
+				start: Number.POSITIVE_INFINITY,
+				end: Number.NEGATIVE_INFINITY,
+			},
+			bOnly: { start: Number.POSITIVE_INFINITY, end: Number.NEGATIVE_INFINITY },
 		};
 
 		const queue = new PriorityQueue<MergePoint>((a, b) =>
-			cmpClocks(b.clocks, a.clocks),
+			cmpOpRefs(b.refs, a.refs),
 		);
 
-		const enq = (localClocks: Clock[], inA: boolean) => {
+		const enq = (localOpRefs: OpRef[], inA: boolean) => {
 			queue.push({
-				clocks: localClocks.toSorted((a, b) => b - a),
+				refs: localOpRefs.toSorted((a, b) => b - a),
 				inA,
 			});
 		};
@@ -36,64 +67,67 @@ export class Branch<T, AccT extends Accumulator<T>> {
 		enq(a, true);
 		enq(b, false);
 
-		let head: Clock[] = [];
-		const shared = [];
-		const bOnly = [];
-
 		let next: MergePoint | undefined;
 		while ((next = queue.pop())) {
-			if (next.clocks.length === 0) break; // root element
+			if (next.refs.length === 0) break; // root element
 			let inA = next.inA;
 
 			let peek: MergePoint | undefined;
 			// multiple elements may have same merge point
 			while ((peek = queue.peek())) {
-				if (cmpClocks(next.clocks, peek.clocks)) break;
+				if (cmpOpRefs(next.refs, peek.refs)) break;
 
 				queue.pop();
 				if (peek.inA) inA = true;
 			}
 
 			if (!queue.length) {
-				head = next.clocks.reverse();
+				res.head = next.refs.reverse();
 				break;
 			}
 
-			if (next.clocks.length > 1) {
-				for (const lc of next.clocks) enq([lc], inA);
+			if (next.refs.length > 1) {
+				for (const lc of next.refs) enq([lc], inA);
 			} else {
-				//assert(next.clocks.length == 1);
-				const lc = next.clocks[0];
-				if (inA) shared.push(lc);
-				else bOnly.push(lc);
+				const ref = next.refs[0];
+				if (inA) {
+					res.shared.start = Math.min(res.shared.start, ref);
+					res.shared.end = Math.max(res.shared.end, ref + 1);
+				} else {
+					res.bOnly.start = Math.min(res.bOnly.start, ref);
+					res.bOnly.end = Math.max(res.bOnly.end, ref + 1);
+				}
 
-				enq(this.oplog.parentsAt(lc), inA);
+				enq(this.oplog.parentsAt(ref), inA);
 			}
 		}
 
-		return {
-			head,
-			shared: shared.reverse(),
-			bOnly: bOnly.reverse(),
-		};
+		return res;
 	}
 
-	checkout(mergeFrontier: Clock[], snapshot?: Snapshot<T>) {
-		const { head, shared, bOnly } = this.#diff(
+	checkout(mergeFrontier: OpRef[], snapshot?: Snapshot<T>) {
+		// 4%
+		const { head, shared, bOnly } = this.#findHead(
 			this.frontier,
 			mergeFrontier,
 		);
 		//debugPrint(this.oplog);
-		//console.log("checkout", this.frontier, mergeFrontier, head, shared, bOnly);
+		//console.log("checkout");
+		//console.log(this.frontier.map((r) => refDecode(r).toString()));
+		//console.log(mergeFrontier.map((r) => refDecode(r).toString()));
+		//console.log(head.map((r) => refDecode(r).toString()));
+		//console.log(refDecode(shared.start).toString(), refDecode(shared.end).toString());
+		//console.log(refDecode(bOnly.start).toString(), refDecode(bOnly.end).toString());
 
 		const doc = new Crdt(this.oplog);
 		doc.currentVersion = head;
 
-		const placeholderLength = this.frontier[this.frontier.length - 1] + 1;
-		const placeholderOffset = this.oplog.ops.length; // @seph: is this correct?
+		// 5%
+		const placeholderLength = this.oplog.ops.length;
+		const placeholderOffset = refEncode(this.oplog.ops.items.length, 0);
 		for (let i = 0; i < placeholderLength; i++) {
 			const item: Item = {
-				clock: i + placeholderOffset,
+				ref: placeholderOffset + i,
 				site: "",
 				state: State.Inserted,
 				deleted: false,
@@ -101,22 +135,24 @@ export class Branch<T, AccT extends Accumulator<T>> {
 				originRight: -1,
 			};
 			doc.items.push(item);
-			doc.targets[item.clock] = item;
+			doc.targets[item.ref] = item;
 		}
 
-		for (const c of shared) doc.applyOp(c);
-		for (const c of bOnly) {
-			doc.applyOp(c, snapshot);
+		// 46%
+		const len = (i: number) => this.oplog.ops.len(i);
+		for (const ref of opRangeIter(shared, len)) doc.applyOp(ref);
+		for (const ref of opRangeIter(bOnly, len)) {
+			doc.applyOp(ref, snapshot);
 			this.frontier = advanceFrontier(
 				this.frontier,
-				c,
-				this.oplog.parentsAt(c),
+				this.oplog.parentsAt(ref),
+				ref,
 			);
 		}
 	}
 }
 
-function cmpClocks(a: Clock[], b: Clock[]): number {
+function cmpOpRefs(a: OpRef[], b: OpRef[]): number {
 	for (let i = 0; i < a.length; i++) {
 		if (b.length <= i) return 1;
 
