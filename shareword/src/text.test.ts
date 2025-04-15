@@ -140,6 +140,8 @@ test("correctness", async () => {
 	expect(a.toString()).toBe("helloword");
 	expect(b.toString()).toBe("shareworld");
 
+	debugPrint(a.oplog);
+	console.log(toDot(a.oplog));
 	a.merge(b);
 	expect(debugRows2(a.oplog)).toEqual([
 		["a0", 0, "hello", []],
@@ -234,9 +236,6 @@ test("partial op merge", () => {
 	expect(a.toString()).toEqual("vce");
 	expect(b.toString()).toEqual("vz");
 
-	console.log("bbbb")
-	debugPrint(b.oplog);
-	console.log(toDot(b.oplog));
 	//checkout
 	//[ "1,0" ]
 	//[ "1,0", "2,0" ]

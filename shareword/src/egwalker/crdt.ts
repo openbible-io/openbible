@@ -45,7 +45,7 @@ export class Crdt<T, AccT extends Accumulator<T>> {
 		const [idx] = refDecode(ref);
 		const data = this.oplog.ops.items.fields.data[idx];
 		const target =
-			opType(data) === OpType.Deletion ? this.delTargets[ref] : ref;
+			opType(data) === OpType.Deletion ? this.delTargets[idx] : idx;
 		return this.targets[target];
 	}
 
@@ -126,8 +126,8 @@ export class Crdt<T, AccT extends Accumulator<T>> {
 					deleted: false,
 					state: State.Inserted,
 				};
-				console.log("assign", refDecode(ref));
-				this.targets[ref] = item;
+				console.log("assign", idx);
+				this.targets[idx] = item;
 				//console.log("integrate", refDecode(ref), op.data)
 				this.#integrate(item, idx, endPos, op.data as AccT, snapshot);
 				break;
@@ -197,8 +197,8 @@ export class Crdt<T, AccT extends Accumulator<T>> {
 		const ref = refEncode(idx, start);
 		const parents = getParents(ref);
 		const { aOnly, bOnly } = diff(getParents, this.currentVersion, parents);
-		//if (aOnly.length || bOnly.length)
-		//	console.log({ aOnly: aOnly.map(refDecode), bOnly: bOnly.map(refDecode) });
+		if (aOnly.length || bOnly.length)
+			console.log({ aOnly: aOnly.map(refDecode), bOnly: bOnly.map(refDecode) });
 
 		for (const ref of aOnly) this.#retreat(ref);
 		for (const ref of bOnly) this.#advance(ref);

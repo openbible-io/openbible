@@ -1,5 +1,5 @@
 import { Branch } from "./egwalker/branch";
-import { OpLog } from "./egwalker/oplog";
+import { debugPrint, OpLog, toDot } from "./egwalker/oplog";
 import type { Accumulator, Site } from "./egwalker/op";
 import { ListSnapshot, type Snapshot } from "./egwalker/snapshot";
 

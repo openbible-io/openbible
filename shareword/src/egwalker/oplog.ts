@@ -78,6 +78,12 @@ export class OpLog<T, AccT extends Accumulator<T> = T[]> {
 		return this.parents[idx];
 	}
 
+	parentsAtIdx(ref: OpRef): OpRef[] {
+		const [idx] = refDecode(ref);
+		assertBounds(idx, this.ops.length);
+		return this.parents[idx] ?? [refEncode(idx - 1, this.ops.len(idx - 1) - 1)];
+	}
+
 	atSlice(idx: number, start?: number, end?: number): OpRun<T, AccT> {
 		const op = this.ops.items.at(idx);
 		const data = op.data;

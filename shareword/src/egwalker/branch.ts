@@ -3,7 +3,6 @@ import { Crdt, State, type Item } from "./crdt";
 import type { Snapshot } from "./snapshot";
 import { PriorityQueue } from "./util/pq";
 import { refDecode, refEncode, type Accumulator, type OpRef } from "./op";
-import { assert } from "./util";
 
 export class Branch<T, AccT extends Accumulator<T>> {
 	frontier: OpRef[] = [];
@@ -46,7 +45,7 @@ export class Branch<T, AccT extends Accumulator<T>> {
 		const [sharedEndIdx, sharedEndOffset] = refDecode(shared.end);
 		for (let i = sharedStartIdx; i <= sharedEndIdx; i++) {
 			const startOffset = i === sharedStartOffset ? sharedStartOffset : 0;
-			const endOffset = i === sharedEndIdx ? sharedEndOffset : this.oplog.ops.len(i);
+			const endOffset = i === sharedEndIdx ? sharedEndOffset + 1 : this.oplog.ops.len(i);
 			doc.applyOpRun(i, startOffset, endOffset);
 		}
 
@@ -54,7 +53,7 @@ export class Branch<T, AccT extends Accumulator<T>> {
 		const [destOnlyEndIdx, destOnlyEndOffset] = refDecode(destOnly.end);
 		for (let i = destOnlyStartIdx; i <= destOnlyEndIdx; i++) {
 			const startOffset = i === destOnlyStartOffset ? destOnlyStartOffset : 0;
-			const endOffset = i === destOnlyEndIdx ? destOnlyEndOffset : this.oplog.ops.len(i);
+			const endOffset = i === destOnlyEndIdx ? destOnlyEndOffset + 1 : this.oplog.ops.len(i);
 			doc.applyOpRun(i, startOffset, endOffset, snapshot);
 
 			const ref = refEncode(i, endOffset);
