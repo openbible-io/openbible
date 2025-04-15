@@ -121,6 +121,8 @@ test("correctness", async () => {
 		],
 	]);
 	expect(a.oplog.frontier.map(refDecode)).toEqual([[2, 0]]);
+	expect(a.toString()).toBe("helloword");
+
 	expect(debugRows2(b.oplog)).toEqual([
 		["b0", 0, "world", []],
 		["a0", 0, "hello", []],
@@ -136,12 +138,8 @@ test("correctness", async () => {
 		["b10", 0, "share", [[2, 4]]],
 	]);
 	expect(b.oplog.frontier.map(refDecode)).toEqual([[3, 4]]);
-
-	expect(a.toString()).toBe("helloword");
 	expect(b.toString()).toBe("shareworld");
 
-	debugPrint(a.oplog);
-	console.log(toDot(a.oplog));
 	a.merge(b);
 	expect(debugRows2(a.oplog)).toEqual([
 		["a0", 0, "hello", []],
@@ -215,6 +213,8 @@ test("partial op merge", () => {
 	expect(debugRows2(a.oplog)).toEqual([["b0", 0, "vc", []]]);
 	expect(a.oplog.frontier.map(refDecode)).toEqual([[0, 1]]);
 
+	debugPrint(b.oplog);
+	console.log(toDot(b.oplog));
 	b.merge(a); // noop
 	expect(debugRows2(b.oplog)).toEqual(debugRows2(a.oplog));
 	expect(b.oplog.frontier.map(refDecode)).toEqual([[0, 1]]);

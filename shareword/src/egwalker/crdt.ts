@@ -2,7 +2,7 @@ import { opLength, opType, OpType, refDecode, refEncode } from "./op";
 import type { OpLog } from "./oplog";
 import type { Accumulator, OpRef, Site } from "./op";
 import type { Snapshot } from "./snapshot";
-import { assert } from "./util";
+import { assert, assertBounds } from "./util";
 import { PriorityQueue } from "./util/pq";
 
 export enum State {
@@ -14,10 +14,10 @@ export enum State {
 	// ...
 }
 
+/** Metadata for merging a UTF-16 code point. */
 export type Item = {
 	ref: OpRef;
-	length: number;
-	/** For tie breaking */
+	/** TODO: replace with getter */
 	site: Site;
 	/** -1 = start of doc */
 	originLeft: OpRef | -1;
@@ -31,6 +31,8 @@ export type Item = {
  * A CRDT document implemented as an Event Graph Walker.
  *
  * - https://arxiv.org/pdf/2409.14252
+ *
+ * TODO: use btree for items
  */
 export class Crdt<T, AccT extends Accumulator<T>> {
 	items: Item[] = [];
@@ -45,16 +47,16 @@ export class Crdt<T, AccT extends Accumulator<T>> {
 		const [idx] = refDecode(ref);
 		const data = this.oplog.ops.items.fields.data[idx];
 		const target =
-			opType(data) === OpType.Deletion ? this.delTargets[idx] : idx;
+			opType(data) === OpType.Deletion ? this.delTargets[ref] : ref;
 		return this.targets[target];
 	}
 
 	#retreat(ref: OpRef) {
+		console.log("retreat", ref)
 		this.#target(ref).state -= 1;
 	}
 
 	#advance(ref: OpRef) {
-				console.log("get", refDecode(ref));
 		this.#target(ref).state += 1;
 	}
 
@@ -67,7 +69,7 @@ export class Crdt<T, AccT extends Accumulator<T>> {
 		let idx = 0;
 
 		for (; curPos < targetPos; idx++) {
-			if (idx >= this.items.length) throw new Error("Past end of items list");
+			assertBounds(idx, this.items.length);
 
 			const item = this.items[idx];
 			if (item.state === State.Inserted) curPos++;
@@ -82,59 +84,6 @@ export class Crdt<T, AccT extends Accumulator<T>> {
 		}
 
 		return { idx, endPos };
-	}
-
-	#apply(idx: number, start: number, end: number, snapshot?: Snapshot<T>) {
-		const ref = refEncode(idx, start);
-		const op = this.oplog.atSlice(idx, start, end + 1);
-		const pos = op.position;
-		console.log("applyOp", idx, start, end, op.position, op.data);
-
-		switch (opType(op.data)) {
-			case OpType.Deletion: {
-				const { idx, endPos } = this.#findPos(pos, true);
-				const item = this.items[idx];
-
-				if (!item.deleted) {
-					item.deleted = true;
-					snapshot?.delete(endPos, -op.data);
-				}
-				item.state = State.Deleted;
-
-				this.delTargets[ref] = item.ref;
-				break;
-			}
-			case OpType.Insertion: {
-				const { idx, endPos } = this.#findPos(pos, false);
-				const originLeft = idx ? this.items[idx - 1].ref : -1;
-
-				let originRight = -1;
-				for (let i = idx; i < this.items.length; i++) {
-					const item2 = this.items[i];
-					if (item2.state !== State.NotInserted) {
-						originRight = item2.ref;
-						break;
-					}
-				}
-
-				const item: Item = {
-					ref,
-					length: opLength(op.data),
-					site: op.site,
-					originLeft,
-					originRight,
-					deleted: false,
-					state: State.Inserted,
-				};
-				console.log("assign", idx);
-				this.targets[idx] = item;
-				//console.log("integrate", refDecode(ref), op.data)
-				this.#integrate(item, idx, endPos, op.data as AccT, snapshot);
-				break;
-			}
-			default:
-				assert(false, `invalid op ${op.data}`);
-		}
 	}
 
 	#indexOfOpRef(ref: OpRef): number {
@@ -178,7 +127,7 @@ export class Crdt<T, AccT extends Accumulator<T>> {
 			}
 			if (oleft === left) scanning = oright < right;
 
-			if (!other.deleted) scanEndPos += other.length;
+			if (!other.deleted) scanEndPos++;
 			scanIdx++;
 
 			if (!scanning) {
@@ -191,19 +140,74 @@ export class Crdt<T, AccT extends Accumulator<T>> {
 		snapshot?.insert(endPos, content);
 	}
 
-	applyOpRun(idx: number, start: number, end: number, snapshot?: Snapshot<T>) {
-		console.log("applyOpRun", idx, start, end);
-		const getParents = (ref: OpRef) => this.oplog.parentsAt(ref);
-		const ref = refEncode(idx, start);
-		const parents = getParents(ref);
-		const { aOnly, bOnly } = diff(getParents, this.currentVersion, parents);
-		if (aOnly.length || bOnly.length)
-			console.log({ aOnly: aOnly.map(refDecode), bOnly: bOnly.map(refDecode) });
+	#apply(ref: OpRef, snapshot?: Snapshot<T>) {
+		const [idx, start] = refDecode(ref);
+		const op = this.oplog.atSlice(idx, start, start + 1);
+		const pos = op.position;
+		console.log("applyOp", idx, start, op.position, op.data, snapshot ? [...snapshot.items()].join("") : false);
 
-		for (const ref of aOnly) this.#retreat(ref);
-		for (const ref of bOnly) this.#advance(ref);
-		this.#apply(idx, start, end, snapshot);
-		this.currentVersion = [ref];
+		switch (opType(op.data)) {
+			case OpType.Deletion: {
+				const { idx, endPos } = this.#findPos(pos, true);
+				const item = this.items[idx];
+
+				if (!item.deleted) {
+					item.deleted = true;
+					snapshot?.delete(endPos, 1);
+				}
+				item.state = State.Deleted;
+
+				this.delTargets[ref] = item.ref;
+				break;
+			}
+			case OpType.Insertion: {
+				const { idx, endPos } = this.#findPos(pos, false);
+				const originLeft = idx ? this.items[idx - 1].ref : -1;
+
+				let originRight = -1;
+				for (let i = idx; i < this.items.length; i++) {
+					const item2 = this.items[i];
+					if (item2.state !== State.NotInserted) {
+						originRight = item2.ref;
+						break;
+					}
+				}
+
+				const item: Item = {
+					ref,
+					site: op.site,
+					originLeft,
+					originRight,
+					deleted: false,
+					state: State.Inserted,
+				};
+				this.targets[ref] = item;
+				this.#integrate(item, idx, endPos, op.data as AccT, snapshot);
+				break;
+			}
+			default:
+				assert(false, `invalid op ${op.data}`);
+		}
+	}
+
+	applyOpRun(idx: number, start: number, end: number, snapshot?: Snapshot<T>) {
+		console.log("applyOpRun", idx, start, end, this.oplog.at(refEncode(idx, start)).data);
+		assert(end > start, "range");
+		const getParents = (ref: OpRef) => this.oplog.parentsAt(ref);
+
+		// TODO: find a way to eliminate this for loop
+		for (let i = start; i < end; i++) {
+			const ref = refEncode(idx, i);
+			const parents = getParents(ref);
+			const { aOnly, bOnly } = diff(getParents, this.currentVersion, parents);
+			if (aOnly.length || bOnly.length)
+				console.log({ aOnly: aOnly.map(refDecode), bOnly: bOnly.map(refDecode) });
+
+			for (const ref of aOnly) this.#retreat(ref);
+			for (const ref of bOnly) this.#advance(ref);
+			this.#apply(ref, snapshot);
+			this.currentVersion = [ref];
+		}
 	}
 }
 
