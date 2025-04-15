@@ -52,7 +52,6 @@ export class Crdt<T, AccT extends Accumulator<T>> {
 	}
 
 	#retreat(ref: OpRef) {
-		console.log("retreat", ref)
 		this.#target(ref).state -= 1;
 	}
 
@@ -144,7 +143,14 @@ export class Crdt<T, AccT extends Accumulator<T>> {
 		const [idx, start] = refDecode(ref);
 		const op = this.oplog.atSlice(idx, start, start + 1);
 		const pos = op.position;
-		console.log("applyOp", idx, start, op.position, op.data, snapshot ? [...snapshot.items()].join("") : false);
+		//console.log(
+		//	"applyOp",
+		//	idx,
+		//	start,
+		//	op.position,
+		//	op.data,
+		//	snapshot ? [...snapshot.items()].join("") : false,
+		//);
 
 		switch (opType(op.data)) {
 			case OpType.Deletion: {
@@ -182,6 +188,7 @@ export class Crdt<T, AccT extends Accumulator<T>> {
 					state: State.Inserted,
 				};
 				this.targets[ref] = item;
+				//console.log("integrate", idx, endPos);
 				this.#integrate(item, idx, endPos, op.data as AccT, snapshot);
 				break;
 			}
@@ -190,9 +197,20 @@ export class Crdt<T, AccT extends Accumulator<T>> {
 		}
 	}
 
-	applyOpRun(idx: number, start: number, end: number, snapshot?: Snapshot<T>) {
-		console.log("applyOpRun", idx, start, end, this.oplog.at(refEncode(idx, start)).data);
-		assert(end > start, "range");
+	applyOpRun(
+		idx: number,
+		start: number,
+		end: number,
+		snapshot?: Snapshot<T>,
+	): void {
+		//console.log(
+		//	"applyOpRun",
+		//	idx,
+		//	start,
+		//	end,
+		//	this.oplog.atSlice(idx, start, end).data,
+		//);
+		if (end <= start) return;
 		const getParents = (ref: OpRef) => this.oplog.parentsAt(ref);
 
 		// TODO: find a way to eliminate this for loop
@@ -200,8 +218,11 @@ export class Crdt<T, AccT extends Accumulator<T>> {
 			const ref = refEncode(idx, i);
 			const parents = getParents(ref);
 			const { aOnly, bOnly } = diff(getParents, this.currentVersion, parents);
-			if (aOnly.length || bOnly.length)
-				console.log({ aOnly: aOnly.map(refDecode), bOnly: bOnly.map(refDecode) });
+			//if (aOnly.length || bOnly.length)
+			//	console.log({
+			//		aOnly: aOnly.map(refDecode),
+			//		bOnly: bOnly.map(refDecode),
+			//	});
 
 			for (const ref of aOnly) this.#retreat(ref);
 			for (const ref of bOnly) this.#advance(ref);

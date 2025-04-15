@@ -16,10 +16,10 @@ export class Branch<T, AccT extends Accumulator<T>> {
 			mergeFrontier,
 		);
 		//debugPrint(this.oplog);
-		console.log("checkout");
-		console.log(this.frontier.map((r) => refDecode(r).toString()));
-		console.log(mergeFrontier.map((r) => refDecode(r).toString()));
-		console.log(decodeDiff({ head, shared, destOnly }));
+		//console.log("checkout");
+		//console.log(this.frontier.map((r) => refDecode(r).toString()));
+		//console.log(mergeFrontier.map((r) => refDecode(r).toString()));
+		//console.log(decodeDiff({ head, shared, destOnly }));
 
 		const doc = new Crdt(this.oplog);
 		doc.currentVersion = head;
@@ -30,7 +30,6 @@ export class Branch<T, AccT extends Accumulator<T>> {
 		for (let i = 0; i < placeholderLength; i++) {
 			const item: Item = {
 				ref: placeholderOffset + i,
-				length: 1,
 				site: "",
 				state: State.Inserted,
 				deleted: false,
@@ -41,25 +40,19 @@ export class Branch<T, AccT extends Accumulator<T>> {
 			doc.targets[item.ref] = item;
 		}
 
-		const [sharedStartIdx, sharedStartOffset] = refDecode(shared.start);
-		const [sharedEndIdx, sharedEndOffset] = refDecode(shared.end);
-		for (let i = sharedStartIdx; i <= sharedEndIdx; i++) {
-			const startOffset = i === sharedStartOffset ? sharedStartOffset : 0;
-			const endOffset = i === sharedEndIdx ? sharedEndOffset + 1 : this.oplog.ops.len(i);
-			doc.applyOpRun(i, startOffset, endOffset);
+		const len = (idx: number) => this.oplog.ops.len(idx);
+
+		for (const { idx, start, end } of rangeIterator(len, shared)) {
+			doc.applyOpRun(idx, start, end);
 		}
 
-		const [destOnlyStartIdx, destOnlyStartOffset] = refDecode(destOnly.start);
-		const [destOnlyEndIdx, destOnlyEndOffset] = refDecode(destOnly.end);
-		for (let i = destOnlyStartIdx; i <= destOnlyEndIdx; i++) {
-			const startOffset = i === destOnlyStartOffset ? destOnlyStartOffset : 0;
-			const endOffset = i === destOnlyEndIdx ? destOnlyEndOffset + 1 : this.oplog.ops.len(i);
-			doc.applyOpRun(i, startOffset, endOffset, snapshot);
+		for (const { idx, start, end } of rangeIterator(len, destOnly)) {
+			doc.applyOpRun(idx, start, end, snapshot);
 
-			const ref = refEncode(i, endOffset);
+			const ref = refEncode(idx, end - 1);
 			this.frontier = advanceFrontier(
 				this.frontier,
-				this.oplog.parentsAt(ref),
+				this.oplog.parentsAt(refEncode(idx)),
 				ref,
 			);
 		}
@@ -79,8 +72,25 @@ function cmpClocks(a: OpRef[], b: OpRef[]): number {
 
 export type OpRange = {
 	start: OpRef;
+	/** Non-inclusive */
 	end: OpRef;
 };
+
+function* rangeIterator(
+	len: (idx: number) => number,
+	range: OpRange,
+): Generator<{ idx: number; start: number; end: number }> {
+	const [startIdx, startOff] = refDecode(range.start);
+	const [endIdx, endOff] = refDecode(range.end);
+	for (let i = startIdx; i <= endIdx; i++) {
+		const start = i === startIdx ? startOff : 0;
+		const end = i === endIdx ? endOff : len(i);
+		if (end <= start) continue;
+
+		yield { idx: i, start, end };
+	}
+}
+
 export type DiffResult = {
 	head: OpRef[];
 	shared: OpRange;
@@ -155,10 +165,10 @@ export function findHead(
 			// TODO: optimize
 			if (inSrc) {
 				shared.start = Math.min(shared.start, ref);
-				shared.end = Math.max(shared.end, ref);
+				shared.end = Math.max(shared.end, ref + 1);
 			} else {
 				destOnly.start = Math.min(destOnly.start, ref);
-				destOnly.end = Math.max(destOnly.end, ref);
+				destOnly.end = Math.max(destOnly.end, ref + 1);
 			}
 
 			enq(getParents(ref), inSrc);
