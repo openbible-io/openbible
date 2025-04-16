@@ -1,6 +1,6 @@
 import { test, expect } from "bun:test";
+import { mulberry32 } from "../../fuzzer";
 import BTree from "./btree";
-import { mulberry32 } from "../../../bench/harness";
 
 test("correctness", () => {
 	const random = mulberry32(0);

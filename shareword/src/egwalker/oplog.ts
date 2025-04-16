@@ -1,4 +1,4 @@
-import { opLength, opSlice, OpType, opType, refDecode, refEncode } from "./op";
+import { maxRunLen, opLength, opSlice, OpType, opType, refDecode, refEncode } from "./op";
 import type { Accumulator, Clock, OpData, OpRef, OpRun, Site } from "./op";
 import { Patch, type StateVector } from "./patch";
 import { assertBounds, Rle } from "./util";
@@ -27,6 +27,9 @@ export class OpLog<T, AccT extends Accumulator<T> = T[]> {
 				const prevIdx = ctx.starts.length - 1;
 				const prevLen = ctx.len(prevIdx);
 				const prev = ctx.items[prevIdx];
+
+				// over max length?
+				if (prevLen + 1 >= maxRunLen) return false;
 
 				// non-consecutive id?
 				if (prev.site !== item.site || prev.siteClock + prevLen !== item.siteClock)
