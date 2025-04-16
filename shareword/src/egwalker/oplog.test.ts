@@ -1,15 +1,14 @@
 import { test, expect } from "bun:test";
-import { debugPrint, debugRows, OpLog } from "./oplog";
+import { debugPrint, debugRows2, OpLog } from "./oplog";
 
 function stringOpLog() {
 	return new OpLog<string, string>((acc, others) => acc + others);
 }
 
 function expectHel(oplog: ReturnType<typeof stringOpLog>) {
-	expect(debugRows(oplog)).toEqual([
-		{ start: 0, id: "a0", position: 0, data: "hel", parents: [] },
+	expect(debugRows2(oplog)).toEqual([
+		[ "a0", 0, "hel", [] ],
 	]);
-	expect(() => oplog.parentsAt(3)).toThrowError();
 }
 
 test("insert", () => {
@@ -18,8 +17,6 @@ test("insert", () => {
 	oplog.insert("a", 0, "h");
 	oplog.insert("a", 1, "e");
 	oplog.insert("a", 2, "l");
-
-	console.dir(oplog, { depth: null });
 
 	expectHel(oplog);
 
@@ -38,17 +35,17 @@ test("delete", () => {
 	oplog.delete("b", 0, 1);
 	oplog.delete("b", 0, 1);
 	oplog.delete("b", 0, 1);
-	expect(debugRows(oplog)).toEqual([
-		{ start: 0, id: "a0", position: 0, data: "hel", parents: [] },
-		{ start: 3, id: "b0", position: 0, data: -3, parents: [2] },
+	expect(debugRows2(oplog)).toEqual([
+		[ "a0",  0, "hel", [] ],
+		[ "b0",  0, -3, [[0, 2]] ],
 	]);
 
 	oplog = stringOpLog();
 	oplog.insert("a", 0, "hel");
 	oplog.delete("b", 0, 3);
-	expect(debugRows(oplog)).toEqual([
-		{ start: 0, id: "a0", position: 0, data: "hel", parents: [] },
-		{ start: 3, id: "b0", position: 0, data: -3, parents: [2] },
+	expect(debugRows2(oplog)).toEqual([
+		[ "a0", 0, "hel", [] ],
+		[ "b0", 0, -3, [[0, 2]] ],
 	]);
 });
 
@@ -60,8 +57,10 @@ test("merge", () => {
 	b.insert("b", 0, "23");
 
 	a.merge(b);
+	debugPrint(a);
 
-	expect(a.parentsAt(0)).toEqual([]);
-	expect(a.parentsAt(1)).toEqual([]);
-	expect(a.parentsAt(2)).toEqual([1]);
+	expect(debugRows2(a)).toEqual([
+		[ "a0", 0, "1", [] ],
+		[ "b0", 0, "23", [] ],
+	]);
 });

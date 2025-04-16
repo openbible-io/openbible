@@ -141,7 +141,7 @@ type DebugRow<T, AccT extends Accumulator<T>> = {
 	id: string;
 	position: number;
 	data: OpData<T, AccT>;
-	parents: number[];
+	parents: ReturnType<typeof refDecode>[];
 };
 export function debugRows<T, AccT extends Accumulator<T>>(
 	oplog: OpLog<T, AccT>,
@@ -153,7 +153,7 @@ export function debugRows<T, AccT extends Accumulator<T>>(
 			id: `${run.site}${run.siteClock}`,
 			position: run.position,
 			data: run.data,
-			parents: oplog.parentsAt(refEncode(i)),
+			parents: oplog.parentsAt(refEncode(i)).map(refDecode),
 		});
 	}
 	return res;
@@ -163,7 +163,7 @@ type DebugRow2<T, AccT extends Accumulator<T>> = [
 	id: string,
 	position: number,
 	data: OpData<T, AccT>,
-	parents: number[],
+	parents: ReturnType<typeof refDecode>[],
 ];
 export function debugRows2<T, AccT extends Accumulator<T>>(
 	oplog: OpLog<T, AccT>,
@@ -175,7 +175,7 @@ export function debugRows2<T, AccT extends Accumulator<T>>(
 			`${run.site}${run.siteClock}`,
 			run.position,
 			run.data,
-			oplog.parentsAt(refEncode(i)),
+			oplog.parentsAt(refEncode(i)).map(refDecode),
 		]);
 	}
 	return res;
@@ -184,4 +184,27 @@ export function debugRows2<T, AccT extends Accumulator<T>>(
 export function debugPrint(oplog: OpLog<any, any>): void {
 	const rows = debugRows(oplog);
 	console.table(rows);
+}
+
+export function toDot(oplog: OpLog<any, any>): string {
+	let res = `digraph { node[shape=rect] edge[dir=back]
+`;
+
+	const rows = debugRows(oplog);
+	for (let i = 0; i < rows.length; i++) {
+		const row = rows[i];
+		res += `${row.id}[label="${i}\\n${row.id}\\n${row.position}, ${row.data}"`;
+		if (!row.parents.length) res += ',shape="Msquare"';
+		res += "]\n";
+		row.parents.forEach(pref => {
+			const [idx, offset] = pref;
+			const parent = rows[idx];
+
+			res += `${parent.id} -> ${row.id}`;
+			if (offset !== oplog.ops.len(idx) - 1) res += `[label="${offset}"]`;
+			res += "\n";
+		});
+	}
+
+	return `${res}}`;
 }
