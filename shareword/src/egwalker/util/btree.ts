@@ -45,9 +45,8 @@ export default class BTree<K, V> {
 	}
 
 	*values(low = this.min(), high = this.max()): Generator<V> {
-		for (const { node, i } of this.nodes(low, high)) {
+		for (const { node, i } of this.nodes(low, high))
 			yield node.values[i];
-		}
 	}
 
 	#deleteIdx(node: Node<K, V>, i: number) {
@@ -186,8 +185,8 @@ class Node<K, V> {
 	}
 
 	mergeSibling(rhs: Node<K, V>, _: number) {
-		this.keys.push(...rhs.keys);
-		this.values.push(...rhs.values);
+		this.keys.push.apply(rhs.keys);
+		this.values.push.apply(rhs.values);
 	}
 }
 
@@ -324,8 +323,8 @@ class NodeInternal<K, V> extends Node<K, V> {
 	override mergeSibling(rhs: NodeInternal<K, V>, maxNodeSize: number) {
 		const prevLen = this.keys.length;
 
-		this.keys.push(...rhs.keys);
-		this.children.push(...rhs.children);
+		this.keys.push.apply(rhs.keys);
+		this.children.push.apply(rhs.children);
 		this.tryMerge(prevLen - 1, maxNodeSize);
 	}
 }

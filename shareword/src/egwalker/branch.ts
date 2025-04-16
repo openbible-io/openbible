@@ -10,22 +10,11 @@ type OpRange = {
 	/** Inclusive of last index, non-inclusive of last offset. */
 	end: OpRef;
 };
-function* opRangeIter(
-	range: OpRange,
-	len: (idx: number) => number,
-): Generator<OpRef> {
-	const [startIdx, startOffset] = refDecode(range.start);
-	const [endIdx, endOffset] = refDecode(range.end);
-	for (let i = startIdx; i <= endIdx; i++) {
-		for (
-			let j = i === startIdx ? startOffset : 0;
-			j < (i === endIdx ? endOffset : len(i));
-			j++
-		) {
-			yield refEncode(i, j);
-		}
-	}
-}
+type LongOpRange = {
+	idx: number;
+	start: number;
+	end: number;
+};
 type HeadResult = {
 	/** First common op */
 	head: OpRef[];
@@ -38,7 +27,11 @@ export class Branch<T, AccT extends Accumulator<T>> {
 
 	constructor(public oplog: OpLog<T, AccT>) {}
 
-	/** Invariant: directed graph */
+	/**
+	 * Finds the nearest shared operation of `a` and `b`.
+	 *
+	 * Invariant: directed graph
+	 */
 	#findHead(a: OpRef[], b: OpRef[]): HeadResult {
 		type MergePoint = {
 			refs: OpRef[];
@@ -91,10 +84,10 @@ export class Branch<T, AccT extends Accumulator<T>> {
 			} else {
 				const ref = next.refs[0];
 				if (inA) {
-					res.shared.start = Math.min(res.shared.start, ref);
+					res.shared.start = ref;
 					res.shared.end = Math.max(res.shared.end, ref + 1);
 				} else {
-					res.bOnly.start = Math.min(res.bOnly.start, ref);
+					res.bOnly.start = ref;
 					res.bOnly.end = Math.max(res.bOnly.end, ref + 1);
 				}
 
@@ -103,6 +96,18 @@ export class Branch<T, AccT extends Accumulator<T>> {
 		}
 
 		return res;
+	}
+
+	*runs(range: OpRange): Generator<LongOpRange> {
+		const [startIdx, startOff] = refDecode(range.start);
+		const [endIdx, endOff] = refDecode(range.end);
+		for (let i = startIdx; i <= endIdx; i++) {
+			const start = i === startIdx ? startOff : 0;
+			const end = i === endIdx ? endOff : this.oplog.ops.len(i);
+			if (end <= start) continue;
+
+			yield { idx: i, start, end };
+		}
 	}
 
 	checkout(mergeFrontier: OpRef[], snapshot?: Snapshot<T>) {
@@ -139,13 +144,16 @@ export class Branch<T, AccT extends Accumulator<T>> {
 		}
 
 		// 46%
-		const len = (i: number) => this.oplog.ops.len(i);
-		for (const ref of opRangeIter(shared, len)) doc.applyOp(ref);
-		for (const ref of opRangeIter(bOnly, len)) {
-			doc.applyOp(ref, snapshot);
+		for (const { idx, start, end } of this.runs(shared)) {
+			doc.applyOpRun(idx, start, end);
+		}
+		for (const { idx, start, end } of this.runs(bOnly)) {
+			doc.applyOpRun(idx, start, end, snapshot);
+
+			const ref = refEncode(idx, end - 1);
 			this.frontier = advanceFrontier(
 				this.frontier,
-				this.oplog.parentsAt(ref),
+				this.oplog.parentsAt(refEncode(idx)),
 				ref,
 			);
 		}

@@ -1,4 +1,4 @@
-import { opType, OpType, refDecode } from "./op";
+import { opType, OpType, refDecode, refEncode } from "./op";
 import type { OpLog } from "./oplog";
 import type { Accumulator, OpRef, Site } from "./op";
 import type { Snapshot } from "./snapshot";
@@ -34,17 +34,12 @@ export type Item = {
 export class Crdt<T, AccT extends Accumulator<T>> {
 	items: Item[] = [];
 	currentVersion: OpRef[] = [];
-
-	delTargets: { [clock: OpRef]: OpRef } = {};
-	targets: { [clock: OpRef]: Item } = {};
+	targets: { [ref: OpRef]: Item } = {};
 
 	constructor(public oplog: OpLog<T, AccT>) {}
 
 	#target(ref: OpRef): Item {
-		const op = this.oplog.at(refDecode(ref)[0]);
-		const target =
-			opType(op.data) === OpType.Deletion ? this.delTargets[ref] : ref;
-		return this.targets[target];
+		return this.targets[ref];
 	}
 
 	#retreat(ref: OpRef) {
@@ -96,7 +91,7 @@ export class Crdt<T, AccT extends Accumulator<T>> {
 				}
 				item.state = State.Deleted;
 
-				this.delTargets[ref] = item.ref;
+				this.targets[ref] = item;
 				break;
 			}
 			case OpType.Insertion: {
@@ -185,7 +180,7 @@ export class Crdt<T, AccT extends Accumulator<T>> {
 
 	#diff(a: OpRef[], b: OpRef[]): { aOnly: OpRef[]; bOnly: OpRef[] } {
 		type DiffFlag = "a" | "b" | "both";
-		const flags: { [clock: OpRef]: DiffFlag } = {};
+		const flags: { [ref: OpRef]: DiffFlag } = {};
 		const queue = new PriorityQueue<OpRef>((a, b) => b - a);
 		let numShared = 0;
 
@@ -209,34 +204,42 @@ export class Crdt<T, AccT extends Accumulator<T>> {
 
 		while (queue.length > numShared) {
 			// biome-ignore lint/style/noNonNullAssertion: size check above
-			const clock = queue.pop()!;
-			const flag = flags[clock];
+			const ref = queue.pop()!;
+			const flag = flags[ref];
 
-			if (flag === "a") aOnly.push(clock);
-			else if (flag === "b") bOnly.push(clock);
+			if (flag === "a") aOnly.push(ref);
+			else if (flag === "b") bOnly.push(ref);
 			else numShared--;
 
-			for (const p of this.oplog.parentsAt(clock)) enq(p, flag);
+			for (const p of this.oplog.parentsAt(ref)) enq(p, flag);
 		}
 
 		return { aOnly, bOnly };
 	}
 
-	applyOp(ref: OpRef, snapshot?: Snapshot<T>) {
-		const parents = this.oplog.parentsAt(ref);
-		const { aOnly, bOnly } = this.#diff(this.currentVersion, parents);
-		//const [idx, offset] = refDecode(ref);
+	applyOpRun(idx: number, start: number, end: number, snapshot?: Snapshot<T>) {
 		//console.log(
-		//	"applyOp",
-		//	this.oplog.at(idx, offset, offset + 1).data,
-		//	aOnly,
-		//	bOnly,
+		//	"applyOpRun",
+		//	idx,
+		//	start,
+		//	end,
+		//	this.oplog.atSlice(idx, start, end).data,
 		//);
 
-		for (const ref of aOnly) this.#retreat(ref);
-		for (const ref of bOnly) this.#advance(ref);
+		for (let i = start; i < end; i++) {
+			const ref = refEncode(idx, i);
+			const parents = this.oplog.parentsAt(ref);
+			const { aOnly, bOnly } = this.#diff(this.currentVersion, parents);
+			//if (aOnly.length || bOnly.length)
+			//	console.log({
+			//		aOnly: aOnly.map(refDecode),
+			//		bOnly: bOnly.map(refDecode),
+			//	});
 
-		this.#apply(ref, snapshot);
-		this.currentVersion = [ref];
+			for (const ref of aOnly) this.#retreat(ref);
+			for (const ref of bOnly) this.#advance(ref);
+			this.#apply(ref, snapshot);
+			this.currentVersion = [ref];
+		}
 	}
 }
