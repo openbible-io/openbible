@@ -153,8 +153,8 @@ export class CrdtList<T, AccT extends Accumulator<T>> {
 		};
 		this.#targets[ref] = item;
 		this.#integrate(item, idx, endPos, data, snapshot);
-		console.log("insert", ref, pos, data);
-		console.table(this.#items);
+		//console.log("insert", ref, pos, data);
+		//console.table(this.#items);
 	}
 
 	delete(ref: OpRef, pos: number, count: number, snapshot?: Snapshot<T>): void {
@@ -168,8 +168,8 @@ export class CrdtList<T, AccT extends Accumulator<T>> {
 		item.state = State.Deleted;
 
 		this.#targets[ref] = item;
-		console.log("delete", ref, pos);
-		console.table(this.#items);
+		//console.log("delete", ref, pos);
+		//console.table(this.#items);
 	}
 
 	retreat(ref: OpRef) {
@@ -181,5 +181,4 @@ export class CrdtList<T, AccT extends Accumulator<T>> {
 		//console.log("advance", refDecode(ref));
 		this.#targets[ref].state += 1;
 	}
-
 }

@@ -1,52 +1,109 @@
 import { test, expect } from "bun:test";
-import { mulberry32 } from "../../fuzzer";
-import BTree from "./btree";
+import { BTree, Node } from "./btree";
+import { refEncode } from "../op";
+import { type Item, State } from "../crdt-list";
 
 test("correctness", () => {
-	const random = mulberry32(0);
-	const bt = new BTree<number, string>((a, b) => a - b, 32);
-	const map = new Map<number, string>();
+	const bt = new BTree<string>(
+		(value, start, end) => value.slice(start, end),
+		32,
+	);
 
-	let min = Number.POSITIVE_INFINITY;
-	let max = Number.NEGATIVE_INFINITY;
-	const length = 1000;
+	const value = "0123456789";
+	bt.insert(0, value, value.length);
+	expect(bt.length).toBe(value.length);
 
-	for (let i = 0; i < length; i++) {
-		const n = i ? random() : 0;
-		map.set(n, n.toString());
-		bt.set(n, n.toString());
-		if (n > max) max = n;
-		if (n < min) min = n;
-	}
+	bt.insert(3, "", -1);
+	expect(bt.root).toEqual(new Node<string>([3, -1, 7], ["012", "", "3456789"]));
+	expect(bt.length).toBe(9);
 
-	expect(bt.length).toBe(map.size);
-	expect(bt.min()).toBe(min);
-	expect(bt.max()).toBe(max);
+	bt.insert(0, "-", 1);
+	expect(bt.root).toEqual(
+		new Node<string>([1, 3, -1, 7], ["-", "012", "", "3456789"]),
+	);
+	expect(bt.length).toBe(10);
 
-	for (const [k, v] of map.entries()) {
-		expect(bt.get(k)).toBe(v);
+	bt.insert(1, "+", 1);
+	expect(bt.root).toEqual(
+		new Node<string>([1, 1, 3, -1, 7], ["-", "+", "012", "", "3456789"]),
+	);
+	expect(bt.length).toBe(11);
 
-		expect(bt.delete(k)).toBe(true);
-		expect(bt.get(k)).toBeUndefined();
-	}
-	expect(bt.length).toBe(0);
+	bt.insert(11, "=", 1);
+	expect(bt.root).toEqual(
+		new Node<string>(
+			[1, 1, 3, -1, 7, 1],
+			["-", "+", "012", "", "3456789", "="],
+		),
+	);
+	expect(bt.length).toBe(12);
 });
 
-test("custom comparator", () => {
-	const random = mulberry32(0);
-	const bt = new BTree<number, string>((a, b) => b - a);
-
-	let min = Number.POSITIVE_INFINITY;
-	let max = Number.NEGATIVE_INFINITY;
-	const length = 1000;
-
-	for (let i = 0; i < length; i++) {
-		const n = i ? random() : 0;
-		bt.set(n, n.toString());
-		if (n > max) max = n;
-		if (n < min) min = n;
-	}
-
-	expect(bt.min()).toBe(max);
-	expect(bt.max()).toBe(min);
+test("crdt items", () => {
+	const bt = new BTree<Item>((item, start) => ({
+		ref: item.ref + start,
+		originLeft: item.originLeft + start,
+		originRight: item.originRight,
+		deleted: item.deleted,
+		state: item.state,
+	}));
+	bt.insert(
+		0,
+		{
+			ref: refEncode(0, 0),
+			originLeft: -1,
+			originRight: -1,
+			deleted: false,
+			state: State.Inserted,
+		},
+		100,
+	);
+	// biome-ignore lint/style/noNonNullAssertion: check on next line
+	const p49 = bt.get(49)!;
+	expect(p49).toEqual({
+		ref: refEncode(0, 49),
+		originLeft: refEncode(0, 48),
+		originRight: -1,
+		deleted: false,
+		state: State.Inserted,
+	});
+	bt.insert(
+		50,
+		{
+			ref: refEncode(1, 0),
+			originLeft: p49.ref,
+			originRight: -1,
+			deleted: true,
+			state: State.Deleted,
+		},
+		-10,
+	);
+	expect(bt.root).toEqual(
+		new Node<Item>(
+			[50, -10, 50],
+			[
+				{
+					ref: refEncode(0, 0),
+					originLeft: -1,
+					originRight: -1,
+					deleted: false,
+					state: State.Inserted,
+				},
+				{
+					ref: refEncode(1, 0),
+					originLeft: refEncode(0, 49),
+					originRight: -1,
+					deleted: true,
+					state: State.Deleted,
+				},
+				{
+					ref: refEncode(0, 50),
+					originLeft: refEncode(0, 49),
+					originRight: -1,
+					deleted: false,
+					state: State.Inserted,
+				},
+			],
+		),
+	);
 });

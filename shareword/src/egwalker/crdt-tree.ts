@@ -10,18 +10,19 @@ import type { Snapshot } from "./snapshot";
 export class CrdtTree<T, AccT extends Accumulator<T>> {
 	tree = new BTree<OpRef, Item>((a, b) => a - b);
 
-	#findPos(pos: number): Node<OpRef, Item> {
-	}
-
 	insert(
 		ref: OpRef,
 		pos: number,
 		data: AccT,
 		snapshot?: Snapshot<T>,
 	): void {
+		const docPos = this.#insertOrDelete(ref, pos, data);
+		snapshot?.insert(docPos, data);
 	}
 
 	delete(ref: OpRef, pos: number, count: number, snapshot?: Snapshot<T>): void {
+		const docPos = this.#insertOrDelete(ref, pos, count);
+		snapshot?.delete(docPos, count);
 	}
 
 	retreat(ref: OpRef) {

@@ -1,263 +1,238 @@
-import { binarySearch } from "./bsearch";
+//type NodeGenerator<V> = Generator<{ node: Node<V>; i: number }>;
 
-type NodeGenerator<K, V> = Generator<{ node: Node<K, V>; i: number }>;
-
-export class BTree<K, V> {
-	root?: Node<K, V>;
-	length = 0;
+/**
+ * A grow-only balanced tree. Supports insertion by list position.
+ */
+export class BTree<V> {
+	root?: Node<V>;
 
 	public constructor(
-		public comparator: (a: K, b: K) => number,
+		public slice: (value: V, start: number, end?: number) => V,
 		public maxNodeSize = 1 << 8,
 	) {}
 
-	min(): K | undefined {
-		return this.root?.min();
+	get length(): number {
+		return this.root?.length ?? 0;
 	}
 
-	max(): K | undefined {
-		return this.root?.max();
+	get(pos: number): V | undefined {
+		return this.root?.get(pos, this);
 	}
 
-	get(key: K): V | undefined {
-		return this.root?.get(key, this);
+	/** @param len Use negative length for deletions. */
+	insert(pos: number, value: V, len: number): void {
+		if (!len) return;
+
+		this.root ??= new Node<V>();
+		const maybeSplit = this.root.insert(pos, value, len, this);
+		if (maybeSplit) this.root = new InternalNode<V>([this.root, maybeSplit]);
 	}
 
-	set(key: K, value: V, overwrite = false): boolean {
-		this.root ??= new Node<K, V>();
-		const split = this.root.set(key, value, overwrite, this);
-		if (split) this.root = new NodeInternal<K, V>([this.root, split]);
-		return true;
-	}
-
-	*nodes(low = this.min(), high = this.max()): NodeGenerator<K, V> {
-		if (low !== undefined && high !== undefined && this.root)
-			yield* this.root.items(low, high, this);
-	}
-
-	*values(low = this.min(), high = this.max()): Generator<V> {
-		for (const { node, i } of this.nodes(low, high))
-			yield node.values[i];
-	}
-
-	#deleteIdx(node: Node<K, V>, i: number) {
-		node.delete(i);
-		this.length--;
-		this.cleanup();
-	}
-
-	delete(key: K): boolean {
-		for (const { node, i } of this.nodes(key, key)) {
-			this.#deleteIdx(node, i);
-			return true;
-		}
-		return false;
-	}
-
-	/** Call after deletion to maybe hoist root. */
-	cleanup(): void {
-		while (
-			this.root &&
-			this.root.keys.length <= 1 &&
-			this.root instanceof NodeInternal
-		) {
-			this.root = this.root.keys.length ? this.root.children[0] : undefined;
-		}
-	}
-
-	depth(): number {
-		let node: Node<K, V> | undefined = this.root;
-		let res = -1;
-		while (node) {
-			res++;
-			node = node instanceof NodeInternal ? node.children[0] : undefined;
-		}
-		return res;
-	}
+	//*nodes(low = this.min(), high = this.max()): NodeGenerator<K, V> {
+	//	if (low !== undefined && high !== undefined && this.root)
+	//		yield* this.root.items(low, high, this);
+	//}
+	//
+	//*values(low = this.min(), high = this.max()): Generator<V> {
+	//	for (const { node, i } of this.nodes(low, high))
+	//		yield node.values[i];
+	//}
 }
 
-class Node<K, V> {
-	keys: K[];
-	values: V[];
+//depth(): number {
+//	let node: Node<K, V> | undefined = this.root;
+//	let res = -1;
+//	while (node) {
+//		res++;
+//		node = node instanceof NodeInternal ? node.children[0] : undefined;
+//	}
+//	return res;
+//}
 
-	constructor(keys: K[] = [], values: V[] = []) {
-		this.keys = keys;
-		this.values = values;
+function indexOf(lengths: number[], pos: number): { idx: number, offset: number } {
+	let endPos = 0;
+	let i = 0;
+	for (i = 0; i < lengths.length; i++) {
+		endPos += lengths[i];
+		if (endPos >= pos) break;
+	}
+	return { idx: i, offset: pos - endPos + (lengths[i] ?? 0) };
+}
+
+/** Leaf node or internal node. Internal node overrides ALL methods. */
+export class Node<V> {
+	constructor(
+		public lengths: number[] = [],
+		public values: V[] = [],
+		public length = lengths.reduce((acc, cur) => acc + cur, 0),
+	) {}
+
+	#indexOf(pos: number): { idx: number, offset: number } {
+		return indexOf(this.lengths, pos);
 	}
 
-	min(): K {
-		return this.keys[0];
+	get(pos: number, tree: BTree<V>): V | undefined {
+		const { idx, offset } = this.#indexOf(pos);
+		const value = this.values[idx];
+		return tree.slice(value, offset);
 	}
 
-	max(): K {
-		return this.keys[this.keys.length - 1];
-	}
-
-	protected indexOf(
-		key: K,
-		failXor: number,
-		comparator: (a: K, b: K) => number,
-	): number {
-		let res = binarySearch(this.keys, key, comparator, failXor);
-		while (res > 0 && !comparator(this.keys[res], this.keys[res - 1])) res--;
-		return res;
-	}
-
-	get(key: K, tree: BTree<K, V>): V | undefined {
-		return this.values[this.indexOf(key, -1, tree.comparator)];
-	}
-
-	set(
-		key: K,
+	/** @returns new node if split */
+	insert(
+		pos: number,
 		value: V,
-		overwrite: boolean,
-		tree: BTree<K, V>,
-	): undefined | Node<K, V> {
-		let i = this.indexOf(key, -1, tree.comparator);
-		const shouldSplice = i < 0 || !overwrite;
-		if (i < 0) i = ~i;
+		len: number,
+		tree: BTree<V>,
+	): undefined | Node<V> {
+		const { idx, offset } = this.#indexOf(pos);
+		//console.log("insert", pos, value, len, idx, offset);
 
-		if (shouldSplice) {
-			this.keys.splice(i, 0, key);
-			this.values.splice(i, 0, value);
-			tree.length++;
-			if (this.keys.length >= tree.maxNodeSize) return this.splitRight();
+		if (offset === 0 || offset === this.length) {
+			this.lengths.splice(idx, 0, len);
+			this.values.splice(idx, 0, value);
 		} else {
-			this.keys[i] = key;
-			this.values[i] = value;
+			const endLen = this.lengths[idx] - offset;
+			const end = tree.slice(this.values[idx], offset);
+			this.values[idx] = tree.slice(this.values[idx], 0, offset);
+			this.lengths[idx] = offset;
+
+			const lens = [len];
+			const values = [value];
+			if (endLen) {
+				lens.push(endLen);
+				values.push(end);
+			}
+
+			this.lengths.splice(idx + 1, 0, ...lens);
+			this.values.splice(idx + 1, 0, ...values);
 		}
+		this.length += len;
+		if (this.lengths.length >= tree.maxNodeSize) return this.splitRight();
 	}
 
-	delete(i: number): void {
-		this.keys.splice(i, 1);
-		this.values.splice(i, 1);
-	}
-
-	takeRight(rhs: Node<K, V>): void {
+	takeRight(rhs: Node<V>): void {
+		// biome-ignore lint/style/noNonNullAssertion: <explanation>
+		this.lengths.push(rhs.lengths.shift()!);
 		// biome-ignore lint/style/noNonNullAssertion: <explanation>
 		this.values.push(rhs.values.shift()!);
-		// biome-ignore lint/style/noNonNullAssertion: <explanation>
-		this.keys.push(rhs.keys.shift()!);
 	}
 
-	takeLeft(lhs: Node<K, V>): void {
+	takeLeft(lhs: Node<V>): void {
+		// biome-ignore lint/style/noNonNullAssertion: <explanation>
+		this.lengths.unshift(lhs.lengths.pop()!);
 		// biome-ignore lint/style/noNonNullAssertion: <explanation>
 		this.values.unshift(lhs.values.pop()!);
-		// biome-ignore lint/style/noNonNullAssertion: <explanation>
-		this.keys.unshift(lhs.keys.pop()!);
 	}
 
-	splitRight(): Node<K, V> {
-		const half = this.keys.length >> 1;
-		const keys = this.keys.splice(half);
+	splitRight(): Node<V> {
+		const half = this.lengths.length >> 1;
+		const lengths = this.lengths.splice(half);
 		const values = this.values.splice(half);
-		return new Node<K, V>(keys, values);
+		return new Node<V>(lengths, values);
 	}
 
-	*items(low: K, high: K, tree: BTree<K, V>): NodeGenerator<K, V> {
-		let iLow: number;
-		let iHigh: number;
-		if (high === low) {
-			iHigh = (iLow = this.indexOf(low, -1, tree.comparator)) + 1;
-			if (iLow < 0) return;
-		} else {
-			iLow = this.indexOf(low, 0, tree.comparator);
-			iHigh = this.indexOf(high, -1, tree.comparator);
-			if (iHigh < 0) iHigh = ~iHigh;
-			else iHigh++;
-		}
-		for (let i = iLow; i < iHigh; i++) {
-			yield { node: this, i };
-		}
-	}
+	//*items(low: K, high: K, tree: BTree<K, V>): NodeGenerator<K, V> {
+	//	let iLow: number;
+	//	let iHigh: number;
+	//	if (high === low) {
+	//		iHigh = (iLow = this.indexOf(low, -1, tree.comparator)) + 1;
+	//		if (iLow < 0) return;
+	//	} else {
+	//		iLow = this.indexOf(low, 0, tree.comparator);
+	//		iHigh = this.indexOf(high, -1, tree.comparator);
+	//		if (iHigh < 0) iHigh = ~iHigh;
+	//		else iHigh++;
+	//	}
+	//	for (let i = iLow; i < iHigh; i++) yield { node: this, i };
+	//}
 
-	mergeSibling(rhs: Node<K, V>, _: number) {
-		this.keys.push.apply(rhs.keys);
+	mergeSibling(rhs: Node<V>, _maxNodeSize: number): void {
+		this.lengths.push.apply(rhs.lengths);
 		this.values.push.apply(rhs.values);
 	}
 }
 
-class NodeInternal<K, V> extends Node<K, V> {
+export class InternalNode<V> extends Node<V> {
 	constructor(
-		public children: Node<K, V>[],
-		keys: K[] = children.map((c) => c.max()),
+		public children: Node<V>[], // Reality: InternalNode<V>[] | LeafNode<V>[]
+		public lengths: number[] = children.map((c) => c.length),
 	) {
-		super(keys);
+		// This is ugly and needlessly has a `values` field. It's purely to please
+		// Typescript.
+		// I tried making a generic Children type parameter to no avail.
+		//
+		// May you fair better.
+		super(lengths, []);
 	}
 
-	override min(): K {
-		return this.children[0].min();
+	#indexOf(pos: number) {
+		return indexOf(this.lengths, pos);
 	}
 
-	override get(key: K, tree: BTree<K, V>): V | undefined {
-		const i = this.indexOf(key, 0, tree.comparator);
-		return i < this.children.length
-			? this.children[i].get(key, tree)
-			: undefined;
+	get(pos: number, tree: BTree<V>): V | undefined {
+		const { idx, offset } = this.#indexOf(pos);
+		return this.children[idx]?.get(pos - offset, tree)
 	}
 
-	override set(
-		key: K,
+	insert(
+		pos: number,
 		value: V,
-		overwrite: boolean,
-		tree: BTree<K, V>,
-	): undefined | NodeInternal<K, V> {
-		const i = Math.min(
-			this.indexOf(key, 0, tree.comparator),
-			this.children.length - 1,
-		);
+		len: number,
+		tree: BTree<V>,
+	): undefined | InternalNode<V> {
+		const i = this.#indexOf(pos).idx;
 		const child = this.children[i];
 
-		if (child.keys.length >= tree.maxNodeSize) {
-			let other: Node<K, V>;
+		if (child.lengths.length >= tree.maxNodeSize) {
+			let other: typeof this.children[number];
 			if (
 				i > 0 &&
-				(other = this.children[i - 1]).keys.length < tree.maxNodeSize &&
-				tree.comparator(child.keys[0], key) < 0
+				(other = this.children[i - 1]).lengths.length < tree.maxNodeSize
 			) {
+				//assert(child.constructor === other.constructor, "monomorphic children");
 				other.takeRight(child);
-				this.keys[i - 1] = other.max();
+				this.lengths[i - 1] = other.length;
 			} else if (
 				(other = this.children[i + 1]) &&
-				other.keys.length < tree.maxNodeSize &&
-				tree.comparator(child.max(), key) < 0
+				other.lengths.length < tree.maxNodeSize
 			) {
 				other.takeLeft(child);
-				this.keys[i] = this.children[i].max();
+				this.lengths[i] = this.children[i].length;
 			}
 		}
 
-		const result = child.set(key, value, overwrite, tree);
-		this.keys[i] = child.max();
+		const result = child.insert(pos, value, len, tree);
+		this.lengths[i] = child.length;
 		if (!result) return;
 
 		this.insertChild(i + 1, result);
-		if (this.keys.length >= tree.maxNodeSize) return this.splitRight();
+		if (this.lengths.length >= tree.maxNodeSize) return this.splitRight();
 	}
 
-	insertChild(i: number, child: Node<K, V>) {
+	insertChild(i: number, child: Node<V>) {
+		// @ts-ignore
 		this.children.splice(i, 0, child);
-		this.keys.splice(i, 0, child.max());
+		this.lengths.splice(i, 0, child.length);
 	}
 
-	override splitRight() {
+	splitRight(): InternalNode<V> {
 		const half = this.children.length >> 1;
-		return new NodeInternal<K, V>(
+		return new InternalNode<V>(
 			this.children.splice(half),
-			this.keys.splice(half),
+			this.lengths.splice(half),
 		);
 	}
 
-	override takeRight(rhs: NodeInternal<K, V>) {
+	takeRight(rhs: InternalNode<V>): void {
 		// biome-ignore lint/style/noNonNullAssertion: <explanation>
-		this.keys.push(rhs.keys.shift()!);
+		this.lengths.push(rhs.lengths.shift()!);
 		// biome-ignore lint/style/noNonNullAssertion: <explanation>
 		this.children.push(rhs.children.shift()!);
 	}
 
-	override takeLeft(lhs: NodeInternal<K, V>) {
+	takeLeft(lhs: InternalNode<V>): void {
 		// biome-ignore lint/style/noNonNullAssertion: <explanation>
-		this.keys.unshift(lhs.keys.pop()!);
+		this.lengths.unshift(lhs.lengths.pop()!);
 		// biome-ignore lint/style/noNonNullAssertion: <explanation>
 		this.children.unshift(lhs.children.pop()!);
 	}
@@ -266,47 +241,33 @@ class NodeInternal<K, V> extends Node<K, V> {
 		const children = this.children;
 
 		if (i >= 0 && i + 1 < children.length) {
-			if (children[i].keys.length + children[i + 1].keys.length <= maxSize) {
+			if (children[i].lengths.length + children[i + 1].lengths.length <= maxSize) {
 				children[i].mergeSibling(children[i + 1], maxSize);
 				children.splice(i + 1, 1);
-				this.keys.splice(i + 1, 1);
-				this.keys[i] = children[i].max();
+				this.lengths.splice(i + 1, 1);
+				this.lengths[i] = children[i].length;
 				return true;
 			}
 		}
 		return false;
 	}
 
-	override *items(low: K, high: K, tree: BTree<K, V>): NodeGenerator<K, V> {
-		let iLow = this.indexOf(low, 0, tree.comparator);
-		const iHigh = Math.min(
-			high === low ? iLow : this.indexOf(high, 0, tree.comparator),
-			this.keys.length - 1,
-		);
-		if (iLow > iHigh) return;
+	//*items(low: K, high: K, tree: BTree<K, V>): NodeGenerator<K, V> {
+	//	const iLow = this.indexOf(low, 0, tree.comparator);
+	//	const iHigh = Math.min(
+	//		high === low ? iLow : this.indexOf(high, 0, tree.comparator),
+	//		this.keys.length - 1,
+	//	);
+	//	if (iLow > iHigh) return;
+	//
+	//	for (let i = iLow; i <= iHigh; i++)
+	//		yield* this.children[i].items(low, high, tree);
+	//}
 
-		for (let i = iLow; i <= iHigh; i++)
-			yield* this.children[i].items(low, high, tree);
+	mergeSibling(rhs: InternalNode<V>, maxNodeSize: number): void {
+		const prevLen = this.lengths.length;
 
-		// cleanup in case of deletions
-		const half = tree.maxNodeSize >> 1;
-		if (iLow > 0) iLow--;
-		for (let i = iHigh; i >= iLow; i--) {
-			if (this.children[i].keys.length > half) continue;
-
-			if (this.children[i].keys.length) {
-				this.#tryMerge(i, tree.maxNodeSize);
-			} else {
-				this.keys.splice(i, 1);
-				this.children.splice(i, 1);
-			}
-		}
-	}
-
-	override mergeSibling(rhs: NodeInternal<K, V>, maxNodeSize: number) {
-		const prevLen = this.keys.length;
-
-		this.keys.push.apply(rhs.keys);
+		this.lengths.push.apply(rhs.lengths);
 		this.children.push.apply(rhs.children);
 		this.#tryMerge(prevLen - 1, maxNodeSize);
 	}
