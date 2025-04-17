@@ -1,5 +1,5 @@
 import { advanceFrontier, type OpLog } from "./oplog";
-import { Crdt, State, type Item } from "./crdt";
+import { Crdt } from "./crdt";
 import type { Snapshot } from "./snapshot";
 import { PriorityQueue } from "./util/pq";
 import { refDecode, refEncode } from "./op";
@@ -124,24 +124,13 @@ export class Branch<T, AccT extends Accumulator<T>> {
 		//console.log(refDecode(shared.start).toString(), refDecode(shared.end).toString());
 		//console.log(refDecode(bOnly.start).toString(), refDecode(bOnly.end).toString());
 
-		const doc = new Crdt(this.oplog);
-		doc.currentVersion = head;
-
 		// 5%
-		const placeholderLength = this.oplog.ops.length;
-		const placeholderOffset = refEncode(this.oplog.ops.items.length, 0);
-		for (let i = 0; i < placeholderLength; i++) {
-			const item: Item = {
-				ref: placeholderOffset + i,
-				site: "",
-				state: State.Inserted,
-				deleted: false,
-				originLeft: -1,
-				originRight: -1,
-			};
-			doc.items.push(item);
-			doc.targets[item.ref] = item;
-		}
+		const doc = new Crdt(
+			this.oplog,
+			head,
+			refEncode(this.oplog.ops.items.length, 0),
+			this.oplog.ops.length,
+		);
 
 		// 46%
 		for (const { idx, start, end } of this.runs(shared)) {
@@ -151,11 +140,7 @@ export class Branch<T, AccT extends Accumulator<T>> {
 			doc.applyOpRun(idx, start, end, snapshot);
 
 			const ref = refEncode(idx, end - 1);
-			this.frontier = advanceFrontier(
-				this.frontier,
-				this.oplog.parentsAt(refEncode(idx)),
-				ref,
-			);
+			advanceFrontier(this.frontier, this.oplog.parentsAt(refEncode(idx)), ref);
 		}
 	}
 }

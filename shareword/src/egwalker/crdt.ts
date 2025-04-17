@@ -1,181 +1,28 @@
 import { opType, OpType, refDecode, refEncode } from "./op";
 import type { OpLog } from "./oplog";
-import type { Accumulator, OpRef, Site } from "./op";
+import type { Accumulator, OpRef } from "./op";
 import type { Snapshot } from "./snapshot";
-import { assert, assertBounds } from "./util";
+import { assert } from "./util";
 import { PriorityQueue } from "./util/pq";
-
-export enum State {
-	NotInserted = -1,
-	Inserted = 0,
-	Deleted = 1,
-	// DeletedTwice = 2,
-	// DeletedThrice = 3,
-	// ...
-}
-
-export type Item = {
-	ref: OpRef;
-	/** For tie breaking */
-	site: Site;
-	/** -1 = start of doc */
-	originLeft: OpRef | -1;
-	/** -1 = end of doc */
-	originRight: OpRef | -1;
-	deleted: boolean;
-	state: State;
-};
+import { CrdtList } from "./crdt-list";
 
 /**
  * A CRDT document implemented as an Event Graph Walker.
  *
  * - https://arxiv.org/pdf/2409.14252
  */
-export class Crdt<T, AccT extends Accumulator<T>> {
-	items: Item[] = [];
-	currentVersion: OpRef[] = [];
-	targets: { [ref: OpRef]: Item } = {};
-
-	constructor(public oplog: OpLog<T, AccT>) {}
-
-	#target(ref: OpRef): Item {
-		return this.targets[ref];
-	}
-
-	#retreat(ref: OpRef) {
-		this.#target(ref).state -= 1;
-	}
-
-	#advance(ref: OpRef) {
-		this.#target(ref).state += 1;
-	}
-
-	#findPos(
-		targetPos: number,
-		skipDeleted: boolean,
-	): { idx: number; endPos: number } {
-		let curPos = 0;
-		let endPos = 0;
-		let idx = 0;
-
-		for (; curPos < targetPos; idx++) {
-			assertBounds(idx, this.items.length);
-
-			const item = this.items[idx];
-			if (item.state === State.Inserted) curPos++;
-			if (!item.deleted) endPos++;
-		}
-
-		if (skipDeleted) {
-			while (this.items[idx].state !== State.Inserted) {
-				if (!this.items[idx].deleted) endPos++;
-				idx++;
-			}
-		}
-
-		return { idx, endPos };
-	}
-
-	#apply(ref: OpRef, snapshot?: Snapshot<T>) {
-		const [i, start] = refDecode(ref);
-		const op = this.oplog.at(i, start, start + 1);
-
-		switch (opType(op.data)) {
-			case OpType.Deletion: {
-				const { idx, endPos } = this.#findPos(op.position, true);
-				const item = this.items[idx];
-
-				if (!item.deleted) {
-					item.deleted = true;
-					snapshot?.delete(endPos, 1);
-				}
-				item.state = State.Deleted;
-
-				this.targets[ref] = item;
-				break;
-			}
-			case OpType.Insertion: {
-				const { idx, endPos } = this.#findPos(op.position, false);
-				const originLeft = idx ? this.items[idx - 1].ref : -1;
-
-				let originRight = -1;
-				for (let i = idx; i < this.items.length; i++) {
-					const item2 = this.items[i];
-					if (item2.state !== State.NotInserted) {
-						originRight = item2.ref;
-						break;
-					}
-				}
-
-				const item: Item = {
-					ref,
-					site: op.site,
-					originLeft,
-					originRight,
-					deleted: false,
-					state: State.Inserted,
-				};
-				this.targets[ref] = item;
-				this.#integrate(item, idx, endPos, op.data as AccT, snapshot);
-				break;
-			}
-			default:
-				assert(false, `invalid op ${op.data}`);
-		}
-	}
-
-	#indexOfOpRef(ref: OpRef): number {
-		return this.items.findIndex((item) => item.ref === ref);
-	}
-
-	/** FugueMax */
-	#integrate(
-		newItem: Item,
-		idx: number,
-		endPos: number,
-		content: AccT,
-		snapshot?: Snapshot<T>,
+export class Crdt<T, AccT extends Accumulator<T>> extends CrdtList<T, AccT> {
+	constructor(
+		private oplog: OpLog<T, AccT>,
+		private currentVersion: OpRef[],
+		placeholderOffset: number,
+		placeholderLength: number,
 	) {
-		let scanIdx = idx;
-		let scanEndPos = endPos;
-
-		const left = scanIdx - 1;
-		const right =
-			newItem.originRight === -1
-				? this.items.length
-				: this.#indexOfOpRef(newItem.originRight);
-
-		let scanning = false;
-
-		while (scanIdx < right) {
-			const other = this.items[scanIdx];
-			if (other.state !== State.NotInserted) break;
-
-			const oleft = this.#indexOfOpRef(other.originLeft);
-			const oright =
-				other.originRight === -1
-					? this.items.length
-					: this.#indexOfOpRef(other.originRight);
-
-			if (
-				oleft < left ||
-				(oleft === left && oright === right && newItem.site < other.site)
-			) {
-				break;
-			}
-			if (oleft === left) scanning = oright < right;
-
-			if (!other.deleted) scanEndPos++;
-			scanIdx++;
-
-			if (!scanning) {
-				idx = scanIdx;
-				endPos = scanEndPos;
-			}
-		}
-
-		this.items.splice(idx, 0, newItem);
-		snapshot?.insert(endPos, content);
+		super(
+			(ref: OpRef) => oplog.at(refDecode(ref)[0]).site,
+			placeholderOffset,
+			placeholderLength,
+		);
 	}
 
 	#diff(a: OpRef[], b: OpRef[]): { aOnly: OpRef[]; bOnly: OpRef[] } {
@@ -217,6 +64,24 @@ export class Crdt<T, AccT extends Accumulator<T>> {
 		return { aOnly, bOnly };
 	}
 
+	#apply(ref: OpRef, snapshot?: Snapshot<T>) {
+		const [i, start] = refDecode(ref);
+		const op = this.oplog.at(i, start, start + 1);
+
+		switch (opType(op.data)) {
+			case OpType.Deletion: {
+				this.delete(ref, op.position, 1, snapshot);
+				break;
+			}
+			case OpType.Insertion: {
+				this.insert(ref, op.position, op.data as AccT, snapshot);
+				break;
+			}
+			default:
+				assert(false, `invalid op ${op.data}`);
+		}
+	}
+
 	applyOpRun(idx: number, start: number, end: number, snapshot?: Snapshot<T>) {
 		//console.log(
 		//	"applyOpRun",
@@ -236,8 +101,8 @@ export class Crdt<T, AccT extends Accumulator<T>> {
 			//		bOnly: bOnly.map(refDecode),
 			//	});
 
-			for (const ref of aOnly) this.#retreat(ref);
-			for (const ref of bOnly) this.#advance(ref);
+			for (const ref of aOnly) this.retreat(ref);
+			for (const ref of bOnly) this.advance(ref);
 			this.#apply(ref, snapshot);
 			this.currentVersion = [ref];
 		}

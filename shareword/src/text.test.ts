@@ -1,8 +1,9 @@
 import { test, expect } from "bun:test";
 import { Text } from "./text";
-import { debugRows2} from "./egwalker/oplog";
+import { debugRows2 } from "./egwalker/oplog";
 import { refDecode } from "./egwalker/op";
 import { fuzzer } from "./fuzzer";
+import { Patch } from "./egwalker/patch";
 
 type LongOpRef = ReturnType<typeof refDecode>;
 function expectFrontier(t: Text, expected: LongOpRef[]): void {

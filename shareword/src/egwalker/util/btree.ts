@@ -2,7 +2,7 @@ import { binarySearch } from "./bsearch";
 
 type NodeGenerator<K, V> = Generator<{ node: Node<K, V>; i: number }>;
 
-export default class BTree<K, V> {
+export class BTree<K, V> {
 	root?: Node<K, V>;
 	length = 0;
 
@@ -17,15 +17,6 @@ export default class BTree<K, V> {
 
 	max(): K | undefined {
 		return this.root?.max();
-	}
-
-	popMax(): K | undefined {
-		const node = this.root?.maxNode();
-		if (!node) return;
-
-		const res = node.keys[node.keys.length - 1];
-		this.#deleteIdx(node, node.keys.length - 1);
-		return res;
 	}
 
 	get(key: K): V | undefined {
@@ -102,10 +93,6 @@ class Node<K, V> {
 		return this.keys[this.keys.length - 1];
 	}
 
-	maxNode(): Node<K, V> {
-		return this;
-	}
-
 	protected indexOf(
 		key: K,
 		failXor: number,
@@ -141,7 +128,7 @@ class Node<K, V> {
 		}
 	}
 
-	delete(i: number) {
+	delete(i: number): void {
 		this.keys.splice(i, 1);
 		this.values.splice(i, 1);
 	}
@@ -200,10 +187,6 @@ class NodeInternal<K, V> extends Node<K, V> {
 
 	override min(): K {
 		return this.children[0].min();
-	}
-
-	override maxNode(): Node<K, V> {
-		return this.children[this.children.length - 1].maxNode();
 	}
 
 	override get(key: K, tree: BTree<K, V>): V | undefined {
@@ -279,6 +262,21 @@ class NodeInternal<K, V> extends Node<K, V> {
 		this.children.unshift(lhs.children.pop()!);
 	}
 
+	#tryMerge(i: number, maxSize: number): boolean {
+		const children = this.children;
+
+		if (i >= 0 && i + 1 < children.length) {
+			if (children[i].keys.length + children[i + 1].keys.length <= maxSize) {
+				children[i].mergeSibling(children[i + 1], maxSize);
+				children.splice(i + 1, 1);
+				this.keys.splice(i + 1, 1);
+				this.keys[i] = children[i].max();
+				return true;
+			}
+		}
+		return false;
+	}
+
 	override *items(low: K, high: K, tree: BTree<K, V>): NodeGenerator<K, V> {
 		let iLow = this.indexOf(low, 0, tree.comparator);
 		const iHigh = Math.min(
@@ -297,7 +295,7 @@ class NodeInternal<K, V> extends Node<K, V> {
 			if (this.children[i].keys.length > half) continue;
 
 			if (this.children[i].keys.length) {
-				this.tryMerge(i, tree.maxNodeSize);
+				this.#tryMerge(i, tree.maxNodeSize);
 			} else {
 				this.keys.splice(i, 1);
 				this.children.splice(i, 1);
@@ -305,26 +303,11 @@ class NodeInternal<K, V> extends Node<K, V> {
 		}
 	}
 
-	tryMerge(i: number, maxSize: number): boolean {
-		const children = this.children;
-
-		if (i >= 0 && i + 1 < children.length) {
-			if (children[i].keys.length + children[i + 1].keys.length <= maxSize) {
-				children[i].mergeSibling(children[i + 1], maxSize);
-				children.splice(i + 1, 1);
-				this.keys.splice(i + 1, 1);
-				this.keys[i] = children[i].max();
-				return true;
-			}
-		}
-		return false;
-	}
-
 	override mergeSibling(rhs: NodeInternal<K, V>, maxNodeSize: number) {
 		const prevLen = this.keys.length;
 
 		this.keys.push.apply(rhs.keys);
 		this.children.push.apply(rhs.children);
-		this.tryMerge(prevLen - 1, maxNodeSize);
+		this.#tryMerge(prevLen - 1, maxNodeSize);
 	}
 }

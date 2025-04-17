@@ -1,4 +1,12 @@
-import { maxRunLen, opLength, opSlice, OpType, opType, refDecode, refEncode } from "./op";
+import {
+	maxRunLen,
+	opLength,
+	opSlice,
+	OpType,
+	opType,
+	refDecode,
+	refEncode,
+} from "./op";
 import type { Accumulator, Clock, OpData, OpRef, OpRun, Site } from "./op";
 import { Patch, type StateVector } from "./patch";
 import { assertBounds, Rle } from "./util";
@@ -32,7 +40,10 @@ export class OpLog<T, AccT extends Accumulator<T> = T[]> {
 				if (prevLen + 1 >= maxRunLen) return false;
 
 				// non-consecutive id?
-				if (prev.site !== item.site || prev.siteClock + prevLen !== item.siteClock)
+				if (
+					prev.site !== item.site ||
+					prev.siteClock + prevLen !== item.siteClock
+				)
 					return false;
 
 				const ty = opType(prev.data);
@@ -87,7 +98,7 @@ export class OpLog<T, AccT extends Accumulator<T> = T[]> {
 		return true;
 	}
 
-	push(run: OpRun<T, AccT>, parents = this.frontier): void {
+	push(run: OpRun<T, AccT>, parents = this.frontier.slice()): void {
 		const len = opLength(run.data);
 		// Adding a new run at every merge point greatly simplifies diffing,
 		// merging, and integrating. These other operations all optimize on this
@@ -96,7 +107,7 @@ export class OpLog<T, AccT extends Accumulator<T> = T[]> {
 		const forceNewRun = this.#insertParents(ref, parents);
 		this.ops.push(run, len, forceNewRun);
 		const prevIdx = this.ops.items.length - 1;
-		this.frontier = advanceFrontier(
+		advanceFrontier(
 			this.frontier,
 			parents,
 			refEncode(prevIdx, this.ops.len(prevIdx) - 1),
@@ -127,14 +138,30 @@ export class OpLog<T, AccT extends Accumulator<T> = T[]> {
 	}
 }
 
+/** Mutates `frontier`. */
 export function advanceFrontier(
 	frontier: OpRef[],
 	parents: OpRef[],
 	ref: OpRef,
 ): OpRef[] {
-	const res = frontier.filter((c) => !parents.includes(c));
-	res.push(ref);
-	return res.sort((a, b) => a - b);
+	// avoid generating garbage
+	//const res = frontier.filter((c) => !parents.includes(c));
+	//res.push(ref);
+	//res.sort((a, b) => a - b);
+	//return res;
+	let j = 0;
+
+	frontier.forEach((e, i) => {
+		if (!parents.includes(e)) {
+			if (i !== j) frontier[j] = e;
+			j++;
+		}
+	});
+
+	frontier.length = j;
+	frontier.push(ref);
+	frontier.sort((a, b) => a - b);
+	return frontier;
 }
 
 type DebugRow<T, AccT extends Accumulator<T>> = {
@@ -196,7 +223,7 @@ export function toDot(oplog: OpLog<any, any>): string {
 		res += `${row.id}[label="${i}\\n${row.id}\\n${row.position}, ${row.data}"`;
 		if (!row.parents.length) res += ',shape="Msquare"';
 		res += "]\n";
-		row.parents.forEach(pref => {
+		row.parents.forEach((pref) => {
 			const [idx, offset] = pref;
 			const parent = rows[idx];
 

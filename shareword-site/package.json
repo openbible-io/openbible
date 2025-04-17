@@ -1,7 +1,8 @@
 {
 	"name": "@openbible/shareword-site",
 	"devDependencies": {
-		"@openbible/shareword": "workspace:*"
+		"@openbible/shareword": "workspace:*",
+		"bun-plugin-tailwind": "^0.0.15"
 	},
 	"scripts": {
 		"start": "bun --conditions @openbible/source ./index.html"

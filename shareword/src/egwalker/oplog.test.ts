@@ -1,5 +1,5 @@
 import { test, expect } from "bun:test";
-import { debugPrint, debugRows2, OpLog } from "./oplog";
+import { advanceFrontier, debugPrint, debugRows2, OpLog } from "./oplog";
 
 function stringOpLog() {
 	return new OpLog<string, string>((acc, others) => acc + others);
@@ -46,6 +46,20 @@ test("delete", () => {
 	expect(debugRows2(oplog)).toEqual([
 		[ "a0", 0, "hel", [] ],
 		[ "b0", 0, -3, [[0, 2]] ],
+	]);
+});
+
+test("advanceFrontier", () => {
+	expect(advanceFrontier([], [], 4)).toEqual([4]);
+	expect(advanceFrontier([4], [], 260)).toEqual([4, 260]);
+	expect(advanceFrontier([4, 260], [4, 260], 512)).toEqual([512]);
+	expect(advanceFrontier(
+		[0, 4],
+		[4, 9],
+		5
+	)).toEqual([
+			0,
+			5,
 	]);
 });
 
