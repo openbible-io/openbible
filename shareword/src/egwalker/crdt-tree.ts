@@ -4,7 +4,7 @@ import { opLength, type Accumulator, type OpData, type OpRef } from "./op";
 import type { Snapshot } from "./snapshot";
 
 export class CrdtTree<T, AccT extends Accumulator<T>> {
-	tree = new BTree<Item>((item, start) => ({
+	doc = new BTree<Item>((item, start) => ({
 		ref: item.ref + start,
 		originLeft: item.originLeft + start,
 		originRight: item.originRight,
@@ -20,9 +20,54 @@ export class CrdtTree<T, AccT extends Accumulator<T>> {
 			deleted: false,
 			state: State.Inserted,
 		};
-		this.tree.insert(pos, item, opLength(data));
+		this.doc.insert(pos, item, opLength(data));
 
 		return { item, docPos: pos };
+	}
+
+	/** FugueMax */
+	#integrate(newItem: Item, idx: number, endPos: number): { idx: number, endPos: number } {
+		let scanIdx = idx;
+		let scanEndPos = endPos;
+
+		const left = scanIdx - 1;
+		const right =
+			newItem.originRight === -1
+				? this.#items.length
+				: this.#indexOfOpRef(newItem.originRight);
+
+		let scanning = false;
+
+		while (scanIdx < right) {
+			const other = this.#items[scanIdx];
+			if (other.state !== State.NotInserted) break;
+
+			const oleft = this.#indexOfOpRef(other.originLeft);
+			const oright =
+				other.originRight === -1
+					? this.#items.length
+					: this.#indexOfOpRef(other.originRight);
+
+			if (
+				oleft < left ||
+				(oleft === left &&
+					oright === right &&
+					this.getSite(newItem.ref) < this.getSite(other.ref))
+			) {
+				break;
+			}
+			if (oleft === left) scanning = oright < right;
+
+			if (!other.deleted) scanEndPos++;
+			scanIdx++;
+
+			if (!scanning) {
+				idx = scanIdx;
+				endPos = scanEndPos;
+			}
+		}
+
+		return { idx, endPos };
 	}
 
 	insert(
@@ -33,20 +78,18 @@ export class CrdtTree<T, AccT extends Accumulator<T>> {
 	): void {
 		const { item, docPos } = this.#insertOrDelete(ref, pos, data);
 
-		// Set originLeft and originRight
-		for (const left of this.tree.iter(0, docPos)) {
-			item.originLeft = left.ref;
-			break;
-		}
-
-		for (const right of this.tree.iter(docPos)) {
-			if (right.state !== State.NotInserted) {
-				item.originRight = right.ref;
+		const left = this.doc.get(docPos - 1); 
+		if (left) item.originLeft = left.ref;
+		for (const right of this.doc.iter(docPos)) {
+			if (right.value.state !== State.NotInserted) {
+				item.originRight = right.value.ref;
 				break;
 			}
 		}
 
-		//this.#integrate(item, idx, endPos, data, snapshot);
+		const stablePos = this.#integrate(item, idx, endPos);
+		this.#items.splice(stablePos.idx, 0, item);
+		snapshot?.insert(stablePos.endPos, data);
 	}
 
 	delete(ref: OpRef, pos: number, count: number, snapshot?: Snapshot<T>): void {
@@ -57,6 +100,8 @@ export class CrdtTree<T, AccT extends Accumulator<T>> {
 			snapshot?.delete(docPos, count);
 		}
 		item.state = State.Deleted;
+
+		snapshot?.delete(docPos, count);
 	}
 
 	retreat(ref: OpRef) {

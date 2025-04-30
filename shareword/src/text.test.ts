@@ -1,6 +1,6 @@
 import { test, expect } from "bun:test";
 import { Text } from "./text";
-import { debugRows2 } from "./egwalker/oplog";
+import { debugRows2, toDot } from "./egwalker/oplog";
 import { refDecode } from "./egwalker/op";
 import { fuzzer } from "./fuzzer";
 import { Patch } from "./egwalker/patch";
@@ -201,6 +201,8 @@ test("partial op merge", () => {
 		[3, 0],
 	]);
 	expect(a.toString()).toEqual("vez");
+
+	console.log(toDot(b.oplog))
 });
 
 test("frontiers", () => {

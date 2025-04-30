@@ -14,11 +14,10 @@ export enum State {
 /** An item that may conflict. */
 export type Item = {
 	ref: OpRef;
-	/** -1 = start of doc */
-	originLeft: OpRef | -1;
-	/** -1 = end of doc */
-	originRight: OpRef | -1;
+	/** From document */
 	deleted: boolean;
+	originLeft: Item | null;
+	originRight: Item | null;
 	state: State;
 };
 
@@ -34,8 +33,8 @@ export class CrdtList<T, AccT extends Accumulator<T>> {
 		for (let i = 0; i < placeholderLength; i++) {
 			const item: Item = {
 				ref: placeholderOffset + i,
-				originLeft: -1,
-				originRight: -1,
+				originLeft: null,
+				originRight: null,
 				deleted: false,
 				state: State.Inserted,
 			};
@@ -47,99 +46,82 @@ export class CrdtList<T, AccT extends Accumulator<T>> {
 	#findPos(
 		targetPos: number,
 		skipDeleted: boolean,
-	): { idx: number; endPos: number } {
-		let curPos = 0;
-		let endPos = 0;
-		let idx = 0;
+	): { crdtIdx: number; docIdx: number } {
+		assertBounds(targetPos, this.#items.length);
+		const res = { crdtIdx: 0, docIdx: 0 };
 
-		for (; curPos < targetPos; idx++) {
-			assertBounds(idx, this.#items.length);
+		for (let i = 0; i < targetPos; res.crdtIdx++) {
+			assertBounds(res.crdtIdx, this.#items.length);
+			const item = this.#items[res.crdtIdx];
 
-			const item = this.#items[idx];
-			if (item.state === State.Inserted) curPos++;
-			if (!item.deleted) endPos++;
+			if (item.state === State.Inserted) i++;
+			if (!item.deleted) res.docIdx++;
 		}
 
 		if (skipDeleted) {
-			while (this.#items[idx].state !== State.Inserted) {
-				if (!this.#items[idx].deleted) endPos++;
-				idx++;
-			}
+			for (; this.#items[res.crdtIdx].state !== State.Inserted; res.crdtIdx++)
+				if (!this.#items[res.crdtIdx].deleted) res.docIdx++;
 		}
 
-		return { idx, endPos };
+		return res;
 	}
 
-	#indexOfOpRef(ref: OpRef): number {
-		return this.#items.findIndex((item) => item.ref === ref);
+	indexRight(newItem: Item): number {
+		return newItem.originRight
+			? this.#items.indexOf(newItem.originRight)
+			: this.#items.length;
+	}
+
+	indexLeft(newItem: Item): number {
+		return newItem.originLeft ? this.#items.indexOf(newItem.originLeft) : -1;
 	}
 
 	/** FugueMax */
-	#integrate(
-		newItem: Item,
-		idx: number,
-		endPos: number,
-		content: AccT,
-		snapshot?: Snapshot<T>,
-	) {
-		let scanIdx = idx;
-		let scanEndPos = endPos;
-
-		const left = scanIdx - 1;
-		const right =
-			newItem.originRight === -1
-				? this.#items.length
-				: this.#indexOfOpRef(newItem.originRight);
-
+	#integrate(newItem: Item, crdtIdx: number, docIdx: number) {
+		let scanIdx = crdtIdx;
+		let scanEndPos = docIdx;
 		let scanning = false;
+		const left = scanIdx - 1;
+		const right = this.indexRight(newItem);
 
 		while (scanIdx < right) {
 			const other = this.#items[scanIdx];
 			if (other.state !== State.NotInserted) break;
 
-			const oleft = this.#indexOfOpRef(other.originLeft);
-			const oright =
-				other.originRight === -1
-					? this.#items.length
-					: this.#indexOfOpRef(other.originRight);
+			const oleft = this.indexLeft(other);
+			if (oleft < left) break;
 
+			const oright = this.indexRight(other);
 			if (
-				oleft < left ||
-				(oleft === left &&
-					oright === right &&
-					this.getSite(newItem.ref) < this.getSite(other.ref))
-			) {
+				oleft === left &&
+				oright === right &&
+				this.getSite(newItem.ref) < this.getSite(other.ref)
+			)
 				break;
-			}
-			if (oleft === left) scanning = oright < right;
 
+			if (oleft === left) scanning = oright < right;
 			if (!other.deleted) scanEndPos++;
+
 			scanIdx++;
 
 			if (!scanning) {
-				idx = scanIdx;
-				endPos = scanEndPos;
+				crdtIdx = scanIdx;
+				docIdx = scanEndPos;
 			}
 		}
 
-		this.#items.splice(idx, 0, newItem);
-		snapshot?.insert(endPos, content);
+		return { crdtIdx, docIdx };
 	}
 
-	insert(
-		ref: OpRef,
-		pos: number,
-		data: AccT,
-		snapshot?: Snapshot<T>,
-	): void {
-		const { idx, endPos } = this.#findPos(pos, false);
-		const originLeft = idx ? this.#items[idx - 1].ref : -1;
+	insert(ref: OpRef, pos: number, data: AccT, snapshot?: Snapshot<T>): void {
+		const { crdtIdx, docIdx } = this.#findPos(pos, false);
+		const originLeft = crdtIdx ? this.#items[crdtIdx - 1] : null;
 
-		let originRight = -1;
-		for (let i = idx; i < this.#items.length; i++) {
+		let originRight = null;
+		for (let i = crdtIdx; i < this.#items.length; i++) {
 			const item2 = this.#items[i];
 			if (item2.state !== State.NotInserted) {
-				originRight = item2.ref;
+				originRight = item2;
 				break;
 			}
 		}
@@ -152,19 +134,20 @@ export class CrdtList<T, AccT extends Accumulator<T>> {
 			state: State.Inserted,
 		};
 		this.#targets[ref] = item;
-		this.#integrate(item, idx, endPos, data, snapshot);
+
+		const stable = this.#integrate(item, crdtIdx, docIdx);
+		this.#items.splice(stable.crdtIdx, 0, item);
+		snapshot?.insert(stable.docIdx, data);
 		//console.log("insert", ref, pos, data);
 		//console.table(this.#items);
 	}
 
 	delete(ref: OpRef, pos: number, count: number, snapshot?: Snapshot<T>): void {
-		const { idx, endPos } = this.#findPos(pos, true);
-		const item = this.#items[idx];
+		const { crdtIdx, docIdx } = this.#findPos(pos, true);
+		const item = this.#items[crdtIdx];
 
-		if (!item.deleted) {
-			item.deleted = true;
-			snapshot?.delete(endPos, count);
-		}
+		if (!item.deleted) snapshot?.delete(docIdx, count);
+		item.deleted = true;
 		item.state = State.Deleted;
 
 		this.#targets[ref] = item;

@@ -88,10 +88,11 @@ export class Crdt<T, AccT extends Accumulator<T>> extends CrdtList<T, AccT> {
 		//	idx,
 		//	start,
 		//	end,
-		//	this.oplog.atSlice(idx, start, end).data,
+		//	this.oplog.at(idx, start, end).data,
 		//);
 
 		for (let i = start; i < end; i++) {
+			//console.log("apply", [idx, i])
 			const ref = refEncode(idx, i);
 			const parents = this.oplog.parentsAt(ref);
 			const { aOnly, bOnly } = this.#diff(this.currentVersion, parents);

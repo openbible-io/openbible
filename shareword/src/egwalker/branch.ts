@@ -1,9 +1,10 @@
-import { advanceFrontier, type OpLog } from "./oplog";
+import type { OpLog } from "./oplog";
 import { Crdt } from "./crdt";
 import type { Snapshot } from "./snapshot";
 import { PriorityQueue } from "./util/pq";
 import { refDecode, refEncode } from "./op";
 import type { Accumulator, OpRef } from "./op";
+import { Frontier } from "./frontier";
 
 type OpRange = {
 	start: OpRef;
@@ -23,7 +24,7 @@ type HeadResult = {
 };
 
 export class Branch<T, AccT extends Accumulator<T>> {
-	frontier: OpRef[] = [];
+	frontier = new Frontier<OpRef>();
 
 	constructor(public oplog: OpLog<T, AccT>) {}
 
@@ -133,14 +134,16 @@ export class Branch<T, AccT extends Accumulator<T>> {
 		);
 
 		// 46%
+		// build CRDT state
 		for (const { idx, start, end } of this.runs(shared)) {
 			doc.applyOpRun(idx, start, end);
 		}
+		// use state to resolve conflicts
 		for (const { idx, start, end } of this.runs(bOnly)) {
 			doc.applyOpRun(idx, start, end, snapshot);
 
 			const ref = refEncode(idx, end - 1);
-			advanceFrontier(this.frontier, this.oplog.parentsAt(refEncode(idx)), ref);
+			this.frontier.advance(this.oplog.parentsAt(refEncode(idx)), ref);
 		}
 	}
 }

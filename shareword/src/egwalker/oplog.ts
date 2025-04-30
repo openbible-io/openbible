@@ -1,3 +1,4 @@
+import { Frontier } from "./frontier";
 import {
 	maxRunLen,
 	opLength,
@@ -24,7 +25,7 @@ export class OpLog<T, AccT extends Accumulator<T> = T[]> {
 	/** For items whose parents do not immediately precede it. */
 	parents: Record<number /** index into `ops` */, OpRef[]> = {};
 	/** Next Op's `parents`. */
-	frontier: OpRef[] = [];
+	frontier = new Frontier<OpRef>();
 	stateVector: StateVector = {};
 
 	/** @param mergeFn How to merge runs together. */
@@ -37,7 +38,7 @@ export class OpLog<T, AccT extends Accumulator<T> = T[]> {
 				const prev = ctx.items[prevIdx];
 
 				// over max length?
-				if (prevLen + 1 >= maxRunLen) return false;
+				if (prevLen + len >= maxRunLen) return false;
 
 				// non-consecutive id?
 				if (
@@ -107,8 +108,7 @@ export class OpLog<T, AccT extends Accumulator<T> = T[]> {
 		const forceNewRun = this.#insertParents(ref, parents);
 		this.ops.push(run, len, forceNewRun);
 		const prevIdx = this.ops.items.length - 1;
-		advanceFrontier(
-			this.frontier,
+		this.frontier.advance(
 			parents,
 			refEncode(prevIdx, this.ops.len(prevIdx) - 1),
 		);
@@ -136,32 +136,6 @@ export class OpLog<T, AccT extends Accumulator<T> = T[]> {
 	merge(src: OpLog<T, AccT>) {
 		new Patch(src, this.stateVector).apply(this);
 	}
-}
-
-/** Mutates `frontier`. */
-export function advanceFrontier(
-	frontier: OpRef[],
-	parents: OpRef[],
-	ref: OpRef,
-): OpRef[] {
-	// avoid generating garbage
-	//const res = frontier.filter((c) => !parents.includes(c));
-	//res.push(ref);
-	//res.sort((a, b) => a - b);
-	//return res;
-	let j = 0;
-
-	frontier.forEach((e, i) => {
-		if (!parents.includes(e)) {
-			if (i !== j) frontier[j] = e;
-			j++;
-		}
-	});
-
-	frontier.length = j;
-	frontier.push(ref);
-	frontier.sort((a, b) => a - b);
-	return frontier;
 }
 
 type DebugRow<T, AccT extends Accumulator<T>> = {

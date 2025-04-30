@@ -46,6 +46,7 @@ export class GenericList<T, AccT extends Accumulator<T>> extends EventTarget {
 	}
 
 	merge(other: GenericList<T, AccT>) {
+		//console.log("merge into", this.site);
 		this.oplog.merge(other.oplog);
 		this.branch.checkout(this.oplog.frontier, this.snapshot);
 		this.dispatchEvent(new CustomEvent("merge"));
