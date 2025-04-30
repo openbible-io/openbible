@@ -1,14 +1,16 @@
-//type NodeGenerator<V> = Generator<{ node: Node<V>; i: number }>;
+type ValueGenerator<V> = Generator<{ value: V; len: number }>;
 
 /**
- * A grow-only balanced tree. Supports insertion by list position.
+ * A grow-only balanced tree:
+ * - Keys are lengths.
+ * - Supports insertion by list position.
  */
 export class BTree<V> {
 	root?: Node<V>;
 
 	public constructor(
 		public slice: (value: V, start: number, end?: number) => V,
-		public maxNodeSize = 1 << 8,
+		public maxNodeSize = 16,
 	) {}
 
 	get length(): number {
@@ -22,34 +24,66 @@ export class BTree<V> {
 	/** @param len Use negative length for deletions. */
 	insert(pos: number, value: V, len: number): void {
 		if (!len) return;
+		if (pos > this.length)
+			throw new RangeError(`insertion at position ${pos} > ${this.length}`);
 
 		this.root ??= new Node<V>();
 		const maybeSplit = this.root.insert(pos, value, len, this);
 		if (maybeSplit) this.root = new InternalNode<V>([this.root, maybeSplit]);
 	}
 
-	//*nodes(low = this.min(), high = this.max()): NodeGenerator<K, V> {
-	//	if (low !== undefined && high !== undefined && this.root)
-	//		yield* this.root.items(low, high, this);
-	//}
-	//
-	//*values(low = this.min(), high = this.max()): Generator<V> {
-	//	for (const { node, i } of this.nodes(low, high))
-	//		yield node.values[i];
-	//}
+	*iter(low = 0, high = this.length): ValueGenerator<V> {
+		if (this.root) yield* this.root.iter(this, low, high);
+	}
 }
 
-//depth(): number {
-//	let node: Node<K, V> | undefined = this.root;
-//	let res = -1;
-//	while (node) {
-//		res++;
-//		node = node instanceof NodeInternal ? node.children[0] : undefined;
-//	}
-//	return res;
-//}
+let counter = 0;
+export function treeToDot<T>(tree: BTree<T>): string {
+	let res = "digraph {\n";
+	if (tree.root) res += nodeToDot(tree, "", tree.root);
+	res += "}";
+	return res;
+}
 
-function indexOf(lengths: number[], pos: number): { idx: number, offset: number } {
+function nodeToDot<T>(tree: BTree<T>, fromId: string, node: Node<T>): string {
+	let res = "";
+
+	const id = `i${counter++}`;
+	res += `${id}[label="${node.length}"]\n`;
+	if (fromId) res += `${fromId} -> ${id}\n`;
+
+	if (node instanceof InternalNode) {
+		for (let i = 0; i < node.children.length; i++)
+			res += nodeToDot(tree, id, node.children[i]);
+	} else {
+		for (const item of node.iter(tree)) {
+			const itemId = `li${counter++}`;
+			// JSON.stringify(item, null, 2).replaceAll('"', '\\"')
+			res += `${itemId}[label="${item.len}"]\n`;
+			res += `${id} -> ${itemId}\n`;
+		}
+	}
+
+	return res;
+}
+
+export function depth<V>(tree: BTree<V>): number {
+	let node = tree.root;
+	let res = -1;
+	while (node) {
+		res++;
+		node = node instanceof InternalNode ? node.children[0] : undefined;
+	}
+	return res;
+}
+
+/**
+ * Iterates through `lengths` until reaches `pos`.
+ */
+function indexOf(
+	lengths: number[],
+	pos: number,
+): { idx: number; offset: number } {
 	let endPos = 0;
 	let i = 0;
 	for (i = 0; i < lengths.length; i++) {
@@ -59,7 +93,7 @@ function indexOf(lengths: number[], pos: number): { idx: number, offset: number 
 	return { idx: i, offset: pos - endPos + (lengths[i] ?? 0) };
 }
 
-/** Leaf node or internal node. Internal node overrides ALL methods. */
+/** Leaf node or internal node. Internal node overrides MOST methods. */
 export class Node<V> {
 	constructor(
 		public lengths: number[] = [],
@@ -67,12 +101,16 @@ export class Node<V> {
 		public length = lengths.reduce((acc, cur) => acc + cur, 0),
 	) {}
 
-	#indexOf(pos: number): { idx: number, offset: number } {
+	get size(): number {
+		return this.lengths.length;
+	}
+
+	indexOf(pos: number): { idx: number; offset: number } {
 		return indexOf(this.lengths, pos);
 	}
 
 	get(pos: number, tree: BTree<V>): V | undefined {
-		const { idx, offset } = this.#indexOf(pos);
+		const { idx, offset } = this.indexOf(pos);
 		const value = this.values[idx];
 		return tree.slice(value, offset);
 	}
@@ -84,12 +122,17 @@ export class Node<V> {
 		len: number,
 		tree: BTree<V>,
 	): undefined | Node<V> {
-		const { idx, offset } = this.#indexOf(pos);
-		//console.log("insert", pos, value, len, idx, offset);
+		const { idx, offset } = this.indexOf(pos);
 
-		if (offset === 0 || offset === this.length) {
-			this.lengths.splice(idx, 0, len);
-			this.values.splice(idx, 0, value);
+		if (
+			idx === this.size - 1 &&
+			offset === this.lengths[this.size - 1]
+		) {
+			this.lengths.push(len);
+			this.values.push(value);
+		} else if (!offset) {
+			this.lengths.unshift(len);
+			this.values.unshift(value);
 		} else {
 			const endLen = this.lengths[idx] - offset;
 			const end = tree.slice(this.values[idx], offset);
@@ -107,48 +150,59 @@ export class Node<V> {
 			this.values.splice(idx + 1, 0, ...values);
 		}
 		this.length += len;
-		if (this.lengths.length >= tree.maxNodeSize) return this.splitRight();
+		if (this.size > tree.maxNodeSize) return this.splitRight();
 	}
 
-	takeRight(rhs: Node<V>): void {
+	takeRight(rhs: Node<V>): number {
 		// biome-ignore lint/style/noNonNullAssertion: <explanation>
-		this.lengths.push(rhs.lengths.shift()!);
+		const length = rhs.lengths.shift()!;
+		this.lengths.push(length);
+		this.length += length;
+		rhs.length -= length;
 		// biome-ignore lint/style/noNonNullAssertion: <explanation>
 		this.values.push(rhs.values.shift()!);
+		return length;
 	}
 
-	takeLeft(lhs: Node<V>): void {
+	takeLeft(lhs: Node<V>): number {
 		// biome-ignore lint/style/noNonNullAssertion: <explanation>
-		this.lengths.unshift(lhs.lengths.pop()!);
+		const length = lhs.lengths.pop()!;
+		this.lengths.unshift(length);
+		this.length += length;
+		lhs.length -= length;
 		// biome-ignore lint/style/noNonNullAssertion: <explanation>
 		this.values.unshift(lhs.values.pop()!);
+		return length;
 	}
 
 	splitRight(): Node<V> {
-		const half = this.lengths.length >> 1;
+		const half = this.size >> 1;
 		const lengths = this.lengths.splice(half);
 		const values = this.values.splice(half);
-		return new Node<V>(lengths, values);
+		const res = new Node<V>(lengths, values);
+		this.length -= res.length;
+		return res;
 	}
 
-	//*items(low: K, high: K, tree: BTree<K, V>): NodeGenerator<K, V> {
-	//	let iLow: number;
-	//	let iHigh: number;
-	//	if (high === low) {
-	//		iHigh = (iLow = this.indexOf(low, -1, tree.comparator)) + 1;
-	//		if (iLow < 0) return;
-	//	} else {
-	//		iLow = this.indexOf(low, 0, tree.comparator);
-	//		iHigh = this.indexOf(high, -1, tree.comparator);
-	//		if (iHigh < 0) iHigh = ~iHigh;
-	//		else iHigh++;
-	//	}
-	//	for (let i = iLow; i < iHigh; i++) yield { node: this, i };
-	//}
+	*iter(tree: BTree<V>, low = 0, high = this.length): ValueGenerator<V> {
+		const { idx, offset } = this.indexOf(low);
+		let pos = low;
+		let start = offset;
+		let end: number | undefined;
 
-	mergeSibling(rhs: Node<V>, _maxNodeSize: number): void {
-		this.lengths.push.apply(rhs.lengths);
-		this.values.push.apply(rhs.values);
+		for (let i = idx; i < this.size && pos < high; i++) {
+			const value = this.values[i];
+			const len = this.lengths[i];
+
+			if (pos > high) end = pos - high;
+			yield {
+				value: start || end ? tree.slice(value, start, end) : value,
+				len,
+			};
+
+			pos += len;
+			start = 0;
+		}
 	}
 }
 
@@ -165,13 +219,9 @@ export class InternalNode<V> extends Node<V> {
 		super(lengths, []);
 	}
 
-	#indexOf(pos: number) {
-		return indexOf(this.lengths, pos);
-	}
-
 	get(pos: number, tree: BTree<V>): V | undefined {
-		const { idx, offset } = this.#indexOf(pos);
-		return this.children[idx]?.get(pos - offset, tree)
+		const { idx, offset } = this.indexOf(pos);
+		return this.children[idx]?.get(pos - offset, tree);
 	}
 
 	insert(
@@ -180,95 +230,81 @@ export class InternalNode<V> extends Node<V> {
 		len: number,
 		tree: BTree<V>,
 	): undefined | InternalNode<V> {
-		const i = this.#indexOf(pos).idx;
-		const child = this.children[i];
+		let { idx, offset } = this.indexOf(pos);
+		const child = this.children[idx];
 
-		if (child.lengths.length >= tree.maxNodeSize) {
-			let other: typeof this.children[number];
-			if (
-				i > 0 &&
-				(other = this.children[i - 1]).lengths.length < tree.maxNodeSize
-			) {
+		if (child.size >= tree.maxNodeSize) {
+			let other: (typeof this.children)[number];
+			if (idx > 0 && (other = this.children[idx - 1]).size < tree.maxNodeSize) {
 				//assert(child.constructor === other.constructor, "monomorphic children");
-				other.takeRight(child);
-				this.lengths[i - 1] = other.length;
+				offset -= other.takeRight(child);
+				this.lengths[idx - 1] = other.length;
+				offset = this.indexOf(pos).offset;
 			} else if (
-				(other = this.children[i + 1]) &&
-				other.lengths.length < tree.maxNodeSize
+				(other = this.children[idx + 1]) &&
+				other.size < tree.maxNodeSize
 			) {
-				other.takeLeft(child);
-				this.lengths[i] = this.children[i].length;
+				offset += other.takeLeft(child);
+				this.lengths[idx] = this.children[idx].length;
+				offset = this.indexOf(pos).offset;
 			}
 		}
 
-		const result = child.insert(pos, value, len, tree);
-		this.lengths[i] = child.length;
+		const result = child.insert(offset, value, len, tree);
+		this.lengths[idx] = child.length;
+		this.length += len;
 		if (!result) return;
 
-		this.insertChild(i + 1, result);
-		if (this.lengths.length >= tree.maxNodeSize) return this.splitRight();
+		this.insertChild(idx + 1, result);
+		if (this.size > tree.maxNodeSize) return this.splitRight();
 	}
 
 	insertChild(i: number, child: Node<V>) {
-		// @ts-ignore
 		this.children.splice(i, 0, child);
 		this.lengths.splice(i, 0, child.length);
 	}
 
 	splitRight(): InternalNode<V> {
 		const half = this.children.length >> 1;
-		return new InternalNode<V>(
+		const res = new InternalNode<V>(
 			this.children.splice(half),
 			this.lengths.splice(half),
 		);
+		this.length -= res.length;
+		return res;
 	}
 
-	takeRight(rhs: InternalNode<V>): void {
+	takeRight(rhs: InternalNode<V>): number {
 		// biome-ignore lint/style/noNonNullAssertion: <explanation>
-		this.lengths.push(rhs.lengths.shift()!);
+		const length = rhs.lengths.shift()!;
+		this.lengths.push(length);
+		this.length += length;
+		rhs.length -= length;
 		// biome-ignore lint/style/noNonNullAssertion: <explanation>
 		this.children.push(rhs.children.shift()!);
+
+		return length;
 	}
 
-	takeLeft(lhs: InternalNode<V>): void {
+	takeLeft(lhs: InternalNode<V>): number {
 		// biome-ignore lint/style/noNonNullAssertion: <explanation>
-		this.lengths.unshift(lhs.lengths.pop()!);
+		const length = lhs.lengths.pop()!;
+		this.lengths.unshift(length);
+		this.length += length;
+		lhs.length -= length;
 		// biome-ignore lint/style/noNonNullAssertion: <explanation>
 		this.children.unshift(lhs.children.pop()!);
+
+		return length;
 	}
 
-	#tryMerge(i: number, maxSize: number): boolean {
-		const children = this.children;
+	*iter(tree: BTree<V>, low = 0, high = this.length): ValueGenerator<V> {
+		const { idx, offset } = this.indexOf(low);
+		let pos = low - offset;
 
-		if (i >= 0 && i + 1 < children.length) {
-			if (children[i].lengths.length + children[i + 1].lengths.length <= maxSize) {
-				children[i].mergeSibling(children[i + 1], maxSize);
-				children.splice(i + 1, 1);
-				this.lengths.splice(i + 1, 1);
-				this.lengths[i] = children[i].length;
-				return true;
-			}
+		for (let i = idx; i < this.size && pos < high; i++) {
+			yield* this.children[i].iter(tree, pos, high);
+			pos += this.lengths[i];
 		}
-		return false;
-	}
-
-	//*items(low: K, high: K, tree: BTree<K, V>): NodeGenerator<K, V> {
-	//	const iLow = this.indexOf(low, 0, tree.comparator);
-	//	const iHigh = Math.min(
-	//		high === low ? iLow : this.indexOf(high, 0, tree.comparator),
-	//		this.keys.length - 1,
-	//	);
-	//	if (iLow > iHigh) return;
-	//
-	//	for (let i = iLow; i <= iHigh; i++)
-	//		yield* this.children[i].items(low, high, tree);
-	//}
-
-	mergeSibling(rhs: InternalNode<V>, maxNodeSize: number): void {
-		const prevLen = this.lengths.length;
-
-		this.lengths.push.apply(rhs.lengths);
-		this.children.push.apply(rhs.children);
-		this.#tryMerge(prevLen - 1, maxNodeSize);
 	}
 }

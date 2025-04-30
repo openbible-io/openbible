@@ -1,5 +1,5 @@
 import { test, expect } from "bun:test";
-import { BTree, Node } from "./btree";
+import { BTree, depth, Node, treeToDot } from "./btree";
 import { refEncode } from "../op";
 import { type Item, State } from "../crdt-list";
 
@@ -78,6 +78,7 @@ test("crdt items", () => {
 		},
 		-10,
 	);
+	expect(bt.length).toEqual(90);
 	expect(bt.root).toEqual(
 		new Node<Item>(
 			[50, -10, 50],
@@ -106,4 +107,16 @@ test("crdt items", () => {
 			],
 		),
 	);
+});
+
+test("stays balanced", () => {
+	const maxNodeSize = 16;
+	const bt = new BTree<number>(i => i, maxNodeSize);
+
+	let pos = 0;
+	for (let i = 1; i <= 10_000; i++) {
+		bt.insert(pos, i, i);
+		pos += i;
+		expect(depth(bt)).toBeLessThanOrEqual(Math.log(i) / Math.log(maxNodeSize));
+	}
 });
