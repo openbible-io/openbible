@@ -1,22 +1,13 @@
+import { prng } from "./prng";
 import { Text } from "./text";
 
 const noop = () => {};
-
-// PRNG for consistent runs.
-export function mulberry32(seed: number): () => number {
-	return () => {
-		let t = (seed += 0x6d2b79f5);
-		t = Math.imul(t ^ (t >>> 15), t | 1);
-		t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-		return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-	};
-}
 
 export function fuzzer(
 	seed: number,
 	postMerge: (i: number, a: Text, b: Text) => void = noop,
 ): void {
-	const random = mulberry32(seed);
+	const random = prng(seed);
 	const randInt = (n: number) => Math.floor(random() * n);
 	const randBool = (weight = 0.5) => random() < weight;
 

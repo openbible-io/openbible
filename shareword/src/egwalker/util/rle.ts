@@ -12,8 +12,14 @@ export interface Container<T> {
 
 /** Run length encoded list. */
 export class Rle<T, C extends Container<T> = Array<T>> {
-	starts: number[] = [];
-	length = 0;
+	offsets: number[] = [];
+	/** Sum of all items' lengths. */
+	count = 0;
+
+	/** Number of items. */
+	get length(): number {
+		return this.offsets.length;
+	}
 
 	/**
 	 * @param items The container type to use.
@@ -30,25 +36,25 @@ export class Rle<T, C extends Container<T> = Array<T>> {
 	 *
 	 * @returns If appended to previous item.
 	 */
-	push(item: T, len = 1, forceNewRun = !this.length): void {
+	push(item: T, len = 1, forceNewRun = !this.count): void {
 		if (!len) return;
 
 		if (forceNewRun || !this.append(this, item, len)) {
 			this.items.push(item);
-			this.starts.push(this.length);
+			this.offsets.push(this.count);
 		}
-		this.length += len;
+		this.count += len;
 	}
 
 	len(idx: number): number {
-		assertBounds(idx, this.starts.length);
-		const nextIdx = this.starts[idx + 1] ?? this.length;
-		return nextIdx - this.starts[idx];
+		assertBounds(idx, this.offsets.length);
+		const nextIdx = this.offsets[idx + 1] ?? this.count;
+		return nextIdx - this.offsets[idx];
 	}
 
-	offsetOf(i: number): { idx: number; offset: number } {
+	indexOf(i: number): { idx: number; offset: number } {
 		const idx = binarySearch(
-			this.starts,
+			this.offsets,
 			i,
 			(start, needle, i) => {
 				if (start > needle) return 1;
@@ -58,13 +64,13 @@ export class Rle<T, C extends Container<T> = Array<T>> {
 			},
 			0,
 		);
-		assertBounds(idx, this.starts.length);
+		assertBounds(idx, this.offsets.length);
 
-		return { idx, offset: i - this.starts[idx] };
+		return { idx, offset: i - this.offsets[idx] };
 	}
 
 	at(i: number): T {
-		const { idx, offset } = this.offsetOf(i);
+		const { idx, offset } = this.indexOf(i);
 		const res = this.items.at(idx);
 		assert(res !== undefined, `undefined was inserted into RLE at ${idx}`);
 		return this.sliceFn(res, offset, offset + 1);

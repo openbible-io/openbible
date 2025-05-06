@@ -3,7 +3,7 @@ import type { Accumulator, Clock, OpId, OpRef, OpRun, Site } from "./op";
 import { debugPrint, type OpLog } from "./oplog";
 import { assert } from "./util";
 
-/** Max stored `clock` for each site. */
+/** Max stored `clock` for each site. Useful for creating patches. */
 export type StateVector = Record<Site, number>;
 
 export class Patch<T, AccT extends Accumulator<T>> {
@@ -15,14 +15,14 @@ export class Patch<T, AccT extends Accumulator<T>> {
 		for (let i = 0; i < oplog.ops.items.length; i++) {
 			let run = oplog.at(i);
 			const runLength = oplog.ops.len(i);
-			if (run.siteClock + runLength <= to[run.site]) continue;
+			if (run.clock + runLength <= to[run.replica]) continue;
 
-			const offset = Math.max((to[run.site] ?? -1) - run.siteClock, 0);
+			const offset = Math.max((to[run.replica] ?? -1) - run.clock, 0);
 			const ref = refEncode(i, offset);
 			const parents = oplog.parentsAt(ref).map((pref) => {
 				const [idx, offset2] = refDecode(pref);
 				const op = oplog.at(idx);
-				return { site: op.site, siteClock: op.siteClock + offset2 };
+				return { site: op.replica, siteClock: op.clock + offset2 };
 			});
 			if (offset) run = opSlice(run, offset);
 
@@ -54,11 +54,11 @@ function idToRef<T, AccT extends Accumulator<T>>(
 	for (let i = oplog.ops.items.length - 1; i >= 0; i--) {
 		const op = oplog.at(i);
 		const opLength = oplog.ops.len(i);
-		const offset = siteClock - op.siteClock;
+		const offset = siteClock - op.clock;
 		if (
-			op.site === site &&
+			op.replica === site &&
 			offset >= 0 &&
-			op.siteClock + opLength > siteClock
+			op.clock + opLength > siteClock
 		) {
 			return refEncode(i, offset);
 		}

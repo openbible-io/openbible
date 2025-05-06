@@ -19,7 +19,7 @@ export class Crdt<T, AccT extends Accumulator<T>> extends CrdtList<T, AccT> {
 		placeholderLength: number,
 	) {
 		super(
-			(ref: OpRef) => oplog.at(refDecode(ref)[0]).site,
+			(ref: OpRef) => oplog.at(refDecode(ref)[0]).replica,
 			placeholderOffset,
 			placeholderLength,
 		);

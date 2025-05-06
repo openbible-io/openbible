@@ -1,122 +1,50 @@
 import { test, expect } from "bun:test";
-import { BTree, depth, Node, treeToDot } from "./btree";
-import { refEncode } from "../op";
-import { type Item, State } from "../crdt-list";
+import { prng } from "../../prng";
+import { BTree, toDot } from "./btree";
+import { binarySearch } from "./bsearch";
 
 test("correctness", () => {
-	const bt = new BTree<string>(
-		(value, start, end) => value.slice(start, end),
-		32,
-	);
-
-	const value = "0123456789";
-	bt.insert(0, value, value.length);
-	expect(bt.length).toBe(value.length);
-
-	bt.insert(3, "", -1);
-	expect(bt.root).toEqual(new Node<string>([3, -1, 7], ["012", "", "3456789"]));
-	expect(bt.length).toBe(9);
-
-	bt.insert(0, "-", 1);
-	expect(bt.root).toEqual(
-		new Node<string>([1, 3, -1, 7], ["-", "012", "", "3456789"]),
-	);
-	expect(bt.length).toBe(10);
-
-	bt.insert(1, "+", 1);
-	expect(bt.root).toEqual(
-		new Node<string>([1, 1, 3, -1, 7], ["-", "+", "012", "", "3456789"]),
-	);
-	expect(bt.length).toBe(11);
-
-	bt.insert(11, "=", 1);
-	expect(bt.root).toEqual(
-		new Node<string>(
-			[1, 1, 3, -1, 7, 1],
-			["-", "+", "012", "", "3456789", "="],
-		),
-	);
-	expect(bt.length).toBe(12);
-});
-
-test("crdt items", () => {
-	const bt = new BTree<Item>((item, start) => ({
-		ref: item.ref + start,
-		originLeft: item.originLeft + start,
-		originRight: item.originRight,
-		deleted: item.deleted,
-		state: item.state,
-	}));
-	bt.insert(
-		0,
-		{
-			ref: refEncode(0, 0),
-			originLeft: -1,
-			originRight: -1,
-			deleted: false,
-			state: State.Inserted,
+	const random = prng(0);
+	const comparator = (a: number, b: number) => a - b;
+	const tree = new BTree<number, string>(
+		(ctx, key) => {
+			return {
+				idx: binarySearch(ctx.keys, key, comparator, 0),
+				offset: 0,
+			};
 		},
-		100,
+		10,
 	);
-	// biome-ignore lint/style/noNonNullAssertion: check on next line
-	const p49 = bt.get(49)!;
-	expect(p49).toEqual({
-		ref: refEncode(0, 49),
-		originLeft: refEncode(0, 48),
-		originRight: -1,
-		deleted: false,
-		state: State.Inserted,
-	});
-	bt.insert(
-		50,
-		{
-			ref: refEncode(1, 0),
-			originLeft: p49.ref,
-			originRight: -1,
-			deleted: true,
-			state: State.Deleted,
-		},
-		-10,
-	);
-	expect(bt.length).toEqual(90);
-	expect(bt.root).toEqual(
-		new Node<Item>(
-			[50, -10, 50],
-			[
-				{
-					ref: refEncode(0, 0),
-					originLeft: -1,
-					originRight: -1,
-					deleted: false,
-					state: State.Inserted,
-				},
-				{
-					ref: refEncode(1, 0),
-					originLeft: refEncode(0, 49),
-					originRight: -1,
-					deleted: true,
-					state: State.Deleted,
-				},
-				{
-					ref: refEncode(0, 50),
-					originLeft: refEncode(0, 49),
-					originRight: -1,
-					deleted: false,
-					state: State.Inserted,
-				},
-			],
-		),
-	);
-});
+	const map = new Map<number, string>();
 
-test("stays balanced", () => {
-	const maxNodeSize = 16;
-	const bt = new BTree<number>(i => i, maxNodeSize);
+	let min = Number.POSITIVE_INFINITY;
+	let max = Number.NEGATIVE_INFINITY;
+	const length = 100;
 
-	let pos = 0;
-	for (let i = 1; i <= 10_000; i++) {
-		bt.insert(pos, i, i);
-		pos += i;
-		expect(depth(bt)).toBeLessThanOrEqual(Math.log(i) / Math.log(maxNodeSize));
+	for (let i = 0; i < length; i++) {
+		const k = random(); // assumption: unique
+		const v = k.toString();
+
+		map.set(k, v);
+		tree.set(k, v);
+		if (k > max) max = k;
+		if (k < min) min = k;
+
+		expect(tree.get(k)).toBe(v);
 	}
+
+	expect(tree.size).toBe(length);
+	expect(tree.min()).toBe(min);
+	expect(tree.max()).toBe(max);
+
+	for (const [k, v] of map.entries()) expect(tree.get(k)).toBe(v);
+
+	let last = 0;
+	let i = 0;
+	for (const n of tree.keys()) {
+		expect(last).toBeLessThan(n);
+		last = n;
+		i++;
+	}
+	expect(i).toBe(length);
 });
