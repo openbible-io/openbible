@@ -113,9 +113,8 @@ test("stays balanced", () => {
 	const maxNodeSize = 16;
 	const bt = new BTree<number>(() => 1, i => i, maxNodeSize);
 
-	for (let i = 0; i < 18; i++) {
+	for (let i = 0; i < 10_000; i++) {
 		bt.set(i, i);
-		expect(depth(bt)).toBeLessThanOrEqual(Math.round(Math.log(i + 1) / Math.log(maxNodeSize)));
+		expect(depth(bt)).toBeLessThanOrEqual(Math.log(i + 1) / Math.log(maxNodeSize / 2));
 	}
-	console.dir(bt, { depth: null })
 });

@@ -28,6 +28,7 @@ export class BTree<
 	public constructor(
 		public indexOf: (ctx: LeafT | InternalT, key: K) => { idx: number, offset: number },
 		public maxNodeSize = 1 << 8,
+		public splitNodeSize = maxNodeSize << 1,
 		public newLeaf = (keys?: K[], values?: V[]): LeafT =>
 			new Leaf<K, V>(keys, values) as unknown as LeafT,
 		public newInternal = (children: any[], keys?: K[]): InternalT =>
@@ -105,9 +106,9 @@ export class Leaf<K, V> implements NodeI<K, V> {
 
 	maybeSplit(tree: BTree<K, V>): undefined | this {
 		if (this.size > tree.maxNodeSize) {
-			const half = this.size >> 1;
-			const keys = this.keys.splice(half);
-			const values = this.values.splice(half);
+			const idx = tree.splitNodeSize;
+			const keys = this.keys.splice(idx);
+			const values = this.values.splice(idx);
 			// This type hack keeps Typescript happy
 			return tree.newLeaf(keys, values) as this;
 		}
@@ -165,10 +166,10 @@ export class Internal<K, V, C extends NodeI<K, V>> implements NodeI<K, V> {
 
 	maybeSplit(tree: BTree<K, V>): undefined | this {
 		if (this.size > tree.maxNodeSize) {
-			const half = this.size >> 1;
+			const idx = tree.splitNodeSize;
 			return tree.newInternal(
-				this.children.splice(half),
-				this.keys.splice(half),
+				this.children.splice(idx),
+				this.keys.splice(idx),
 			) as this;
 		}
 	}

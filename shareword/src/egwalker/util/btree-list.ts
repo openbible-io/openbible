@@ -28,6 +28,7 @@ export class BTreeList<V> extends BTree<number, V, LeafStat<V>, InternalStat<V, 
 				return { idx: i, offset: pos - endPos + (lengths[i] ?? 0) };
 			},
 			maxNodeSize,
+			Math.floor(maxNodeSize * 0.8),
 			(keys?: number[], values?: V[]) => new LeafStat<V>(keys, values),
 			(children: any[], keys?: number[]) => new InternalStat<V, any>(children, keys),
 		);
@@ -64,7 +65,7 @@ export class LeafStat<V> extends Leaf<number, V> implements NodeI<number, V> {
 	set(key: number, value: V, tree: BTreeList<V>): undefined | this {
 		const { idx, offset } = tree.indexOf(this, key);
 		const len = tree.valueLen(value);
-		console.log("set", key, idx, offset);
+		// console.log("set", key, value, this.keys, this.values, idx, offset);
 
 		if (idx === this.size - 1 && offset === this.keys[this.size - 1]) {
 			this.keys.push(len);
@@ -123,10 +124,10 @@ export class InternalStat<V, C extends ListNode<V>>
 
 	set(pos: number, value: V, tree: BTreeList<V>): undefined | this {
 		let { idx, offset } = tree.indexOf(this, pos);
-		idx = Math.min(idx, this.children.length - 1);
+		idx = Math.min(idx, this.size - 1);
 		const child: C = this.children[idx];
 
-		const result = child.set(pos - offset, value, tree);
+		const result = child.set(offset, value, tree);
 		this.keys[idx] = child.max();
 		this.length += tree.valueLen(value);
 		if (!result) return;
