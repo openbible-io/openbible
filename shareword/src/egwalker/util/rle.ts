@@ -1,41 +1,32 @@
-import { assert, assertBounds } from "./assert";
+import { assertBounds } from "./assert";
 import { binarySearch } from "./bsearch";
 
-export type Range = { start: number; len: number };
-
-export interface Container<T> {
-	at(i: number): T | undefined;
-	push(item: T): void;
-	slice(start?: number, end?: number): this;
-	length: number;
-}
+// export interface Container<T> {
+// 	at(i: number): T | undefined;
+// 	push(item: T): void;
+// 	slice(start?: number, end?: number): this;
+// 	length: number;
+// }
 
 /** Run length encoded list. */
-export class Rle<T, C extends Container<T> = Array<T>> {
+export class Rle<T> {
+	items: T[] = [];
 	offsets: number[] = [];
-	/** Sum of all items' lengths. */
+
+	/** Sum of all decoded items' lengths. */
 	count = 0;
 
-	/** Number of items. */
+	/** Number of encoded items. */
 	get length(): number {
 		return this.offsets.length;
 	}
 
-	/**
-	 * @param items The container type to use.
-	 * @param append Function that returns true if appends `cur` to `items`
-	 */
+	/** @param append Function that returns true if appends `cur` to `items` */
 	constructor(
-		public items: C,
-		private append: (ctx: Rle<T, C>, item: T, len: number) => boolean,
+		private append: (ctx: Rle<T>, item: T, len: number) => boolean,
 		private sliceFn: (item: T, start?: number, end?: number) => T,
 	) {}
 
-	/**
-	 * Pushes `item` of `len`.
-	 *
-	 * @returns If appended to previous item.
-	 */
 	push(item: T, len = 1, forceNewRun = !this.count): void {
 		if (!len) return;
 
@@ -64,15 +55,38 @@ export class Rle<T, C extends Container<T> = Array<T>> {
 			},
 			0,
 		);
-		assertBounds(idx, this.offsets.length);
+		if (idx === this.length)
+			return {
+				idx: this.length - 1,
+				offset: this.count - this.offsets[this.length - 1],
+			};
 
 		return { idx, offset: i - this.offsets[idx] };
 	}
 
-	at(i: number): T {
-		const { idx, offset } = this.indexOf(i);
-		const res = this.items.at(idx);
-		assert(res !== undefined, `undefined was inserted into RLE at ${idx}`);
-		return this.sliceFn(res, offset, offset + 1);
+	slice(from = 0, to = this.count): Rle<T> {
+		if (from < 0) from = 0;
+		if (to > this.count) to = this.count;
+
+		const start = this.indexOf(from);
+		const end = this.indexOf(to);
+		end.idx += 1;
+
+		const res = new Rle(this.append, this.sliceFn);
+		res.items = this.items.slice(start.idx, end.idx);
+		res.offsets = this.offsets.slice(start.idx, end.idx).map(o => o - from);
+		res.count = to - from;
+
+		if (res.items.length) {
+			res.items[res.items.length - 1] = this.sliceFn(
+				res.items[res.items.length - 1],
+				0,
+				end.offset,
+			);
+			res.items[0] = this.sliceFn(res.items[0], start.offset);
+			res.offsets[0] = 0;
+		}
+
+		return res;
 	}
 }

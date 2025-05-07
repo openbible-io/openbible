@@ -25,6 +25,10 @@ export class MultiArrayList<T extends { [key: string]: any }> {
 		return this.fields[this.#lastField].length;
 	}
 
+	push(item: T) {
+		for (const k in this.fields) this.fields[k].push(item[k]);
+	}
+
 	at(idx: number): T {
 		assertBounds(idx, this.length);
 
@@ -32,10 +36,6 @@ export class MultiArrayList<T extends { [key: string]: any }> {
 		for (const k of Object.keys(this.fields))
 			res[k as keyof T] = this.fields[k][idx];
 		return res as T;
-	}
-
-	push(item: T) {
-		for (const k in this.fields) this.fields[k].push(item[k]);
 	}
 
 	slice(start?: number, end?: number): MultiArrayList<T> {

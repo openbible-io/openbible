@@ -18,11 +18,6 @@ type Node<T, AccT extends Accumulator<T>> = {
 	children: Node<T, AccT>[];
 };
 
-type Parent<T, AccT extends Accumulator<T>> = {
-	node: Node<T, AccT>;
-	offset: number;
-};
-
 export class Oplog<T, AccT extends Accumulator<T>> {
 	/** Ordered according to a function shared across replicas. */
 	leaves: Node<T, AccT>[] = [];
@@ -30,7 +25,7 @@ export class Oplog<T, AccT extends Accumulator<T>> {
 	//replicas: Record<ReplicaId, BTree<number, Node>>> = {};
 	stateVector: StateVector = {};
 
-	constructor(private mergeFn: (acc: AccT, cur: AccT) => AccT) { }
+	constructor(private mergeFn: (acc: AccT, cur: AccT) => AccT) {}
 
 	//find(id: OpId): { node: Node<T, AccT>; offset: number } {
 	//	const replica = this.replicas[id.replica];
@@ -75,7 +70,22 @@ export class Oplog<T, AccT extends Accumulator<T>> {
 		return res;
 	}
 
-	push(replica: ReplicaId, op: Op<T, AccT>, parents = this.leaves): void {
+	maybeSplit(node: Node<T, AccT>, offset?: number): Node<T, AccT> {
+		if (!offset) return node;
+
+		// Important to maintain ref.
+		const end: Node<T, AccT> = node;
+		end.ops = opSlice(node, offset);
+		end.parents = [start];
+
+		const start: Node<T, AccT> = {
+			ops: opSlice(node, 0, offset),
+			parents: node.parents,
+			children: [end],
+		};
+	}
+
+	push(replica: ReplicaId, op: Op<T, AccT>, parents = this.leaves, parentOffsets?: number): void {
 		// new root?
 		if (!parents.length) {
 			this.leaves.push({
@@ -96,7 +106,7 @@ export class Oplog<T, AccT extends Accumulator<T>> {
 		}
 
 		// parents pointing to middle of existing nodes?
-		// parents = parents.map((p) => this.maybeSplit(p.node, p.offset));
+		parents = parents.map((p, i) => this.maybeSplit(p, parentOffsets[i]));
 
 		// new node
 		this.leaves.push({
@@ -125,14 +135,16 @@ export class Oplog<T, AccT extends Accumulator<T>> {
 		this.push(replica, { type: "deletion", pos, count });
 	}
 
-	*climb(n: Node<T, AccT>, ctx = { map: new WeakMap(), count: 0 }): Generator<Node<T, AccT>> {
+	*climb(
+		n: Node<T, AccT>,
+		ctx = { map: new WeakMap(), count: 0 },
+	): Generator<Node<T, AccT>> {
 		ctx.map.set(n, ctx.count++);
 		yield n;
 		for (const parent of n.parents) {
 			if (!ctx.map.has(parent)) this.climb(parent, ctx);
 		}
 	}
-
 
 	//findHead(a: NodeRef[], b: NodeRef[]): { head: NodeRef[], shared: NodeRef[], bOnly: NodeRef[] } {
 	//}
@@ -178,8 +190,9 @@ function opSlice<T, AccT extends Accumulator<T>>(
 	start?: number,
 	end?: number,
 ): Op<T, AccT> {
+	start ??= 0;
 	switch (item.type) {
-		case "deletion":
+		case "deletion": {
 			// xxxxxx
 			// p s  e
 			// o t  n
@@ -187,22 +200,26 @@ function opSlice<T, AccT extends Accumulator<T>>(
 			if (item.count > 0) {
 				return {
 					type: "deletion",
-					pos: item.pos + (start ?? 0),
-					count: (end ?? item.count) - (start ?? 0),
-				};
-			} else {
-				const pos = end ?? item.pos;
-				// xxxxxx
-				// s  e p
-				// t  n o
-				// a  d s
-				return {
-					type: "deletion",
-					pos,
-					count: pos - (start ?? 0),
+					pos: item.pos + start,
+					count: (end ?? item.count) - start,
 				};
 			}
+			const pos = end ?? item.pos;
+			// xxxxxx
+			// s  e p
+			// t  n o
+			// a  d s
+			return {
+				type: "deletion",
+				pos,
+				count: pos - start,
+			};
+		}
 		case "insertion":
-			return { type: "insertion", pos: item.pos, item: item.item.slice(start, end) };
+			return {
+				type: "insertion",
+				pos: item.pos,
+				item: item.item.slice(start, end),
+			};
 	}
 }
