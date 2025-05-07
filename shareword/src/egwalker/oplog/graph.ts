@@ -1,4 +1,4 @@
-import { assert, binarySearch, Rle } from "../util";
+import { assert, binarySearch, BTree, Rle } from "../util";
 import type {
 	Accumulator,
 	Clock,
@@ -11,7 +11,7 @@ import type {
 import type { StateVector } from "./patch";
 
 type Node<T, AccT extends Accumulator<T>> = {
-	ops: Rle<Op<T, AccT>>;
+	ops: BTreeList<Op<T, AccT>>;
 	/** The nodes that "caused" this one. */
 	parents: Node<T, AccT>[];
 	/** Used when splitting this node. */
@@ -21,9 +21,10 @@ type Node<T, AccT extends Accumulator<T>> = {
 export class Oplog<T, AccT extends Accumulator<T>> {
 	/** Ordered according to a function shared across replicas. */
 	leaves: Node<T, AccT>[] = [];
-	/** For lookup by `OpId` in O(log n). */
-	//replicas: Record<ReplicaId, BTree<number, Node>>> = {};
+	/** Stores replicas and allows lookup by `OpId` in O(log n). */
+	replicas: Record<ReplicaId, BTree<number, { node: Node<T, AccT>, offset: number }>> = {};
 	stateVector: StateVector = {};
+	lastReplica?: ReplicaId;
 
 	constructor(private mergeFn: (acc: AccT, cur: AccT) => AccT) {}
 
@@ -40,80 +41,53 @@ export class Oplog<T, AccT extends Accumulator<T>> {
 	//	};
 	//}
 
-	newRle(op: Op<T, AccT>): Rle<Op<T, AccT>> {
-		const res = new Rle<Op<T, AccT>>(
-			[],
-			(ctx, cur) => {
-				const prevIdx = ctx.items.length - 1;
-				const prev = ctx.items[prevIdx];
-				const prevLen = ctx.len(prevIdx);
-
-				if (prev.type !== cur.type) return false;
-				if (prev.type === "insertion" && prev.pos + prevLen === cur.pos) {
-					prev.item = this.mergeFn(prev.item, (cur as Insertion<AccT>).item);
-					return true;
-				}
-				if (prev.type === "deletion") {
-					if (
-						(prev.count > 0 && prev.pos === cur.pos) ||
-						(prev.count < 0 && prev.pos === cur.pos + prev.count)
-					) {
-						prev.count += (cur as Deletion).count;
-						return true;
-					}
-				}
-				return false;
-			},
-			opSlice,
-		);
-		res.push(op, opLength(op));
-		return res;
-	}
-
 	maybeSplit(node: Node<T, AccT>, offset?: number): Node<T, AccT> {
 		if (!offset) return node;
 
-		// Important to maintain ref.
+		// Important to maintain ref for other parents and `this.replicas`.
 		const end: Node<T, AccT> = node;
-		end.ops = opSlice(node, offset);
-		end.parents = [start];
-
 		const start: Node<T, AccT> = {
-			ops: opSlice(node, 0, offset),
+			ops: node.ops.slice(0, offset),
 			parents: node.parents,
 			children: [end],
 		};
+
+		end.ops = end.ops.slice(offset);
+		end.parents = [start];
+
+		return start;
 	}
 
-	push(replica: ReplicaId, op: Op<T, AccT>, parents = this.leaves, parentOffsets?: number): void {
-		// new root?
-		if (!parents.length) {
-			this.leaves.push({
-				ops: this.newRle(op),
-				parents,
-				children: [],
-			});
-			return;
-		}
+	setReplica(replica: ReplicaId, node: Node<T, AccT>, len: number): void {
+		this.stateVector[replica] ??= 0;
+		const clock = this.stateVector[replica];
+		this.stateVector[replica] += len;
 
+		this.replicas[replica] ??= new BTree((ctx, key) => {});
+		this.replicas[replica].set(clock, { node, offset: 0 });
+		if (this.lastReplica !== replica) {
+		}
+		this.lastReplica = replica;
+	}
+
+	push(replica: ReplicaId, op: Op<T, AccT>, parents = this.leaves, parentOffsets?: number[]): boolean {
 		// continuing last run?
 		if (parents.length === 1) {
 			const parent = parents[0];
 			if (this.leaves.includes(parents[0])) {
-				parent.ops.push(op, opLength(op));
-				return;
+				const len = opLength(op);
+				parent.ops.push(op, len);
+				this.setReplica(replica, parent, len);
+				return true;
 			}
 		}
-
 		// parents pointing to middle of existing nodes?
-		parents = parents.map((p, i) => this.maybeSplit(p, parentOffsets[i]));
-
-		// new node
-		this.leaves.push({
-			ops: this.newRle(op),
-			parents,
-			children: [],
-		});
+		parents = parents.map((p, i) => this.maybeSplit(p, parentOffsets?.[i]));
+		// new node!
+		this.leaves = this.leaves.filter(l => !parents.includes(l));
+		const node = { ops: this.newRle(op), parents, children: [] };
+		this.leaves.push(node);
+		this.setReplica(replica, node, node.ops.count);
 
 		//newNodes.sort((a, b) => {
 		//	let diff = a.ops.length - b.ops.length;
@@ -125,6 +99,7 @@ export class Oplog<T, AccT extends Accumulator<T>> {
 		//	}
 		//	return 0;
 		//})
+		return false;
 	}
 
 	insert(replica: ReplicaId, pos: number, item: AccT) {
@@ -161,7 +136,7 @@ export function toDot(graph: Oplog<any, any>): string {
 					if (op.type === "insertion") return `${op.pos},${op.item}`;
 					if (op.type === "deletion") return `${op.pos},${op.count}`;
 				})
-				.join(", ");
+				.join(" ");
 			const id = ctx.map.get(node);
 
 			res += `${id}[label="${ranges}"]\n`;
@@ -174,52 +149,4 @@ export function toDot(graph: Oplog<any, any>): string {
 
 	res += "}";
 	return res;
-}
-
-function opLength(op: Op<any, any>): number {
-	switch (op.type) {
-		case "insertion":
-			return op.item.length;
-		case "deletion":
-			return Math.abs(op.count);
-	}
-}
-
-function opSlice<T, AccT extends Accumulator<T>>(
-	item: Op<T, AccT>,
-	start?: number,
-	end?: number,
-): Op<T, AccT> {
-	start ??= 0;
-	switch (item.type) {
-		case "deletion": {
-			// xxxxxx
-			// p s  e
-			// o t  n
-			// s a  d
-			if (item.count > 0) {
-				return {
-					type: "deletion",
-					pos: item.pos + start,
-					count: (end ?? item.count) - start,
-				};
-			}
-			const pos = end ?? item.pos;
-			// xxxxxx
-			// s  e p
-			// t  n o
-			// a  d s
-			return {
-				type: "deletion",
-				pos,
-				count: pos - start,
-			};
-		}
-		case "insertion":
-			return {
-				type: "insertion",
-				pos: item.pos,
-				item: item.item.slice(start, end),
-			};
-	}
 }

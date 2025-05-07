@@ -1,3 +1,4 @@
+import type { Run } from "../oplog/op";
 import { BTree, Internal, Leaf, type NodeI } from "./btree";
 
 interface ListNode<V> extends NodeI<number, V> {
@@ -5,17 +6,13 @@ interface ListNode<V> extends NodeI<number, V> {
 }
 
 /**
- * A grow-only balanced tree:
- * - Keys are lengths of values.
- * - Node have an extra `length` field.
- * - Supports insertion by list position.
+ * A balanced tree that supports insertion and lookup by list position:
+ * - Nodes have an extra `length` field.
+ * - Keys are lengths of values and can be negative for deletions.
+ * - Grow only for simpler implementation.
  */
-export class BTreeList<V> extends BTree<number, V, LeafStat<V>, InternalStat<V, any>> {
-	constructor(
-		public valueLen: (value: V) => number,
-		public slice: (value: V, start: number, end?: number) => V,
-		public maxNodeSize = 1 << 8,
-	) {
+export class BTreeList<V extends Run> extends BTree<number, V, LeafStat<V>, InternalStat<V, any>> {
+	constructor(maxNodeSize = 1 << 8, splitNodeSize = Math.floor(maxNodeSize * 0.8)) {
 		super(
 			(ctx, pos) => {
 				const lengths = ctx.keys;
@@ -28,7 +25,7 @@ export class BTreeList<V> extends BTree<number, V, LeafStat<V>, InternalStat<V, 
 				return { idx: i, offset: pos - endPos + (lengths[i] ?? 0) };
 			},
 			maxNodeSize,
-			Math.floor(maxNodeSize * 0.8),
+			splitNodeSize,
 			(keys?: number[], values?: V[]) => new LeafStat<V>(keys, values),
 			(children: any[], keys?: number[]) => new InternalStat<V, any>(children, keys),
 		);
@@ -39,7 +36,7 @@ export class BTreeList<V> extends BTree<number, V, LeafStat<V>, InternalStat<V, 
 	}
 }
 
-export class LeafStat<V> extends Leaf<number, V> implements NodeI<number, V> {
+export class LeafStat<V extends Run> extends Leaf<number, V> implements NodeI<number, V> {
 	constructor(
 		public keys: number[] = [],
 		public values: V[] = [],
@@ -59,24 +56,27 @@ export class LeafStat<V> extends Leaf<number, V> implements NodeI<number, V> {
 	get(pos: number, tree: BTreeList<V>): V | undefined {
 		const { idx, offset } = tree.indexOf(this, pos);
 		const value = this.values[idx];
-		return tree.slice(value, offset);
+		return value.slice(offset);
 	}
 
-	set(key: number, value: V, tree: BTreeList<V>): undefined | this {
-		const { idx, offset } = tree.indexOf(this, key);
-		const len = tree.valueLen(value);
+	set(pos: number, value: V, tree: BTreeList<V>): undefined | this {
+		const { idx, offset } = tree.indexOf(this, pos);
+		const len = value.length;
 		// console.log("set", key, value, this.keys, this.values, idx, offset);
 
 		if (idx === this.size - 1 && offset === this.keys[this.size - 1]) {
+			// end
 			this.keys.push(len);
 			this.values.push(value);
 		} else if (!offset) {
+			// start
 			this.keys.unshift(len);
 			this.values.unshift(value);
 		} else {
+			// middle
 			const endLen = this.keys[idx] - offset;
-			const end = tree.slice(this.values[idx], offset);
-			this.values[idx] = tree.slice(this.values[idx], 0, offset);
+			const end = this.values[idx].slice(offset);
+			this.values[idx] = this.values[idx].slice(0, offset);
 			this.keys[idx] = offset;
 
 			const lens = [len];
@@ -97,7 +97,7 @@ export class LeafStat<V> extends Leaf<number, V> implements NodeI<number, V> {
 	}
 }
 
-export class InternalStat<V, C extends ListNode<V>>
+export class InternalStat<V extends Run, C extends ListNode<V>>
 	extends Internal<number, V, C>
 	implements NodeI<number, V>
 {
@@ -129,7 +129,8 @@ export class InternalStat<V, C extends ListNode<V>>
 
 		const result = child.set(offset, value, tree);
 		this.keys[idx] = child.max();
-		this.length += tree.valueLen(value);
+		this.length += value.length;
+
 		if (!result) return;
 
 		this.insertChild(idx + 1, result);
